@@ -1,0 +1,12 @@
+{
+  "name": "@long-con/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "long-con": "./src/main.ts"
+  },
+  "dependencies": {
+    "@long-con/core": "0.0.0"
+  }
+}

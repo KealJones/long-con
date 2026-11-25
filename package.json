@@ -1,0 +1,21 @@
+{
+  "name": "long-con",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "evals"
+  ],
+  "engines": {
+    "node": ">=22.6"
+  },
+  "scripts": {
+    "cli": "node --experimental-strip-types apps/cli/src/main.ts",
+    "typecheck": "tsc"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.0"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "@long-con/evals",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@long-con/core": "0.0.0"
+  }
+}
