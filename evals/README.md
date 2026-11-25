@@ -32,6 +32,7 @@ The benchmark is **Long Con versus compaction**, not versus a huge context windo
 2. **Interleaved export.** Take real past chats and interleave them into one fake endless stream, then score how well the sorter splits them back. Those chats were sorted by hand when they happened, so the labels come free. Make it harder: strip each chat's opening turn and the assistant's topic restatements, shuffle at turn level rather than by timestamp (chats rarely overlap in time), and splice sentences from two chats into single messages. Ground truth is imperfect, since several chats can be one project and one chat can drift.
 3. **Canaries.** Known facts planted in real conversations on purpose. See [canaries/](canaries).
 4. **Real labels.** After a week of real use, hand-label about 200 Long Con turns at span level.
+5. **Public benchmarks.** LongMemEval, BEAM and LoCoMo, run as packet plus one message. See [memory-benchmarks.md](../docs/research/memory-benchmarks.md).
 
 ## Data stays out of git
 
