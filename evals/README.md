@@ -34,6 +34,23 @@ The benchmark is **Long Con versus compaction**, not versus a huge context windo
 4. **Real labels.** After a week of real use, hand-label about 200 Long Con turns at span level.
 5. **Public benchmarks.** LongMemEval, BEAM and LoCoMo, run as packet plus one message. See [memory-benchmarks.md](../docs/research/memory-benchmarks.md).
 
+## When evals run
+
+Not every benchmark on every change. Three tiers, cheapest first:
+
+| Tier | When | What | Cost |
+| --- | --- | --- | --- |
+| **Recall check** | Every packet-builder change | Is the evidence in the packet? No answering model, no judge. Our canaries plus LongMemEval's labeled evidence sessions and turns, and packet size | Free, deterministic, minutes |
+| **Dev run** | Before merging a builder change | Answers and judging on a fixed dev slice: pain-mined set, canaries, resolver tests, and about 50 stratified LongMemEval_S questions | Small; one reader and one judge call per question |
+| **Full run** | Milestones and any public claim | Full LongMemEval_S, BEAM, LoCoMo (audited key), each arm, several runs with standard deviation; LongMemEval_M and BEAM-10M as stretch | The expensive one, so rare |
+
+Rules that keep the numbers honest:
+
+- **Tune on dev, report on held-out.** The full-run questions are never looked at while tuning, so the builder can't overfit to them.
+- **No benchmark-specific prompts.** The same packet builder and reader prompt run everywhere.
+- **Recall before accuracy.** If a change doesn't raise packet recall or cut packet size, it doesn't need a dev run.
+- **Track accuracy against packet size,** since a lean packet trades recall for tokens (see [threader.md](../docs/research/threader.md)).
+
 ## Data stays out of git
 
 Real exports, replays, canary answer keys and run outputs go in `evals/data/` and `evals/runs/`, which are git-ignored. This repo is public, and canaries only work if no model has seen them.

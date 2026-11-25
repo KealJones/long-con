@@ -6,7 +6,7 @@ Who has already tried rebuilding context each turn, assembling packets, or givin
 
 **Nobody has shipped or published the whole idea:** a fresh, self-contained packet every turn, built from a lossless log with typed registers, plus a deterministic resolver for "it", "that one" and "multiply it by 32". The pieces all exist separately:
 
-- **Closest design: Threader** (paper). Raw turns as memory, topic segments, hybrid retrieval, zero LLM calls to build memory, 90.6% on LongMemEval. No registers, no reference resolver, no per-turn rebuild of rules or state.
+- **Closest design: Threader** (paper, [close read](threader.md)). Raw turns as memory, topic segments, hybrid retrieval, zero LLM calls to build memory, 90.6% on LongMemEval. No registers, no reference resolver, no per-turn rebuild of rules or state.
 - **Closest product: Supermemory Infinite Chat.** A proxy that prunes and backfills the prompt per conversation. No reference handling, no published accuracy for that mode.
 - **Closest open-source assembler: LlamaIndex Memory.** Tagged memory blocks merged into each turn's prompt with priority-based truncation, pinned blocks never dropped. Still sits on top of a normal chat buffer.
 - **Closest reference resolution: SMCalFlow and ReALM.** Typed resolution over earlier computed values and candidate lists. Task dialogue, not open chat.
