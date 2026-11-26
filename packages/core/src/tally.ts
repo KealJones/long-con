@@ -29,6 +29,13 @@ const MIN_SHARE = 0.4;
 // words common in the history's user turns lost claude questions, since those were topic words ("music", "project").
 const COUNTING = "total altogether combined list every different number count";
 
+/** The query without counting words, or the whole query when nothing else is left. */
+export function dropCounting(query: string, stemmer: Stemmer = "suffix"): string {
+  const counting = new Set(contentWords(COUNTING, stemmer));
+  const topic = query.split(/\s+/).filter((tok) => !contentWords(tok, stemmer).some((w) => counting.has(w))).join(" ");
+  return contentWords(topic, stemmer).length ? topic : query;
+}
+
 const sentences = (text: string) => text.split(/(?<=[.!?])\s+|\n+/).filter((s) => s.trim());
 
 /** Features of a tally piece, from the history and the message alone. The shipped gate uses segGate; evals fit the rest. */

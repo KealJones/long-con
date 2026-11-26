@@ -40,6 +40,8 @@ export interface Profile {
    * so counting questions face the same bar as whole segments. 0 turns it off.
    */
   tallyGate: number;
+  /** The tally gate judges pieces by a segment search on the question without its counting words (tally.ts dropCounting). */
+  tallyGateTopic?: boolean;
   /** Evals only: judge pieces by a logistic over all of TALLY_FEATURES with these weights instead (fit-tally-gate.ts). */
   tallyWeights?: readonly number[];
   /**
@@ -123,6 +125,9 @@ export const PROFILES = {
     // fewer tokens and fewer false inclusions (fit-tally-gate.ts sweep).
     tallyPieces: Infinity,
     tallyGate: 0.01,
+    // Dev: same recall, one answerable packet a unit smaller, no tier's FI or retrieved tokens up. Off on claude, where
+    // it added a tier-2 unit; leaving stock sentences out of the piece index added tier-3 tokens there (tally gate-key run).
+    tallyGateTopic: true,
     noteCoverage: 0.5,
     recentAnswers: 1,
     gate: true,

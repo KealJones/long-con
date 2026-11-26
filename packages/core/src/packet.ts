@@ -8,7 +8,7 @@ import { resolve, type Resolution } from "./resolver.ts";
 import { segmentKey, splitIntoSegments, type KeyDenoise, type Segment } from "./segments.ts";
 import { extractNotes, groupNotes, groupWords, renderGroup, type Note } from "./notes.ts";
 import type { Profile } from "./profiles.ts";
-import { isTallyQuestion, SEG_GATE, tallySearch } from "./tally.ts";
+import { dropCounting, isTallyQuestion, SEG_GATE, tallySearch } from "./tally.ts";
 import { unitProbability } from "./gate.ts";
 import { contentWords, estimateTokens, type Stemmer } from "./text.ts";
 import { lookupSymbols, type SymbolIndex, type SymbolItem } from "./symbols.ts";
@@ -129,7 +129,17 @@ export function buildPacket({ history, message, profile, currentSessionId, code 
     const ranked: { hit: Hit<Segment>; confidence: number; features?: number[] }[] = !found
       ? []
       : tally
-        ? tallySearch(history, resolution.query, current?.id, recentStart, hits, profile.unitWeights, profile.stemmer).slice(0, profile.tallyPieces)
+        ? tallySearch(
+            history,
+            resolution.query,
+            current?.id,
+            recentStart,
+            profile.tallyGateTopic
+              ? searchUnits(history, dropCounting(resolution.query, profile.stemmer), profile.segmentTokens, current?.id, recentStart, profile.stemmer, profile.gateKey).hits
+              : hits,
+            profile.unitWeights,
+            profile.stemmer,
+          ).slice(0, profile.tallyPieces)
         : hits;
     // A tally piece is judged by the best unit-gate probability of a segment holding its turn (or by an eval's logistic).
     const gate = tally ? profile.tallyGate : profile.unitGate;

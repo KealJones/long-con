@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buildPacket, PROFILES, searchUnits, type Session } from "../src/index.ts";
-import { isTallyQuestion, TALLY_FEATURES, tallySearch } from "../src/tally.ts";
+import { dropCounting, isTallyQuestion, TALLY_FEATURES, tallySearch } from "../src/tally.ts";
 import { filler } from "./fixtures.ts";
 
 test("counting and aggregation questions are told apart from spans, ages and plain lookups", () => {
@@ -91,4 +91,9 @@ test("counting words in the question don't pull in turns that only share them", 
     const packet = buildPacket({ history, message: "what is the total number of concerts I went to", profile });
     assert.ok(!packet.text.includes("apples"), `${profile.name} keeps the word problem out of the packet`);
   }
+});
+
+test("dropCounting leaves the topic words, or the whole question when only counting words are left", () => {
+  assert.equal(dropCounting("what is the total number of concerts I went to?"), "what is the of concerts I went to?");
+  assert.equal(dropCounting("count them all"), "count them all");
 });
