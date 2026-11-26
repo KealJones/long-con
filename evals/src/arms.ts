@@ -175,9 +175,9 @@ async function call(cfg: ArmConfig, calls: Call[], req: ModelRequest) {
 /** The classic approach: keep the transcript, and fold it into a summary whenever it gets too long. */
 async function compact(sessions: Session[], cfg: ArmConfig, calls: Call[]): Promise<string> {
   const { compactAt } = cfg.profile;
-  // About half the budget in words, so the summary leaves room for recent chats. Asked for, not forced: the
-  // summary column in the run's summary shows what each arm really got.
-  const words = Math.round(compactAt * 0.375);
+  // About a third of the budget in tokens, so the summary leaves room for recent chats and stays well under the
+  // output cap (7,500 words is about 10K tokens on claude). Asked for, not forced: the context column shows what each arm got.
+  const words = Math.round(compactAt * 0.25);
   let summary = "";
   let pending = "";
   const fold = async () => {

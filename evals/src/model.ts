@@ -89,10 +89,11 @@ export class AnthropicModel implements ModelClient {
 }
 
 /**
- * A rate limit, overload, server error or lost connection that outlasted the retries: the API's failure, not the
+ * A rate limit, overload, server error, timeout, refused key or lost connection that outlasted the retries: the API's failure, not the
  * model's answer, so it's left out of accuracy and reported apart instead of scored as wrong.
  */
 export function isOutage(err: unknown): boolean {
   const { status, name } = (err ?? {}) as { status?: number; name?: string };
-  return status === 429 || (status ?? 0) >= 500 || /^APIConnection/.test(name ?? "");
+  // 401-403: the key was refused or ran out of credit; 408 and 499: the request timed out or was dropped.
+  return [401, 402, 403, 408, 429, 499].includes(status ?? 0) || (status ?? 0) >= 500 || /^APIConnection/.test(name ?? "");
 }

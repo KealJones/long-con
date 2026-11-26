@@ -162,6 +162,10 @@ export async function main(argv: string[]): Promise<number> {
   }
 
   if (values.backend === "subagent") {
+    if (profile.maxToolRounds > 0) {
+      console.error("The subagent backend can't run the search tool. Add --no-tools. Nothing was run.");
+      return 1;
+    }
     const outDir = values.out ?? join(RESULTS, "smoke", profile.name);
     const model = new SubagentModel(outDir);
     const answers = await runEval(dev, { ...base, model, concurrency: 1 });

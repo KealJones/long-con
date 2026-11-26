@@ -103,11 +103,13 @@ export interface ArmSummary {
 export function summarize(answers: Answer[], arms: ArmName[]): ArmSummary[] {
   return arms.map((arm) => {
     const mine = answers.filter((a) => a.arm === arm);
-    const n = mine.length || 1;
-    const sum = (f: (a: Answer) => number) => mine.reduce((acc, a) => acc + f(a), 0);
+    // Per-question averages leave out answers lost to an outage, as accuracy does: a cut-short answer would
+    // understate the arms with the biggest prompts. The run's total still counts everything it spent.
+    const scored = mine.filter((a) => !a.outage);
+    const n = scored.length || 1;
+    const sum = (f: (a: Answer) => number) => scored.reduce((acc, a) => acc + f(a), 0);
     const reader = (a: Answer) => a.calls.filter((c) => c.purpose === "reader");
     const byType: ArmSummary["byType"] = {};
-    const scored = mine.filter((a) => !a.outage);
     for (const a of scored) {
       const t = (byType[a.type] ??= { n: 0, accuracy: 0 });
       t.n++;
@@ -115,13 +117,13 @@ export function summarize(answers: Answer[], arms: ArmName[]): ArmSummary[] {
     }
     for (const t of Object.values(byType)) t.accuracy /= t.n;
     const ownCost = sum((a) => a.calls.reduce((c, x) => c + x.cost, 0));
-    const totalCost = sum((a) => a.calls.reduce((c, x) => c + (x.reused ? 0 : x.cost), 0));
+    const totalCost = mine.reduce((t, a) => t + a.calls.reduce((c, x) => c + (x.reused ? 0 : x.cost), 0), 0);
     const judgeCost = sum((a) => a.calls.filter((c) => c.purpose === "judge").reduce((c, x) => c + x.cost, 0));
-    const ok = mine.filter((a) => !a.error);
+    const ok = scored.filter((a) => !a.error);
     return {
       arm,
       questions: mine.length,
-      accuracy: scored.filter((a) => a.pass).length / (scored.length || 1),
+      accuracy: scored.filter((a) => a.pass).length / n,
       ci: bootstrap(perQuestion(scored)),
       byType,
       readerInputTokens: sum((a) => reader(a).reduce((c, x) => c + x.input, 0)) / n,

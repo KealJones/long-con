@@ -3,7 +3,7 @@
 // our arms but not to published numbers.
 
 import type { Question } from "./longmemeval.ts";
-import type { ModelClient } from "./model.ts";
+import { BilledError, type ModelClient } from "./model.ts";
 import { MAX_OUTPUT } from "./arms.ts";
 
 export function judgePrompt(q: Question, response: string): string {
@@ -45,5 +45,6 @@ export async function judge(model: ModelClient, judgeModel: string, q: Question,
     effort: "low",
     purpose: "judge",
   });
+  if (!/^\W*(yes|no)\b/i.test(res.text)) throw new BilledError(`Unclear verdict, neither yes nor no: "${res.text.slice(0, 80)}"`, res.usage, res.latencyMs);
   return { pass: passes(res.text), reply: res.text, usage: res.usage, latencyMs: res.latencyMs };
 }

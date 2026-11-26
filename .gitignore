@@ -9,3 +9,4 @@ dist/
 evals/data/*
 !evals/data/.gitkeep
 evals/runs/
+evals/results/smoke/*/pending/

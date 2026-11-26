@@ -194,3 +194,29 @@ A fresh audit found no label leak, no high findings, and 2 medium and 8 low find
 ### Recall and cost after round 4
 
 Recall is unchanged (none of these touch the packet). Cost estimates: claude $17.54 ceiling and $6.08 floor; small-local $12.64 and $9.00, lower because its stand-in summaries now match the length they're asked for.
+
+## Round 5 (the last round)
+
+A fresh audit found no label leak, no high findings, and 2 medium and 7 low findings. A separate check of the original 16 found 13 fixed, 2 partly fixed and disclosed (M5 cost, L3 test gap) and 3 design notes, plus one minor new problem. Both raw reports are in the audit report's appendix. These fixes came after the last round, so no fresh audit has read them; a narrower check of just these fixes is in the report.
+
+### New findings from the round 5 audit
+
+| Id | Sorted as | File | What changed | Why |
+| --- | --- | --- | --- | --- |
+| R5-M1 | Blocking | evals/src/arms.ts | The summary is asked for a quarter of `compactAt` in words (7,500 on claude, about 10K tokens) instead of 0.375 (11,250). A test checks every fold on the real claude profile asks for a length well under the 16K output cap. | 11,250 words is close to 16K tokens; one cut-off fold failed both compaction arms on that question. |
+| R5-M2 | Blocking | evals/src/estimate.ts, evals/results/ | The estimate's stand-in summary is as long as it's asked to be, with no 2,500-word cap, and billed for that length. claude's compaction cost per question rose from $0.0248 to $0.0892; totals are now $20.87 ceiling and $9.33 floor on claude, $12.44 and $8.80 on small-local. | The estimate understated compaction's cost 2 to 5 times. |
+| R5-L1 | Blocking | evals/src/cli.ts | The subagent backend refuses to start without `--no-tools`. | It scored every tool arm as an error instead of refusing. |
+| R5-L2 | Blocking | .gitignore | Subagent `pending/` prompts, which hold gold answers, are git-ignored. | A held-out subagent run could have committed held-out answers. |
+| R5-L3 | Blocking | evals/src/model.ts | Timeouts (408, 499) and a refused key (401 to 403) count as outages. A test covers two of them. | They were scored as wrong answers, and a key out of credit would have turned every remaining answer wrong. |
+| R5-L4 | Blocking | evals/src/judge.ts, evals/src/estimate.ts | A verdict that starts with neither yes nor no is a judge error in the Errors column, with its cost kept. The estimate's stand-in judge says yes. A test checks it. | Format drift in the judge was a silent fail. |
+| R5-L5 | Blocking | evals/test/run.test.ts | The compaction-length test is renamed to what it checks. New tests: the summary length against the cap, unclear verdicts, timeouts and refused keys, an estimate with no errors. | It claimed more than it checked. The CLI refusals and the long-prompt price still have no test. |
+| R5-L6 | Blocking | evals/README.md | Dev gaps under about 12 points are noise; go by the printed paired intervals. | 10 was a little optimistic. |
+| R5-L7 | Blocking | evals/README.md | The README says the packet-or-context column is estimated and the input columns are billed. | The table mixed them without saying. |
+
+### From the round 5 check of the original findings
+
+| Gap | What changed |
+| --- | --- |
+| Outages counted in per-question token and cost averages (new, minor). | Per-question averages leave outages out; the run total keeps them. A test checks it. |
+| No test catches costing segments at confidence 1 again (L3). | A test sweeps 1,200 ceilings over many short matches of mixed strength; putting the old bug back fails it. |
+| Dropping the paired-against-bare table, or making the estimate floor search, failed no test. | Tests for both. |

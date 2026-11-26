@@ -214,3 +214,18 @@ test("the packet never names chats by id, since ids can carry labels the model s
   assert.match(packet.text, /dr okafor/);
   assert.doesNotMatch(packet.text, /answer_7f3e/);
 });
+
+test("the packet fits its ceiling when many short matches of mixed strength compete for the last bit of room", () => {
+  const words = ["deploy", "pipeline", "staging", "token", "cache", "bust", "rollback", "canary"];
+  const history = Array.from({ length: 120 }, (_, i) => ({
+    id: `c${i}`,
+    date: `2026/02/${String((i % 28) + 1).padStart(2, "0")}`,
+    // Each chat matches a different share of the question, so confidences differ from unit to unit.
+    turns: [{ role: "user" as const, content: `note ${i}: ${words.slice(0, 1 + (i % words.length)).join(" ")} ${"misc ".repeat(i % 5)}` }],
+  }));
+  const message = "what did we say about the deploy pipeline staging token cache bust rollback canary";
+  for (let ceiling = 300; ceiling <= 1500; ceiling += 1) {
+    const p = buildPacket({ history, message, profile: { ...profile, packetTokens: ceiling, minConfidence: 0 } });
+    assert.ok(p.tokens <= ceiling, `packet was ${p.tokens} tokens at a ${ceiling} ceiling`);
+  }
+});

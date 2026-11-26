@@ -5,7 +5,11 @@ import { estimateTokens, PROFILES, type Session } from "@long-con/core";
 import type { Question } from "../src/longmemeval.ts";
 import { AnthropicModel, BilledError, type ModelClient, type ModelRequest, type ModelResponse } from "../src/model.ts";
 import { MAX_OUTPUT } from "../src/arms.ts";
-import { bootstrap, pairedTable, runEval, summarize, type Answer } from "../src/run.ts";
+import { bootstrap, pairedTable, runEval, summarize, writeSummary, type Answer } from "../src/run.ts";
+import { EstimatingModel } from "../src/estimate.ts";
+import { mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 const filler = (i: number): Session => ({
   id: `f${i}`,
@@ -322,7 +326,7 @@ test("an empty answer, such as a tool call where only text was allowed, counts a
   assert.ok(answer!.calls.length > 0, "and what it cost is kept");
 });
 
-test("both compaction arms keep their context within the profile's compactAt, even when one chat is bigger than that", async () => {
+test("both compaction arms fold even a last chat bigger than compactAt, so a summary that keeps to its asked length keeps the context within compactAt", async () => {
   const model = new StandIn();
   const tight = { ...opts(model), profile: { ...opts(model).profile, compactAt: 200 } };
   const answers = await runEval([question], { ...tight, arms: ["compaction", "compaction-search"] });
@@ -376,4 +380,79 @@ test("the API client allows one search per round, so the cost ceiling and the Se
   const tools = [{ name: "search_history", description: "d", input_schema: { type: "object" as const, properties: {} } }];
   await new AnthropicModel(client as never).complete({ model: "claude-haiku-5-5", system: "s", messages: [{ role: "user", content: "q" }], maxTokens: 10, purpose: "reader", tools, toolChoice: "auto" });
   assert.deepEqual(sent[0]!.tool_choice, { type: "auto", disable_parallel_tool_use: true });
+});
+
+test("tokens and cost per question leave out answers lost to an outage, so a cut-short answer doesn't make a big arm look cheap, while the run total keeps what was spent", async () => {
+  const two: Question = { ...question, id: "q2" };
+  const flaky = new (class extends StandIn {
+    async complete(req: ModelRequest): Promise<ModelResponse> {
+      if (req.purpose === "judge" && String(req.messages[0]!.content).includes("q2-marker")) throw Object.assign(new Error("529 overloaded"), { status: 529, name: "OverloadedError" });
+      return super.complete(req);
+    }
+  })();
+  const good = await runEval([question], { ...opts(new StandIn()), arms: ["full"] });
+  const mixed = await runEval([question, { ...two, answer: "Denver q2-marker" }], { ...opts(flaky), arms: ["full"], concurrency: 1 });
+  const [one] = summarize(good, ["full"]);
+  const [both] = summarize(mixed, ["full"]);
+  assert.equal(both!.outages, 1);
+  assert.equal(both!.readerInputTokens, one!.readerInputTokens);
+  assert.ok(Math.abs(both!.costPerQuestion - one!.costPerQuestion) < 1e-12);
+  assert.ok(both!.totalCost > one!.totalCost, "the lost answer's reader calls still count in the total");
+});
+
+test("the written summary pairs every arm against bare and against packet", async () => {
+  const model = new StandIn();
+  const arms = ["packet", "bare", "full"] as const;
+  const answers = await runEval([question], { ...opts(model), arms: [...arms] });
+  const dir = mkdtempSync(join(tmpdir(), "summary-"));
+  writeSummary(dir, summarize(answers, [...arms]), "# test", true, answers);
+  const md = readFileSync(join(dir, "summary.md"), "utf8");
+  assert.match(md, /Paired against bare/);
+  assert.match(md, /Paired against packet/);
+});
+
+test("the estimate's floor never searches and its ceiling uses every search, so a real run lands between them", async () => {
+  const run = (searches: boolean) => runEval([question], { ...opts(new EstimatingModel(searches)), arms: ["bare"] });
+  const [floor] = summarize(await run(false), ["bare"]);
+  const [ceiling] = summarize(await run(true), ["bare"]);
+  assert.equal(floor!.errors + ceiling!.errors, 0, "an estimate with errors would refuse to run");
+  assert.equal(floor!.toolCallsPerQuestion, 0);
+  assert.equal(ceiling!.toolCallsPerQuestion, opts(new StandIn()).profile.maxToolRounds);
+  assert.ok(ceiling!.readerInputTokens > floor!.readerInputTokens);
+});
+
+test("on the real claude profile the summary is asked for a length well under the output cap, so a cut-off doesn't sink both compaction arms", async () => {
+  const model = new StandIn();
+  const long: Question = { ...question, sessions: Array.from({ length: 300 }, (_, i) => filler(i)) };
+  await runEval([long], { ...opts(model), profile: { ...PROFILES.claude }, arms: ["compaction"] });
+  const asked = model.calls.filter((c) => c.purpose === "summarizer").map((c) => Number(/at most (\d+) words/.exec(allText(c))![1]));
+  assert.ok(asked.length > 0);
+  // Dense summaries run about 1.5 tokens a word; that still leaves room under the cap.
+  for (const words of asked) assert.ok(words * 1.5 < MAX_OUTPUT * 0.75, `${words} words asked against a ${MAX_OUTPUT}-token cap`);
+});
+
+test("a judge verdict that is neither yes nor no is an error, with its cost kept, not a quiet fail", async () => {
+  const vague = new (class extends StandIn {
+    async complete(req: ModelRequest): Promise<ModelResponse> {
+      if (req.purpose !== "judge") return super.complete(req);
+      return { text: "The response is correct.", toolCalls: [], content: [{ type: "text", text: "x" }], usage: { input: 50, output: 5 }, latencyMs: 1 };
+    }
+  })();
+  const [answer] = await runEval([question], { ...opts(vague), arms: ["full"] });
+  assert.match(answer!.error ?? "", /Unclear verdict/);
+  assert.ok(answer!.calls.some((c) => c.purpose === "judge" && c.cost > 0));
+  assert.equal(answer!.answer, "Your sister is moving to Denver.", "the reader's answer is kept");
+});
+
+test("a refused key or a timeout is an outage, not a wrong answer", async () => {
+  for (const status of [401, 408]) {
+    const failing = new (class extends StandIn {
+      async complete(req: ModelRequest): Promise<ModelResponse> {
+        if (req.purpose === "reader") throw Object.assign(new Error(`${status}`), { status, name: "APIError" });
+        return super.complete(req);
+      }
+    })();
+    const [answer] = await runEval([question], { ...opts(failing), arms: ["full"] });
+    assert.equal(answer!.outage, true, `status ${status}`);
+  }
 });

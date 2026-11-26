@@ -20,9 +20,11 @@ export class EstimatingModel implements ModelClient {
       return { text: "", toolCalls: [tool], content: [{ type: "tool_use", ...tool }], usage: { input, output: 100 }, latencyMs: 0 };
     }
     // A summary of realistic length, so later summarizer calls are sized right.
-    const asked = Number(/at most (\d+) words/.exec(JSON.stringify(req.messages))?.[1] ?? OUTPUT.summarizer);
-    const text = req.purpose === "summarizer" ? "summary ".repeat(Math.min(asked, OUTPUT.summarizer)) : "estimate";
-    return { text, toolCalls: [], content: [{ type: "text", text }], usage: { input, output: OUTPUT[req.purpose] }, latencyMs: 0 };
+    // A summary as long as it's asked to be, so later folds are sized and billed as a real run's.
+    const asked = Number(/at most (\d+) words/.exec(JSON.stringify(req.messages))?.[1] ?? 0);
+    const text = req.purpose === "summarizer" ? "summary ".repeat(asked) : req.purpose === "judge" ? "yes" : "estimate";
+    const output = req.purpose === "summarizer" ? Math.max(OUTPUT.summarizer, Math.round(asked * 1.4)) : OUTPUT[req.purpose];
+    return { text, toolCalls: [], content: [{ type: "text", text }], usage: { input, output }, latencyMs: 0 };
   }
 }
 
