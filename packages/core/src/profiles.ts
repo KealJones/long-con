@@ -1,5 +1,6 @@
 // Per-model settings. Defaults are starting points; the evals sweep them per model.
 
+import type { KeyDenoise } from "./segments.ts";
 import type { Stemmer } from "./text.ts";
 
 export interface Profile {
@@ -26,6 +27,8 @@ export interface Profile {
   unitWeights?: readonly number[];
   /** How search stems words (see text.ts). minScore depends on it: a stemmer that matches more words lifts every score. */
   stemmer: Stemmer;
+  /** How assistant text is cut down before indexing (segments.ts, P26); rendering keeps the original. Absent indexes it all. */
+  keyDenoise?: KeyDenoise;
   /** Recent turns of the current session that ride along raw, outside the packet. */
   rawTurns: number;
   /** Hard cap on one retrieved unit. A longer turn is split at paragraph breaks. */
@@ -77,6 +80,9 @@ export const PROFILES = {
     unitGate: 0.002,
     // Porter matched more wrong units at every bar that kept recall (P17 sweep), so claude keeps the suffix stripper.
     stemmer: "suffix",
+    // P26: dropping stock assistant sentences from the index kept every dev question and cut false inclusions on all three
+    // tiers (tier 3 most). The bar (0.18 still loses a question) and the unit gate (CV refit AUROC 0.946 vs 0.943) stay.
+    keyDenoise: "boilerplate",
     rawTurns: 6,
     // Small units beat whole exchanges at every budget on the dev slice (evals/results). 400 keeps a short
     // question and answer together; smaller still scored a little higher on a benchmark whose facts sit in user turns.
@@ -109,6 +115,8 @@ export const PROFILES = {
     // Two-word queries where one word never matches ("concerts ... this year") come back empty at this bar.
     minScore: 0.25,
     stemmer: "porter",
+    // No keyDenoise: boilerplate stripping lost a dev question and added tier-2 false inclusions at this bar's cliff,
+    // and at 0.24 too; truncating assistant turns (head:N, overlap) lost recall on both profiles (P26 sweep).
     rawTurns: 2,
     segmentTokens: 400,
     // Ungated, every cap that kept its recall gain added wrong pieces (P06). Behind the tally gate it holds recall with

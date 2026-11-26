@@ -5,7 +5,7 @@ import type { Session, Turn, TurnRef } from "./chat.ts";
 import { Bm25, type Hit } from "./bm25.ts";
 import { buildRegisters, refKey } from "./registers.ts";
 import { resolve, type Resolution } from "./resolver.ts";
-import { splitIntoSegments, type Segment } from "./segments.ts";
+import { segmentKey, splitIntoSegments, type KeyDenoise, type Segment } from "./segments.ts";
 import { extractNotes, groupNotes, groupWords, renderGroup, type Note } from "./notes.ts";
 import type { Profile } from "./profiles.ts";
 import { isTallyQuestion, SEG_GATE, tallySearch } from "./tally.ts";
@@ -86,7 +86,7 @@ export function buildPacket({ history, message, profile, currentSessionId }: Bui
 
   if (gateOpen) {
     const seen = new Set<string>();
-    const { hits, idf } = searchUnits(history, resolution.query, profile.segmentTokens, current?.id, recentStart, profile.stemmer);
+    const { hits, idf } = searchUnits(history, resolution.query, profile.segmentTokens, current?.id, recentStart, profile.stemmer, profile.keyDenoise);
     // The absolute bar asks whether history holds anything strong enough to answer at all. It judges the best unit
     // only: per unit, it cut the weaker second piece multi-session questions need (P02 dev sweep).
     const found = hits.some((h) => h.score >= profile.minScore);
@@ -167,7 +167,7 @@ export function buildPacket({ history, message, profile, currentSessionId }: Bui
  * in either ranking, so it says how close a unit comes to the best match. Score is its best score as a share of
  * the most any unit could score on the query: absolute, so a weak best match shows as weak. Features feed the unit gate (gate.ts).
  */
-export function searchUnits(history: Session[], query: string, segmentTokens: number, currentId?: string, recentStart = 0, stemmer: Stemmer = "suffix") {
+export function searchUnits(history: Session[], query: string, segmentTokens: number, currentId?: string, recentStart = 0, stemmer: Stemmer = "suffix", denoise: KeyDenoise = "") {
   // Each unit is indexed two ways, all its words and the user's words alone, then the rankings are fused.
   const all = new Bm25<Segment>();
   const user = new Bm25<Segment>();
@@ -176,7 +176,8 @@ export function searchUnits(history: Session[], query: string, segmentTokens: nu
     for (const seg of splitIntoSegments(session, segmentTokens)) {
       // Turns already riding along raw don't need retrieving.
       if (session.id === currentId && seg.end >= recentStart) continue;
-      const words = contentWords(seg.turns.map((t) => t.content).join("\n"), stemmer);
+      // Indexed by its denoised key; rendered from the original turns (P26).
+      const words = contentWords(segmentKey(session, seg, denoise, (t) => contentWords(t, stemmer)), stemmer);
       length.set(seg, words.length);
       all.add(seg, words);
       user.add(seg, contentWords(seg.turns.filter((t) => t.role === "user").map((t) => t.content).join("\n"), stemmer));
@@ -223,7 +224,7 @@ export function searchUnits(history: Session[], query: string, segmentTokens: nu
  * abstains, the tool still answers: a unit the packet would leave out comes back marked low confidence.
  */
 export function searchHistory(history: Session[], query: string, profile: Profile): string {
-  const { hits } = searchUnits(history, query, profile.segmentTokens, undefined, 0, profile.stemmer);
+  const { hits } = searchUnits(history, query, profile.segmentTokens, undefined, 0, profile.stemmer, profile.keyDenoise);
   if (!hits.length) return "No matches.";
   const found = hits.some((h) => h.score >= profile.minScore);
   const rejected = buildRegisters(history, profile.recentAnswers).rejected;

@@ -47,6 +47,44 @@ export function splitIntoSegments(session: Session, maxTokens: number): Segment[
   return segments;
 }
 
+/**
+ * How a unit's assistant text is indexed (backlog P26, SeCom's "denoise the key, render the value"). Rendering always
+ * uses the original turns; only the words search sees change. "boilerplate" drops stock assistant sentences (openers,
+ * sign-offs, "here are some tips"); "head:N" keeps the first N content words of each assistant turn; "overlap" keeps only
+ * assistant sentences that share a content word with the user turn before them. Modes join with "+".
+ */
+export type KeyDenoise = string;
+
+// shortcut: English-only phrase list read off the dev haystacks' most common assistant openers and closers.
+const BOILERPLATE =
+  /^\W*(?:certainly|sure|of course|absolutely|great question|(?:what|that's|that is) (?:a |an )?(?:lovely|great|wonderful|fantastic|thoughtful|critical|excellent|interesting|exciting)\b|you're welcome|i'd be (?:happy|glad|delighted) to|i'm (?:glad|happy|so sorry)|i hope|hope (?:this|that|these)|remember(?:,| to | that )|what do you think|do any of these|\d+\.?$|good luck|happy \w+!|enjoy|have (?:a |an )?(?:great|good|nice|wonderful)|take care|safe travels|feel free|don't hesitate|if you have any|let me know|do you have any other|is there anything else|as an ai|i (?:cannot|can't|do not|don't) (?:hold|have) (?:personal )?(?:opinions|beliefs)|here (?:are|is) (?:some|a few|a list of) |best regards|sincerely|dear \[|\[your name\]|these are just a few|by following these|ultimately,|in conclusion|overall,|i hope you)/i;
+
+const sentencesOf = (text: string) => text.split(/(?<=[.!?:])\s+|\n+/).filter((s) => s.trim());
+
+/** The text a unit is indexed by under a denoise mode; "" or "none" indexes the turns as they are. */
+export function segmentKey(session: Session, seg: Segment, mode: KeyDenoise, words: (text: string) => string[]): string {
+  if (!mode || mode === "none") return seg.turns.map((t) => t.content).join("\n");
+  const modes = mode.split("+");
+  const head = Number(modes.find((m) => m.startsWith("head:"))?.slice(5) ?? Infinity);
+  // The user turn before each assistant turn: inside the unit, or the last one before it in the session.
+  let lastUser = session.turns.slice(0, seg.start).findLast((t) => t.role === "user")?.content ?? "";
+  return seg.turns
+    .map((t) => {
+      if (t.role === "user") return (lastUser = t.content);
+      let parts = sentencesOf(t.content);
+      if (modes.includes("boilerplate")) parts = parts.filter((s) => !BOILERPLATE.test(s));
+      if (modes.includes("overlap")) {
+        const asked = new Set(words(lastUser));
+        parts = parts.filter((s) => words(s).some((w) => asked.has(w)));
+      }
+      if (head === Infinity) return parts.join("\n");
+      // Cut the raw text, not the stemmed words, so search stems it once like everything else.
+      let count = 0;
+      return parts.join("\n").split(/\s+/).filter((tok) => count < head && (count += words(tok).length, true)).join(" ");
+    })
+    .join("\n");
+}
+
 /** One turn as pieces under the cap, cut at blank lines, then lines, then sentences, then anywhere. */
 export function splitTurn(text: string, maxTokens: number): string[] {
   if (estimateTokens(text) <= maxTokens) return [text];
