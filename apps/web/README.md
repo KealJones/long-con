@@ -12,4 +12,4 @@ npm run dev -w @long-con/web     # local dev server
 npm run build -w @long-con/web   # static site in apps/web/dist
 ```
 
-Pushes to `main` that touch `apps/web` or `packages/core` deploy to GitHub Pages (`.github/workflows/pages.yml`).
+Pushes to `main` that touch `apps/web` or `packages/core` deploy to GitHub Pages through the `gh-pages` branch (`.github/workflows/pages.yml`). Every pull request gets a preview at `kealjones.com/long-con/pr-preview/pr-<number>/`, linked in a PR comment and removed on close (`pr-preview.yml`), and `ci.yml` typechecks, tests and builds it.
