@@ -134,6 +134,8 @@ test("identifiers need code shape, backticks, call parens or a kind word; Englis
   assert.deepEqual(names("Profile the build, it is slow"), []);
   assert.deepEqual(names("open packages/core/src/packet.ts and README.md"), [], "paths and file names aren't symbols");
   assert.deepEqual(names("thanks, that worked!"), []);
+  assert.deepEqual(names("the `DATA` path is hardcoded"), ["DATA"], "a backticked SHOUTED constant isn't the English word");
+  assert.deepEqual(names("what's in `data` here"), [], "the lowercase word still is");
 });
 
 const index = new SymbolIndex([

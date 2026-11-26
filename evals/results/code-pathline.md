@@ -52,3 +52,11 @@ Other caveats: held-out has few should-be-empty exact-name prompts (5). Dev scor
 | should-be-empty coding prompts / small-local / held-out | 19 | n/a | n/a | n/a | n/a | 100.0% (19/19) | 0 (0) | 0 |
 
 The first dev run, with the resolver as it was, scored 92.0% signature hits, an 11.1% wrong-line rate (8 of 72 named lines) and 89.7% empty on should-be-empty (3 of 29 got code). Five fixes, each from a dev miss: only top-level statements define (code inside the symbols test's template string had been indexed as a second `buildPacket`, `Profile`, `Bm25.search` and `HISTORY_NOTICE`); `const x = require(...)` is a binding, not a definition; a word let in only by call parens can't name a method (`add()`, `search()`, `lookup()` in generic questions), which also turns the `add()` pointer prompt into an empty miss; a kind word must fit ("question type" no longer points at `question()` helpers); and a backticked SHOUTED name isn't dropped as an English word (`DATA`). Held-out was run once, after the fixes. The v1 tables above are unchanged by them. The two picomatch held-out misses are the property-assigned functions, which a regex over declarations doesn't see: empty, not wrong.
+
+A signature counts as a hit only when its first line is the gold span's first source line, read from the source itself; adding that check moved no number on dev or held-out.
+
+What held-out does and doesn't show:
+
+- Held-out exercises only one of the five fixes, the template-string one. With all five reverted, the review measured held-out at 23/24 (this repo), 4/6 (picomatch) and 19/19 (should-be-empty), so held-out says little about the other four.
+- This split's held-out has now been used once. Its misses, the two property-assigned picomatch functions, must not be fixed against it; a fix for them needs new prompts.
+- The bare-call and kind-word rules trade recall for no wrong lines, and no positive prompt in the set measures that cost. Off-set examples from the review that now come back empty: "lookup() returns duplicates" and "why does search() return nothing" (bare calls of methods), "the Segment class" (an interface), "the HISTORY_NOTICE constant" (an arrow-function const, indexed as a function) and "the Bm25 type" (a class). The stricter rules stay, because empty beats wrong.

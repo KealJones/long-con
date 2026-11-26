@@ -189,17 +189,27 @@ function scorePacket(prompts: LabeledPrompt[], profile: Profile, code: boolean, 
     const base = buildPacket({ history: [], message: p.prompt, profile });
     const packet = code ? buildPacket({ history: [], message: p.prompt, profile, code: indexFor(p.source!) }) : base;
     const gold = new Set(p.at.map(parseGold).map((g) => `${g.path}:${g.line}`));
-    const got = packet.code.map((i) => ({ at: `${i.def.path}:${i.def.line}`, signature: i.signature !== undefined }));
+    // The gold span's first source line, read from the source itself, so a signature quoting the wrong text can't count.
+    const sourceLine = (at: string) => {
+      const [path, line] = [at.slice(0, at.lastIndexOf(":")), Number(at.slice(at.lastIndexOf(":") + 1))];
+      return indexFor(p.source!).block({ name: "", kind: "const", path, line, endLine: line, startLine: line });
+    };
+    const got = packet.code.map((i) => ({
+      at: `${i.def.path}:${i.def.line}`,
+      signature: i.signature !== undefined,
+      quotesRight: i.signature === undefined || i.signature.split("\n")[0] === sourceLine(`${i.def.path}:${i.def.line}`),
+    }));
     s.prompts++;
     s.tokens += packet.tokens - base.tokens;
     if (got.length) s.nonEmpty++;
     s.named += got.length;
-    s.wrongNamed += got.filter((g) => !gold.has(g.at)).length;
+    // Wrong-line: a named line outside the gold, or a signature whose first line isn't that line's text.
+    s.wrongNamed += got.filter((g) => !gold.has(g.at) || !g.quotesRight).length;
     if (p.expect === "block") {
       for (const at of gold) {
         s.blockGold++;
         const hit = got.find((g) => g.at === at);
-        if (hit?.signature) s.blockHits++;
+        if (hit?.signature && hit.quotesRight) s.blockHits++;
         else if (hit) s.pointerOnly++;
       }
     } else if (p.expect === "pointers") {
