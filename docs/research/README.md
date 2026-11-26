@@ -10,3 +10,4 @@
 | [model-providers.md](model-providers.md) | Front model and picker, key paths, free providers, key safety |
 | [history-storage.md](history-storage.md) | Why git storage was dropped, and the hosted-service options |
 | [feature-ideas.md](feature-ideas.md) | Brainstormed features, what's carried into the plan, what's superseded |
+| [packet-critique.md](packet-critique.md) | Fable 5.2, Opus 5.5 and Haiku 5.5 critique real packets as small and large readers: agreements, disagreements, builder bugs, ranked changes and evals, raw reviews attached |
