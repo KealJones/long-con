@@ -7,8 +7,9 @@
     "noEmit": true,
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["packages/*/src", "apps/*/src", "evals/src"]
+  "include": ["packages/*/src", "packages/*/test", "apps/*/src", "evals/src", "evals/test"]
 }

@@ -91,9 +91,29 @@ Rules that keep the numbers honest:
 - **Recall before accuracy.** If a change doesn't raise packet recall or cut packet size, it doesn't need a dev run.
 - **Track accuracy against packet size,** since a lean packet trades recall for tokens (see [threader.md](../docs/research/threader.md)).
 
+## Running it
+
+```
+evals/scripts/fetch-longmemeval.sh      # LongMemEval_S, about 265 MB, checked by sha256
+npm run cli -- eval recall              # free: is the evidence in the packet?
+npm run cli -- eval estimate            # free: what a real run would cost
+npm run cli -- eval run                 # paid: needs ANTHROPIC_API_KEY, refuses past --max-cost (default $5)
+npm test                                # unit tests for the core and the harness
+```
+
+The dev slice is the 50 question ids in [slices/longmemeval-s-dev50.json](slices/longmemeval-s-dev50.json), stratified by question type with a fixed seed. The other 450 are held out. Real runs write every answer, judge verdict and token count to `evals/runs/<time>/`.
+
+What the harness does today:
+
+- **Arms:** all four answer each question with the same system prompt and reader (Claude Haiku 5.5 by default). `full` gets every past chat. `compaction` folds chats into a running summary each time the transcript passes 30K tokens, written by the reader model. `packet` gets the core packet (Claude profile, 8K tokens) plus a search tool. `bare` gets only the left-out-history notice plus the same search tool. Each tool-using arm can search up to three times.
+- **Judge:** LongMemEval's own per-type judge prompts, word for word, read by Claude Opus 5.5 instead of the paper's GPT-4o. Scores compare across our arms, not with published numbers.
+- **Packet builder v1:** rule resolver, registers, BM25 over size-based segments (all words fused with the user's words only), whole segments fitted to the budget. No embeddings and no topic splitting yet.
+
+First results: [results/longmemeval-s-dev50-recall.md](results/longmemeval-s-dev50-recall.md) and [results/longmemeval-s-dev50-estimate.md](results/longmemeval-s-dev50-estimate.md).
+
 ## Data stays out of git
 
-Real exports, replays, canary answer keys and run outputs go in `evals/data/` and `evals/runs/`, which are git-ignored. This repo is public, and canaries only work if no model has seen them.
+Real exports, replays, canary answer keys, downloaded benchmarks and run outputs go in `evals/data/` and `evals/runs/`, which are git-ignored. Summaries of public-benchmark runs go in `evals/results/`. This repo is public, and canaries only work if no model has seen them.
 
 ## Still open
 

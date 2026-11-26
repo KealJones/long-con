@@ -5,7 +5,7 @@ const usage = `Usage: long-con <command>
 
 Commands:
   help    Show this message
-  eval    Replay chats through the eval arms (not built yet, see evals/README.md)`;
+  eval    Run the evals: recall, estimate or run (see evals/README.md)`;
 
 const command = process.argv[2] ?? "help";
 
@@ -13,10 +13,11 @@ switch (command) {
   case "help":
     console.log(usage);
     break;
-  case "eval":
-    console.error("The eval harness is phase 1 and isn't built yet. See evals/README.md.");
-    process.exitCode = 1;
+  case "eval": {
+    const { main } = await import("@long-con/evals/cli");
+    process.exitCode = await main(process.argv.slice(3));
     break;
+  }
   default:
     console.error(`Unknown command: ${command}\n\n${usage}`);
     process.exitCode = 1;

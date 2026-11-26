@@ -1,3 +1,9 @@
 // @long-con/core: the engine every front end shares.
-// Nothing is built yet. See ../README.md for what lands here and docs/plan.md for the order.
-export {};
+export type { Session, Turn, TurnRef } from "./chat.ts";
+export { buildPacket, HISTORY_NOTICE, TRUST_NOTE, type Packet, type PacketSegment, type BuildPacketInput } from "./packet.ts";
+export { assemblePrompt, type AssembledPrompt, type PromptParts } from "./prompt.ts";
+export { PROFILES, type Profile } from "./profiles.ts";
+export { Bm25, type Hit } from "./bm25.ts";
+export { splitIntoSegments, type Segment } from "./segments.ts";
+export { contentWords, estimateTokens } from "./text.ts";
+export type { Resolution } from "./resolver.ts";

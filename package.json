@@ -12,10 +12,11 @@
   },
   "scripts": {
     "cli": "node --experimental-strip-types apps/cli/src/main.ts",
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "test": "node --experimental-strip-types --no-warnings --test packages/*/test/*.test.ts evals/test/*.test.ts"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
-    "typescript": "^5.9.0"
+    "@types/node": "^22.20.7",
+    "typescript": "^5.9.3"
   }
 }
