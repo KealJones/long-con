@@ -8,15 +8,17 @@
 //   1  hand-written off-history prompts (evals/sets/should-be-empty/tier1.json, dev ids) on each dev history
 //   2  cross-history: dev question A asked against dev question B's history, B holding none of A's evidence
 //   3  evidence-ablated: each answerable dev question on its own history with its evidence chats removed
-//   4  LongMemEval `_abs` (false-premise) dev questions on their own histories
+//   4  LongMemEval `_abs` (false-premise) dev questions on their own histories. Informational only: their related
+//      evidence chats hold something near the asked fact, so a unit from one isn't clearly wrong. Scored as "no false
+//      claim of an answer": empty rate, units from the related evidence and other units, apart from tiers 1-3.
 // Plus the answerable dev questions on their own histories, for packet precision.
 
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
-import { buildPacket, estimateTokens, PROFILES, profileByName, type Packet, type PacketSegment, type Profile, type Session } from "../../packages/core/src/index.ts";
-import { loadLongMemEval, type Question } from "../src/longmemeval.ts";
+import { buildPacket, estimateTokens, PROFILES, profileByName, type Packet, type PacketSegment, type Profile, type Session } from "@long-con/core";
+import { evidenceGroups, loadLongMemEval, type Question } from "../src/longmemeval.ts";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");
 export const DATA = join(ROOT, "evals/data/longmemeval/longmemeval_s_cleaned.json");
@@ -49,8 +51,12 @@ export interface TierReport {
   prompts: number;
   /** Share of prompts whose packet retrieved no unit at all. */
   emptyRate: number;
+  /** Tier 4 only: kept out of any headline, since its "evidence" is related, not the answer. */
+  informational: boolean;
   /** Included units that aren't evidence, averaged over prompts. */
   falseInclusions: number;
+  /** Included units that are evidence, averaged over prompts. On tier 4 these are units from the related evidence chats. */
+  evidenceUnits: number;
   /** Whole packet, notices included. */
   meanTokens: number;
   /** The retrieved section alone: the part a gate can save. */
@@ -101,6 +107,20 @@ function evidenceTexts(q: Question): Set<string> {
 
 const holdsAny = (session: Session, texts: Set<string>) => session.turns.some((t) => texts.has(t.content));
 const baseId = (id: string) => id.replace(/_abs$/, "");
+const PROBE_ID = "\uffff-near-copy-probe";
+
+/**
+ * Whether a chat could hand over the question's evidence: it repeats an evidence turn word for word, or it is a
+ * near-copy of one of the question's evidence chats by the same rule the held-out split uses (`evidenceGroups`: at
+ * least half the shorter chat's turns shared word for word). The chat is posed as a one-chat question whose evidence
+ * is that chat, and counts when the grouping joins it to the question.
+ */
+export function nearCopy(q: Question, session: Session, texts = evidenceTexts(q)): boolean {
+  if (holdsAny(session, texts)) return true;
+  const probe = { id: PROBE_ID, type: "", question: "", date: "", answer: "", abstention: false, sessions: [session], evidence: { sessions: [session.id], turns: [] } } satisfies Question;
+  const groups = evidenceGroups([q, probe]);
+  return groups.get(PROBE_ID) === groups.get(q.id);
+}
 
 /**
  * Pairs each question with the next history in the list that holds none of its evidence word for word and isn't its
@@ -113,7 +133,7 @@ export function crossPairs(questions: Question[]): { a: Question; b: Question }[
     for (let k = 1; k < questions.length; k++) {
       const b = questions[(i + k) % questions.length]!;
       if (baseId(b.id) === baseId(a.id)) continue;
-      if (b.sessions.some((s) => holdsAny(s, texts))) continue;
+      if (b.sessions.some((s) => nearCopy(a, s, texts))) continue;
       pairs.push({ a, b });
       return;
     }
@@ -121,10 +141,16 @@ export function crossPairs(questions: Question[]): { a: Question; b: Question }[
   return pairs;
 }
 
-/** The question's own history minus its evidence chats and any other chat that repeats an evidence turn word for word. */
+/** The question's own history minus its evidence chats and any other chat that is a near-copy of one (see `nearCopy`). */
 export function ablate(q: Question): Session[] {
   const texts = evidenceTexts(q);
-  return q.sessions.filter((s) => !q.evidence.sessions.includes(s.id) && !holdsAny(s, texts));
+  return q.sessions.filter((s) => !q.evidence.sessions.includes(s.id) && !nearCopy(q, s, texts));
+}
+
+/** One history per `X`/`X_abs` twin pair (the first in list order), since twins share most of a history. */
+export function distinctHistories(questions: Question[]): Question[] {
+  const seen = new Set<string>();
+  return questions.filter((q) => !seen.has(baseId(q.id)) && !!seen.add(baseId(q.id)));
 }
 
 export interface ProbeOptions {
@@ -135,7 +161,8 @@ export interface ProbeOptions {
 export function buildProbes(dev: Question[], tier1: Tier1Prompt[], opts: ProbeOptions = {}): Probe[] {
   const answerable = dev.filter((q) => !q.abstention);
   const probes: Probe[] = [];
-  for (const q of dev.slice(0, opts.tier1Histories ?? dev.length)) {
+  const histories = distinctHistories(dev);
+  for (const q of histories.slice(0, opts.tier1Histories ?? histories.length)) {
     for (const p of tier1) probes.push({ tier: "tier1-off-history", id: `${p.id}@${q.id}`, message: p.prompt, history: q.sessions });
   }
   for (const { a, b } of crossPairs(dev)) probes.push({ tier: "tier2-cross-history", id: `${a.id}@${b.id}`, message: a.question, history: b.sessions });
@@ -178,11 +205,13 @@ export function summarize(results: ProbeResult[]): TierReport[] {
       {
         tier,
         prompts: n,
+        informational: tier === "tier4-abstention",
         emptyRate: rs.filter((r) => r.units === 0).length / n,
         falseInclusions: mean((r) => r.units - r.evidenceUnits),
+        evidenceUnits: mean((r) => r.evidenceUnits),
         meanTokens: mean((r) => r.tokens),
         meanRetrievedTokens: mean((r) => r.retrievedTokens),
-        precision: hasEvidence && units ? rs.reduce((a, r) => a + r.evidenceUnits, 0) / units : null,
+        precision: tier === "answerable" && hasEvidence && units ? rs.reduce((a, r) => a + r.evidenceUnits, 0) / units : null,
       },
     ];
   });
@@ -198,15 +227,37 @@ const num = (x: number) => x.toFixed(2);
 export function formatReport(byProfile: { profile: string; tiers: TierReport[] }[], title: string): string {
   const lines = [`# ${title}`, ""];
   for (const { profile, tiers } of byProfile) {
-    lines.push(`## ${profile}`, "", "| Tier | Prompts | Empty rate | False inclusions / prompt | Mean packet tokens | Mean retrieved tokens | Precision |", "| --- | ---: | ---: | ---: | ---: | ---: | ---: |");
-    for (const t of tiers) {
-      lines.push(`| ${t.tier} | ${t.prompts} | ${pct(t.emptyRate)} | ${num(t.falseInclusions)} | ${Math.round(t.meanTokens)} | ${Math.round(t.meanRetrievedTokens)} | ${t.precision === null ? "n/a" : pct(t.precision)} |`);
+    const head = "| Tier | Prompts | Empty rate | False inclusions / prompt | Mean packet tokens | Mean retrieved tokens |";
+    lines.push(`## ${profile}`, "", "Should be empty (the headline):", "", head, "| --- | ---: | ---: | ---: | ---: | ---: |");
+    for (const t of tiers.filter((t) => t.tier.startsWith("tier") && !t.informational)) {
+      lines.push(`| ${t.tier} | ${t.prompts} | ${pct(t.emptyRate)} | ${num(t.falseInclusions)} | ${Math.round(t.meanTokens)} | ${Math.round(t.meanRetrievedTokens)} |`);
+    }
+    for (const t of tiers.filter((t) => t.informational)) {
+      lines.push(
+        "",
+        "Informational, not in the headline: `_abs` questions, scored as no false claim of an answer.",
+        "",
+        "| Tier | Prompts | Empty rate | Units from related evidence / prompt | Other units / prompt | Mean packet tokens |",
+        "| --- | ---: | ---: | ---: | ---: | ---: |",
+        `| ${t.tier} | ${t.prompts} | ${pct(t.emptyRate)} | ${num(t.evidenceUnits)} | ${num(t.falseInclusions)} | ${Math.round(t.meanTokens)} |`,
+      );
+    }
+    for (const t of tiers.filter((t) => t.tier === "answerable")) {
+      lines.push(
+        "",
+        "Answerable questions on their own histories:",
+        "",
+        "| Tier | Prompts | Empty rate (a miss) | Non-evidence units / prompt | Mean packet tokens | Precision |",
+        "| --- | ---: | ---: | ---: | ---: | ---: |",
+        `| ${t.tier} | ${t.prompts} | ${pct(t.emptyRate)} | ${num(t.falseInclusions)} | ${Math.round(t.meanTokens)} | ${t.precision === null ? "n/a" : pct(t.precision)} |`,
+      );
     }
     lines.push("");
   }
   lines.push(
-    "Tiers 1-3 should be empty, so every included unit there is a false inclusion. Tier 4 and answerable count units that cover no evidence turn.",
-    "Precision is evidence units over all included units, pooled. Empty rate on answerable questions is a miss, not a win.",
+    "Tiers 1-3 should be empty, so every included unit there is a false inclusion. Tier 2 skips and tier 3 drops any chat that",
+    "repeats an evidence turn or is a near-copy of an evidence chat (the held-out split's rule). Tier 1 uses one history per X/X_abs pair.",
+    "Precision is evidence units over all included units, pooled over the answerable questions.",
   );
   return lines.join("\n");
 }
