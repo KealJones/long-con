@@ -87,6 +87,8 @@ The packet is a head start, never the only path. Anything the builder can look u
 | Memory and facts | Search memory and facts |
 | Files | Find, read and edit files |
 
+Every packet carries a short fixed notice, one or two lines, saying that earlier chat history exists but was left out to fit the context, how far back it goes (since the log's first turn, so the line stays cacheable), and that the search tools can reach it.
+
 A tool call right after the packet marks a packet miss. Those calls are logged, so the evals can see what the packet should have held.
 
 ## Filling gaps mid-turn
