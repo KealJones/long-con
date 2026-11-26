@@ -7,6 +7,9 @@
 | [threader.md](threader.md) | Threader's retrieval end to end, its ablations, what to copy, and where it agrees or disagrees with Long Con's design |
 | [memory-benchmarks.md](memory-benchmarks.md) | Long-term memory benchmarks to beat with one message and a packet, top scores, and which to target first |
 | [prefetch.md](prefetch.md) | Doing the model's lookups before it asks: speculative tools, file and line prefetch, compression, reference resolution, names, benchmarks and work-saved metrics, and challenges to the plan |
+| [prefetch-survey.md](prefetch-survey.md) | Every way the packet can prefetch, by area and by kind of prompt, with cost, browser and Cloudflare fit and expected gain per profile; Squiggle prior art; URL-to-file design; the abstention gate. Evidence in [prefetch-survey/](prefetch-survey/) |
+| [prefetch-ideas-ranked.md](prefetch-ideas-ranked.md) | The ranked, testable backlog the packet R&D loop works from |
+| [prefetch-evals.md](prefetch-evals.md) | New eval sets: should be empty, code path:line, non-memory prompts, URL prefetch, and the paired work-saved eval |
 | [model-providers.md](model-providers.md) | Front model and picker, key paths, free providers, key safety |
 | [history-storage.md](history-storage.md) | Why git storage was dropped, and the hosted-service options |
 | [feature-ideas.md](feature-ideas.md) | Brainstormed features, what's carried into the plan, what's superseded |
