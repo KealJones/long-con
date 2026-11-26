@@ -15,7 +15,7 @@ Early. Phase 1 is the eval harness: the goal posts every packet builder is judge
 | 1 | Eval harness, canary set and scorer, run from the CLI | next |
 | 2 | Core log, session splitter and sorter | planned |
 | 3 | Packet builder v1 on a frontier model, tuned until it beats compaction | planned |
-| 4 | Web app on the same core | planned |
+| 4 | Web app on the same core | bare-bones chat live at [kealjones.com/long-con](https://kealjones.com/long-con/) |
 | 5 | Small-model track with ~3K-token packets | planned |
 | 6 | Mac app, only if the web app hits a wall | maybe |
 
@@ -28,6 +28,7 @@ packages/
   core/        the engine: log, splitter, sorter, registers, packet builder
 apps/
   cli/         command-line front end (runs the evals first)
+  web/         bare-bones chat page, deployed to GitHub Pages
 evals/         replay harness, canaries, scorer; real chat data stays out of git
 docs/
   plan.md            what we're building and in what order
