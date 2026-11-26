@@ -22,6 +22,8 @@ export interface Profile {
   rawTurns: number;
   /** Hard cap on one retrieved unit. A longer turn is split at paragraph breaks. */
   segmentTokens: number;
+  /** Most pieces a counting question brings in (tally mode, see tally.ts). 0 turns tally mode off. */
+  tallyPieces: number;
   /** How many of the model's own latest answers in this chat go in the registers. */
   recentAnswers: number;
   /** Whether a per-turn gate can skip retrieval for messages that need none, like "thanks". */
@@ -53,6 +55,7 @@ export const PROFILES = {
     // Small units beat whole exchanges at every budget on the dev slice (evals/results). 400 keeps a short
     // question and answer together; smaller still scored a little higher on a benchmark whose facts sit in user turns.
     segmentTokens: 400,
+    tallyPieces: Infinity,
     recentAnswers: 2,
     gate: true,
     trustNote: true,
@@ -73,6 +76,8 @@ export const PROFILES = {
     minScore: 0.2,
     rawTurns: 2,
     segmentTokens: 400,
+    // Off: on the dev slice every cap that kept its recall gain added wrong pieces on evidence-ablated histories (P06).
+    tallyPieces: 0,
     recentAnswers: 1,
     gate: true,
     trustNote: true,

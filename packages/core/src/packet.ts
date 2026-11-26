@@ -7,6 +7,7 @@ import { buildRegisters, refKey } from "./registers.ts";
 import { resolve, type Resolution } from "./resolver.ts";
 import { splitIntoSegments, type Segment } from "./segments.ts";
 import type { Profile } from "./profiles.ts";
+import { isTallyQuestion, tallySearch } from "./tally.ts";
 import { contentWords, estimateTokens } from "./text.ts";
 
 export interface BuildPacketInput {
@@ -83,7 +84,10 @@ export function buildPacket({ history, message, profile, currentSessionId }: Bui
     // The absolute bar asks whether history holds anything strong enough to answer at all. It judges the best unit
     // only: per unit, it cut the weaker second piece multi-session questions need (P02 dev sweep).
     const found = hits.some((h) => h.score >= profile.minScore);
-    for (const { hit, confidence } of found ? hits : []) {
+    // Counting questions take one small piece per matching user turn instead of whole segments (see tally.ts).
+    const tally = found && profile.tallyPieces > 0 && isTallyQuestion(message);
+    const ranked = !found ? [] : tally ? tallySearch(history, resolution.query, current?.id, recentStart).slice(0, profile.tallyPieces) : hits;
+    for (const { hit, confidence } of ranked) {
       // The budget is a ceiling, not a target: weak matches stay out even when there's room.
       if (confidence < profile.minConfidence) continue;
       // The same exchange saved twice only needs to come in once.

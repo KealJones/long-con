@@ -1,0 +1,57 @@
+// Tally mode (backlog P06). Counting and aggregation questions ("how many X did I...", "total", "list all") need one
+// small piece from each of several chats. Whole segments spend the budget on a few chats and the rest get cut, so in
+// this mode the unit is the best sentence of each matching user turn, with its neighbours or its whole turn when the turn is short.
+
+import type { Session } from "./chat.ts";
+import { Bm25, type Hit } from "./bm25.ts";
+import type { Segment } from "./segments.ts";
+import { contentWords, estimateTokens } from "./text.ts";
+
+// shortcut: English-only phrase rules on the message alone; swap for a learned intent check if false triggers show up in real use.
+// "how many days/years..." asks for a span or an age, not a count, so time units don't trigger it.
+const TALLY =
+  /\b(how many (?!(?:days?|weeks?|months?|years?|hours?|minutes?|seconds?|times?)\b)\w+|in total|total|altogether|combined|list (?:all|every)|all the|every|each|different)\b/i;
+
+// A question about what the assistant said ("how many eggs did you say") asks for one answer, not a tally of the user's life.
+export const isTallyQuestion = (message: string): boolean => TALLY.test(message) && !/\byou\b/i.test(message);
+
+/** A user turn this short comes in whole; a longer one comes in as its best sentence and the sentences either side. */
+const WHOLE_TURN_TOKENS = 150;
+
+// Swept 0 / 0.4 / 0.5 on the dev slice: 0.4 kept every hit 0 had with fewer wrong pieces; 0.5 lost a multi-session question.
+// One sentence matches on fewer words than a segment, so a weak piece needs a higher share of the top to come in.
+const MIN_SHARE = 0.4;
+
+const sentences = (text: string) => text.split(/(?<=[.!?])\s+|\n+/).filter((s) => s.trim());
+
+/**
+ * The best sentence of each matching user turn, ranked by BM25 over user sentences. Confidence is the share of the top
+ * score, as in the segment search. One unit per turn, not per chat: a chat can hold more than one of the things counted.
+ */
+export function tallySearch(history: Session[], query: string, currentId: string | undefined, recentStart: number) {
+  const index = new Bm25<{ session: Session; turn: number; at: number; all: string[] }>();
+  for (const session of history) {
+    session.turns.forEach((turn, i) => {
+      // Turns already riding along raw don't need retrieving.
+      if (turn.role !== "user" || (session.id === currentId && i >= recentStart)) return;
+      const all = sentences(turn.content);
+      all.forEach((s, at) => index.add({ session, turn: i, at, all }, contentWords(s)));
+    });
+  }
+  const hits = index.search(contentWords(query));
+  const top = hits[0]?.score ?? 1;
+  const seen = new Set<string>();
+  const out: { hit: Hit<Segment>; confidence: number }[] = [];
+  for (const h of hits) {
+    if (h.score / top < MIN_SHARE) break;
+    const { session, turn, at, all } = h.item;
+    const key = `${session.id}#${turn}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const whole = session.turns[turn]!.content;
+    const content = estimateTokens(whole) <= WHOLE_TURN_TOKENS ? whole : all.slice(Math.max(0, at - 1), at + 2).join(" ");
+    const unit: Segment = { sessionId: session.id, date: session.date, start: turn, end: turn, turns: [{ role: "user", content }], ...(content !== whole ? { partial: true } : {}) };
+    out.push({ hit: { item: unit, score: h.score, matched: h.matched }, confidence: h.score / top });
+  }
+  return out;
+}
