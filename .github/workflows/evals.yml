@@ -15,7 +15,7 @@ on:
         type: string
         default: packet,bare
       limit:
-        description: Questions, a stratified pick of the split (blank for the whole split)
+        description: Questions, a stratified pick of the split (50 for all of dev, 437 for all of held-out; a blank field falls back to 12)
         type: string
         default: "12"
       split:
