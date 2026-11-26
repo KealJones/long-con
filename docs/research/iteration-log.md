@@ -4,7 +4,7 @@ One entry per idea tried by the hourly packet R&D loop. Newest run first. Number
 
 ## Run 1: 2026-11-25, 8:17 PM Arizona
 
-**Blocked:** LongMemEval couldn't be downloaded (huggingface.co is not reachable from the loop's environment), so no chat-recall numbers this run. The loop worked only on items that need no dataset. The push to GitHub was also refused (the repository isn't in the loop's authorized set), so the commits below were made locally and wait for that access.
+**Blocked:** LongMemEval couldn't be downloaded (huggingface.co is not reachable from the loop's environment), so no chat-recall numbers this run. The loop worked only on items that need no dataset. The push to GitHub was also refused (the repository isn't in the loop's authorized set), so the commits below were made locally and wait for that access. They were rebuilt on 2026-11-26 from the run's own log and re-scored to the same numbers before being pushed.
 
 ### P01. Should-be-empty set and empty-rate metric: kept (measurement)
 
