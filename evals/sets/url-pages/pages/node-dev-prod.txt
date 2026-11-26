@@ -1,0 +1,175 @@
+Node.js, the difference between development and production | Node.js Learn
+LearnAboutDownloadBlogDocsBeta Docs Contribute
+Start typing...
+⌘ K
+NavigationNode.js, the difference between development and production
+Navigation
+Node.js, the difference between development and production
+Getting Started
+Introduction to Node.jsHow much JavaScript do you need to know to use Node.js?Differences between Node.js and the BrowserThe V8 JavaScript EngineAn introduction to the npm package managerNode version managersECMAScript 2015 (ES6) and beyondDebugging Node.jsFetching data with Node.jsWebSocket client with Node.jsNode.js, the difference between development and productionProfiling Node.js ApplicationsNode.js with WebAssemblySecurity Best PracticesIntroduction to Userland Migrations
+Command Line
+Run Node.js scripts from the command lineHow to use the Node.js REPLOutput to the command line using Node.jsAccept input from the command line in Node.jsHow to read environment variables from Node.js
+HTTP
+Anatomy of an HTTP TransactionEnterprise Network Configuration
+Manipulating Files
+Node.js file statsNode.js File PathsReading files with Node.jsWriting files with Node.jsWorking with file descriptors in Node.jsWorking with folders in Node.jsHow to work with Different Filesystems
+Asynchronous Work
+JavaScript Asynchronous Programming and CallbacksAsynchronous flow controlDiscover Promises in Node.jsDiscover JavaScript TimersOverview of Blocking vs Non-BlockingThe Node.js Event LoopThe Node.js Event EmitterUnderstanding process.nextTick()Understanding setImmediate()Don't Block the Event Loop
+Concurrency
+Comparing Node.js concurrency models
+TypeScript
+Introduction to TypeScriptRunning TypeScript NativelyRunning TypeScript code using transpilationRunning TypeScript with a runnerPublishing a TypeScript package
+Modules
+How to use streamsBackpressuring in StreamsPublishing a packageHow to publish a Node-API packageABI StabilityUsing module customization hooks
+Diagnostics
+User JourneyOverviewUnderstanding and Tuning MemoryUsing Heap ProfilerUsing Heap SnapshotTracing garbage collectionOverviewUsing InspectorOverviewUsing Linux PerfFlame Graphs
+Test Runner
+Discovering Node.js's test runnerUsing Node.js's test runnerMocking in testsCollecting code coverage in Node.js
+Node-API
+What is Node-API?OverviewPre-requisitesToolsAnatomy of a Node-API projectYour First ProjectObject WrapMigrating to Node-APIOverviewnode-gypCMake.jsnode-pre-gypOverviewContext AwarenessObject and Function ReferencesAsyncWorkerThread-Safe Functions
+Userland Migrations
+ansi-colors to util.styleTextAxios to WHATWG FetchChalk to util.styleText()Correct TypeScript SpecifiersKleur to util.styleTextMocha to Node.js Test Runner
+Getting Started
+Introduction to Node.js
+How much JavaScript do you need to know to use Node.js?
+Differences between Node.js and the Browser
+The V8 JavaScript Engine
+An introduction to the npm package manager
+Node version managers
+ECMAScript 2015 (ES6) and beyond
+Debugging Node.js
+Fetching data with Node.js
+WebSocket client with Node.js
+Node.js, the difference between development and production
+Profiling Node.js Applications
+Node.js with WebAssembly
+Security Best Practices
+Introduction to Userland Migrations
+Command Line
+Run Node.js scripts from the command line
+How to use the Node.js REPL
+Output to the command line using Node.js
+Accept input from the command line in Node.js
+How to read environment variables from Node.js
+HTTP
+Anatomy of an HTTP Transaction
+Enterprise Network Configuration
+Manipulating Files
+Node.js file stats
+Node.js File Paths
+Reading files with Node.js
+Writing files with Node.js
+Working with file descriptors in Node.js
+Working with folders in Node.js
+How to work with Different Filesystems
+Asynchronous Work
+JavaScript Asynchronous Programming and Callbacks
+Asynchronous flow control
+Discover Promises in Node.js
+Discover JavaScript Timers
+Overview of Blocking vs Non-Blocking
+The Node.js Event Loop
+The Node.js Event Emitter
+Understanding process.nextTick()
+Understanding setImmediate()
+Don't Block the Event Loop
+Concurrency
+Comparing Node.js concurrency models
+TypeScript
+Introduction to TypeScript
+Running TypeScript Natively
+Running TypeScript code using transpilation
+Running TypeScript with a runner
+Publishing a TypeScript package
+Modules
+How to use streams
+Backpressuring in Streams
+Publishing a package
+How to publish a Node-API package
+ABI Stability
+Using module customization hooks
+Diagnostics
+User Journey
+Memory
+Overview
+Understanding and Tuning Memory
+Using Heap Profiler
+Using Heap Snapshot
+Tracing garbage collection
+Live Debugging
+Overview
+Using Inspector
+Poor Performance
+Overview
+Using Linux Perf
+Flame Graphs
+Test Runner
+Discovering Node.js's test runner
+Using Node.js's test runner
+Mocking in tests
+Collecting code coverage in Node.js
+Node-API
+What is Node-API?
+Getting Started
+Overview
+Pre-requisites
+Tools
+Anatomy of a Node-API project
+Your First Project
+Object Wrap
+Migrating to Node-API
+Build Tools
+Overview
+node-gyp
+CMake.js
+node-pre-gyp
+Special Topics
+Overview
+Context Awareness
+Object and Function References
+AsyncWorker
+Thread-Safe Functions
+Userland Migrations
+ansi-colors to util.styleText
+Axios to WHATWG Fetch
+Chalk to util.styleText()
+Correct TypeScript Specifiers
+Kleur to util.styleText
+Mocha to Node.js Test Runner
+On this page
+Why is NODE_ENV considered an antipattern?
+# Node.js, the difference between development and production
+There is no difference between development and production in Node.js, i.e., there are no specific settings you need to apply to make Node.js work in a production configuration.
+However, a few libraries in the npm registry recognize using the NODE_ENV variable and default it to a development setting.
+Always run your Node.js with the NODE_ENV=production set.
+A popular way of configuring your application is by using the twelve factor methodology.
+## Why is NODE_ENV considered an antipattern?
+An environment is a digital platform or a system where engineers can build, test, deploy, and manage software products. Conventionally, there are four stages or types of environments where our application is run:
+Development
+Testing
+Staging
+Production
+The fundamental problem of NODE_ENV stems from developers combining optimizations and software behavior with the environment their software is running on. The result is code like the following:
+if (process.env.NODE_ENV === 'development') {
+// ...
+}
+if (process.env.NODE_ENV === 'production') {
+// ...
+}
+if (['production', 'staging'].includes(process.env.NODE_ENV)) {
+// ...
+}
+JavaScript Copy to clipboard
+While this might look harmless, it makes the production and staging environments different, thus making reliable testing impossible. For example a test and thus a functionality of your product could pass when NODE_ENV is set to development but fail when setting NODE_ENV to production.
+Therefore, setting NODE_ENV to anything but production is considered an antipattern.
+PreviousWebSocket client with Node.js NextProfiling Node.js Applications
+Reading Time
+2 min read
+Authors
++2
+Contribute
+Edit this page
+Table of Contents
+Why is NODE_ENV considered an antipattern?
+Copyright OpenJS Foundation and Node.js contributors. All rights reserved. The OpenJS Foundation has registered trademarks and uses trademarks. For a list of trademarks of the OpenJS Foundation, please see our Trademark Policy and Trademark List. Trademarks and logos not indicated on the list of OpenJS Foundation trademarks are trademarks™ or registered® trademarks of their respective holders. Use of them does not imply any affiliation with or endorsement by them.
+OpenJS FoundationAI Coding Assistants PolicyBylawsCode of ConductCookie PolicyPrivacy PolicySecurity PolicyTerms of UseTrademark ListTrademark Policy

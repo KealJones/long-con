@@ -1,0 +1,785 @@
+All versions of rack | RubyGems.org | your community gem host
+reveal-search#focus" data-reveal-search-toggle-class="bg-neutral-200 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border">
+RubyGems
+Explore
+Blog
+Stats
+Docs
+dropdown#show pointerleave->dropdown#hide focusout->dropdown#hide">
+dropdown#hide" class="flex items-center cursor-pointer text-neutral-900 dark:text-white hover:text-neutral-600 dark:hover:text-neutral-400 focus:outline-none lowercase">
+About
+RubyGems.org
+Status
+Data
+Security
+RubyGems Supporters
+Help
+dialog#backdropClose"
+role="dialog" aria-modal="true" aria-label="Main navigation"
+class="fixed inset-0 m-0 p-0 h-full w-screen max-h-full max-w-screen bg-white bg-opacity-20 z-50 overflow-hidden">
+Explore
+Blog
+Stats
+Docs
+## About
+RubyGems.org
+Status
+Data
+Security
+RubyGems Supporters
+Help
+Sign in
+Sign up
+dialog#backdropClose cancel->dialog#close"
+aria-label="Account menu"
+class="account-menu fixed m-0 inset-0 py-16 px-8 z-50 w-full h-full max-w-screen max-h-screen bg-white bg-opacity-20 p-0 ems-start justify-center sm:justify-right"
+>
+Signed in as
+Profile
+Edit profile
+Settings
+Search Gems…
+rack
+Versions
+# rack
+3.2.9
+November 20, 2026
+187 Versions
+## Total downloads
+1,400,601,350
+## For this version
+1,022,491
+New versions require MFA: true
+Version published with MFA: true
+Star
+187 versions since March 02, 2007
+3.2.9
+source
+3.2.9
+source
+November 20, 2026
+(121 KB)
+3.2.8
+source
+3.2.8
+source
+October 30, 2026
+(120 KB)
+3.2.7
+source
+3.2.7
+source
+August 13, 2026
+(119 KB)
+vulnerable
+3.2.6
+source
+3.2.6
+source
+April 01, 2026
+(119 KB)
+vulnerable
+3.2.5
+source
+3.2.5
+source
+February 16, 2026
+(117 KB)
+vulnerable
+3.2.4
+source
+3.2.4
+source
+November 02, 2025
+(116 KB)
+vulnerable
+3.2.3
+source
+3.2.3
+source
+October 10, 2025
+(116 KB)
+vulnerable
+3.2.2
+source
+3.2.2
+source
+October 07, 2025
+(116 KB)
+vulnerable
+3.2.1
+source
+3.2.1
+source
+September 02, 2025
+(115 KB)
+vulnerable
+3.2.0
+source
+3.2.0
+source
+July 30, 2025
+(115 KB)
+vulnerable
+3.1.24
+source
+3.1.24
+source
+November 20, 2026
+(117 KB)
+3.1.23
+source
+3.1.23
+source
+October 30, 2026
+(115 KB)
+3.1.22
+source
+3.1.22
+source
+August 13, 2026
+(115 KB)
+vulnerable
+3.1.21
+source
+3.1.21
+source
+April 01, 2026
+(115 KB)
+vulnerable
+3.1.20
+source
+3.1.20
+source
+February 16, 2026
+(113 KB)
+vulnerable
+3.1.19
+source
+3.1.19
+source
+November 02, 2025
+(113 KB)
+vulnerable
+3.1.18
+source
+3.1.18
+source
+October 10, 2025
+(113 KB)
+vulnerable
+3.1.17
+source
+3.1.17
+source
+October 07, 2025
+(112 KB)
+vulnerable
+3.1.16
+source
+3.1.16
+source
+June 04, 2025
+(111 KB)
+vulnerable
+3.1.15
+source
+3.1.15
+source
+May 18, 2025
+(111 KB)
+vulnerable
+3.1.14
+source
+3.1.14
+source
+May 06, 2025
+(111 KB)
+vulnerable
+3.1.13
+source
+3.1.13
+source
+April 13, 2025
+(110 KB)
+vulnerable
+3.1.12
+source
+3.1.12
+source
+March 10, 2025
+(110 KB)
+vulnerable
+3.1.11
+source
+3.1.11
+source
+March 04, 2025
+(110 KB)
+vulnerable
+3.1.10
+source
+3.1.10
+source
+February 12, 2025
+(109 KB)
+vulnerable
+3.1.9
+source
+3.1.9
+source
+January 30, 2025
+(109 KB)
+vulnerable
+3.1.8
+source
+3.1.8
+source
+October 14, 2024
+(109 KB)
+vulnerable
+3.1.7
+source
+3.1.7
+source
+July 11, 2024
+(109 KB)
+vulnerable
+3.1.6
+source
+3.1.6
+source
+July 02, 2024
+(108 KB)
+vulnerable
+3.1.5
+source
+3.1.5
+source
+July 02, 2024
+(108 KB)
+vulnerable
+3.1.4
+source
+3.1.4
+source
+June 22, 2024
+(108 KB)
+vulnerable
+3.1.3
+source
+3.1.3
+source
+June 12, 2024
+(108 KB)
+vulnerable
+3.1.2
+source
+3.1.2
+source
+June 11, 2024
+(108 KB)
+vulnerable
+3.1.1
+source
+3.1.1
+source
+June 11, 2024
+(108 KB)
+vulnerable
+3.1.0
+source
+3.1.0
+source
+June 11, 2024
+(108 KB)
+vulnerable
+3.0.18
+source
+3.0.18
+source
+May 22, 2025
+(109 KB)
+vulnerable
+3.0.17
+source
+3.0.17
+source
+May 18, 2025
+(109 KB)
+vulnerable
+3.0.16
+source
+3.0.16
+source
+May 06, 2025
+(108 KB)
+vulnerable
+3.0.15
+source
+3.0.15
+source
+April 13, 2025
+(108 KB)
+vulnerable
+3.0.14
+source
+3.0.14
+source
+March 10, 2025
+(107 KB)
+vulnerable
+3.0.13
+source
+3.0.13
+source
+March 04, 2025
+(107 KB)
+vulnerable
+3.0.12
+source
+3.0.12
+source
+February 12, 2025
+(107 KB)
+vulnerable
+3.0.11
+source
+3.0.11
+source
+May 09, 2024
+(107 KB)
+vulnerable
+3.0.10
+source
+3.0.10
+source
+March 20, 2024
+(107 KB)
+vulnerable
+3.0.9.1
+source
+3.0.9.1
+source
+February 21, 2024
+(107 KB)
+vulnerable
+3.0.9
+source
+3.0.9
+source
+January 31, 2024
+(106 KB)
+vulnerable
+3.0.8
+source
+3.0.8
+source
+June 14, 2023
+(106 KB)
+vulnerable
+3.0.7
+source
+3.0.7
+source
+March 16, 2023
+(106 KB)
+vulnerable
+3.0.6.1
+source
+3.0.6.1
+source
+March 13, 2023
+(107 KB)
+vulnerable
+3.0.6
+source
+3.0.6
+source
+March 13, 2023
+(107 KB)
+vulnerable
+3.0.5
+source
+3.0.5
+source
+March 12, 2023
+(107 KB)
+vulnerable
+3.0.4.2
+source
+3.0.4.2
+source
+March 02, 2023
+(106 KB)
+vulnerable
+3.0.4.1
+source
+3.0.4.1
+source
+January 17, 2023
+(106 KB)
+vulnerable
+3.0.4
+source
+3.0.4
+source
+January 16, 2023
+(106 KB)
+vulnerable
+3.0.3
+source
+3.0.3
+source
+December 26, 2022
+(105 KB)
+vulnerable
+3.0.2
+source
+3.0.2
+source
+December 05, 2022
+(105 KB)
+vulnerable
+3.0.1
+source
+3.0.1
+source
+November 18, 2022
+(105 KB)
+vulnerable
+3.0.0
+source
+3.0.0
+source
+September 06, 2022
+(105 KB)
+vulnerable
+3.0.0.rc1
+source
+3.0.0.rc1
+source
+September 04, 2022
+(105 KB)
+vulnerable
+3.0.0.beta1
+source
+3.0.0.beta1
+source
+August 08, 2022
+(645 KB)
+vulnerable
+2.2.26
+source
+2.2.26
+source
+November 20, 2026
+(156 KB)
+2.2.25
+source
+2.2.25
+source
+October 30, 2026
+(154 KB)
+2.2.24
+source
+2.2.24
+source
+August 13, 2026
+(154 KB)
+vulnerable
+2.2.23
+source
+2.2.23
+source
+April 01, 2026
+(154 KB)
+vulnerable
+2.2.22
+source
+2.2.22
+source
+February 16, 2026
+(152 KB)
+vulnerable
+2.2.21
+source
+2.2.21
+source
+November 02, 2025
+(152 KB)
+vulnerable
+2.2.20
+source
+2.2.20
+source
+October 10, 2025
+(152 KB)
+vulnerable
+2.2.19
+source
+2.2.19
+source
+October 07, 2025
+(151 KB)
+vulnerable
+2.2.18
+source
+2.2.18
+source
+September 25, 2025
+(151 KB)
+vulnerable
+2.2.17
+source
+2.2.17
+source
+June 03, 2025
+(151 KB)
+vulnerable
+2.2.16
+source
+2.2.16
+source
+May 22, 2025
+(150 KB)
+vulnerable
+2.2.15
+source
+2.2.15
+source
+May 18, 2025
+(150 KB)
+vulnerable
+2.2.14
+source
+2.2.14
+source
+May 06, 2025
+(150 KB)
+vulnerable
+2.2.13
+source
+2.2.13
+source
+March 10, 2025
+(149 KB)
+vulnerable
+2.2.12
+source
+2.2.12
+source
+March 04, 2025
+(149 KB)
+vulnerable
+2.2.11
+source
+2.2.11
+source
+February 12, 2025
+(149 KB)
+vulnerable
+2.2.10
+source
+2.2.10
+source
+October 14, 2024
+(149 KB)
+vulnerable
+2.2.9
+source
+2.2.9
+source
+March 21, 2024
+(149 KB)
+vulnerable
+2.2.8.1
+source
+2.2.8.1
+source
+February 21, 2024
+(149 KB)
+vulnerable
+2.2.8
+source
+2.2.8
+source
+July 31, 2023
+(149 KB)
+vulnerable
+2.2.7
+source
+2.2.7
+source
+April 24, 2023
+(149 KB)
+vulnerable
+2.2.6.4
+source
+2.2.6.4
+source
+March 13, 2023
+(149 KB)
+vulnerable
+2.2.6.3
+source
+2.2.6.3
+source
+March 02, 2023
+(149 KB)
+vulnerable
+2.2.6.2
+source
+2.2.6.2
+source
+January 17, 2023
+(148 KB)
+vulnerable
+2.2.6.1
+source
+2.2.6.1
+source
+January 17, 2023
+(148 KB)
+vulnerable
+2.2.6
+source
+2.2.6
+source
+January 16, 2023
+(148 KB)
+vulnerable
+2.2.5
+source
+2.2.5
+source
+December 26, 2022
+(148 KB)
+vulnerable
+2.2.4
+source
+2.2.4
+source
+June 30, 2022
+(148 KB)
+vulnerable
+2.2.3.1
+source
+2.2.3.1
+source
+May 27, 2022
+(148 KB)
+vulnerable
+2.2.3
+source
+2.2.3
+source
+June 15, 2020
+(148 KB)
+critically vulnerable
+2.2.2
+source
+2.2.2
+source
+February 10, 2020
+(148 KB)
+critically vulnerable
+2.2.1
+source
+2.2.1
+source
+February 09, 2020
+(148 KB)
+critically vulnerable
+2.2.0
+source
+2.2.0
+source
+February 08, 2020
+(148 KB)
+critically vulnerable
+2.1.4.4
+source
+2.1.4.4
+source
+February 21, 2024
+(131 KB)
+vulnerable
+2.1.4.3
+source
+2.1.4.3
+source
+March 02, 2023
+(131 KB)
+vulnerable
+2.1.4.2
+source
+2.1.4.2
+source
+January 17, 2023
+(131 KB)
+vulnerable
+2.1.4.1
+source
+2.1.4.1
+source
+May 27, 2022
+(130 KB)
+vulnerable
+2.1.4
+source
+2.1.4
+source
+June 15, 2020
+(130 KB)
+critically vulnerable
+2.1.3
+source
+2.1.3
+source
+May 12, 2020
+(130 KB)
+critically vulnerable
+2.1.2
+source
+2.1.2
+source
+January 27, 2020
+(130 KB)
+critically vulnerable
+1
+2
+### Helpful Links
+Homepage
+Changelog
+Documentation
+Bug Tracker
+Download
+Review changes
+Badge
+Subscribe
+RSS
+Analytics
+Reverse dependencies
+License: MIT
+### Owners
+tenderlove
+raggi
+chneukirchen
+ioquatix
+rafaelfranca
+eileencodes
+Report abuse
+About
+Docs
+Policies
+Status
+Security
+RubyGems Supporters
+Help
+Operated by
+## Ruby Alliance
+See all supporters →
+## RubyGems Supporters
+## Infrastructure Donors
+See all supporters →

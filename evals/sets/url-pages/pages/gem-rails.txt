@@ -1,0 +1,150 @@
+rails | RubyGems.org | your community gem host
+reveal-search#focus" data-reveal-search-toggle-class="bg-neutral-200 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border">
+RubyGems
+Explore
+Blog
+Stats
+Docs
+dropdown#show pointerleave->dropdown#hide focusout->dropdown#hide">
+dropdown#hide" class="flex items-center cursor-pointer text-neutral-900 dark:text-white hover:text-neutral-600 dark:hover:text-neutral-400 focus:outline-none lowercase">
+About
+RubyGems.org
+Status
+Data
+Security
+RubyGems Supporters
+Help
+dialog#backdropClose"
+role="dialog" aria-modal="true" aria-label="Main navigation"
+class="fixed inset-0 m-0 p-0 h-full w-screen max-h-full max-w-screen bg-white bg-opacity-20 z-50 overflow-hidden">
+Explore
+Blog
+Stats
+Docs
+## About
+RubyGems.org
+Status
+Data
+Security
+RubyGems Supporters
+Help
+Sign in
+Sign up
+dialog#backdropClose cancel->dialog#close"
+aria-label="Account menu"
+class="account-menu fixed m-0 inset-0 py-16 px-8 z-50 w-full h-full max-w-screen max-h-screen bg-white bg-opacity-20 p-0 ems-start justify-center sm:justify-right"
+>
+Signed in as
+Profile
+Edit profile
+Settings
+Search Gems…
+rails
+8.1.4.1 (latest)
+# rails
+8.1.4.1
+November 04, 2026
+528 Versions
+## Total downloads
+822,872,152
+## For this version
+4,879,436
+New versions require MFA: true
+Version published with MFA: true
+Star
+Gem info Dependencies
+Gemfile
+install
+Ruby on Rails is a full-stack web framework optimized for programmer happiness and sustainable productivity. It encourages beautiful code by favoring convention over configuration.
+### Required Ruby Version
+>= 3.2.0
+### Required Rubygems Version
+>= 1.8.11
+### Authors
+David Heinemeier Hansson
+### Versions
+8.1.4.1
+source
+8.1.4.1
+source
+November 04, 2026
+(7 KB)
+8.1.4
+source
+8.1.4
+source
+September 24, 2026
+(7 KB)
+8.1.3.1
+source
+8.1.3.1
+source
+July 29, 2026
+(7 KB)
+8.1.3
+source
+8.1.3
+source
+March 24, 2026
+(7 KB)
+8.1.2.1
+source
+8.1.2.1
+source
+March 23, 2026
+(7 KB)
+Show all versions (528 total)
+### Pushed by
+### SHA 256 checksum
+### Provenance
+Built and signed on
+GitHub Actions
+Build summary
+Source Commit
+rails/rails@3f290b7
+Build File
+.github/workflows/release.yml
+transparency log entry
+← Previous version
+### Helpful Links
+Homepage
+Changelog
+Source Code
+Documentation
+Mailing List
+Bug Tracker
+Download
+Review changes
+Badge
+Subscribe
+RSS
+Analytics
+Reverse dependencies
+License: MIT
+### Managed By
+Rails
+### Outside Contributors
+tenderlove
+cantoniodasilva
+matthewd
+fxn
+jhawthorn
+guilleiguaran
+byroot
+rafaelfranca
+kamipo
+eileencodes
+Report abuse
+About
+Docs
+Policies
+Status
+Security
+RubyGems Supporters
+Help
+Operated by
+## Ruby Alliance
+See all supporters →
+## RubyGems Supporters
+## Infrastructure Donors
+See all supporters →

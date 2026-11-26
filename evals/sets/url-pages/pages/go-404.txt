@@ -1,0 +1,109 @@
+github.com/glorptastic/hovercheese - Go Packages
+Skip to Main Content
+Why Go
+Case Studies
+Common problems companies solve with Go
+Use Cases
+Stories about how and why companies use Go
+Security
+How Go can help keep you secure by default
+Learn
+Docs
+Effective Go
+Tips for writing clear, performant, and idiomatic Go code
+Go User Manual
+A complete introduction to building software with Go
+Standard library
+Reference documentation for Go's standard library
+Release Notes
+Learn what's new in each Go release
+API
+Reference documentation for the pkg.go.dev API
+Packages
+Community
+Recorded Talks
+Videos from prior events
+Meetups
+Meet other local Go developers
+Conferences
+Learn and network with Go developers from around the world
+Go blog
+The Go project's official blog.
+Go project
+Get help and stay informed from Go
+Get connected
+Why Go
+Why Go
+Case Studies
+Use Cases
+Security
+Learn
+Docs
+Docs
+Effective Go
+Go User Manual
+Standard library
+Release Notes
+API
+Packages
+Community
+Community
+Recorded Talks
+Meetups
+Conferences
+Go blog
+Go project
+Get connected
+Oops! We couldn't find “github.com/glorptastic/hovercheese”.
+Check that you entered the URL correctly,
+try fetching it following the instructions here,
+or request to add “github.com/glorptastic/hovercheese” to pkg.go.dev.
+Request “github.com/glorptastic/hovercheese”
+Why Go
+Use Cases
+Case Studies
+Get Started
+Playground
+Tour
+Stack Overflow
+Help
+Packages
+Standard Library
+Sub-repositories
+About Go Packages
+pkg.go.dev API
+About
+Download
+Blog
+Issue Tracker
+Release Notes
+Brand Guidelines
+Code of Conduct
+Connect
+Twitter
+GitHub
+Slack
+r/golang
+Meetup
+Golang Weekly
+Copyright
+Terms of Service
+Privacy Policy
+Report an Issue
+Theme Toggle
+Shortcuts Modal
+## Jump to
+Close
+## Keyboard shortcuts
+|
+? | : This menu
+|
+/ | : Search site
+|
+f or F | : Jump to
+| y or Y
+| : Canonical URL
+Close
+go.dev uses cookies from Google to deliver and enhance the quality of its services and to
+analyze traffic. Learn more.
+Okay

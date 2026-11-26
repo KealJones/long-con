@@ -1,0 +1,207 @@
+How to read environment variables from Node.js | Node.js Learn
+LearnAboutDownloadBlogDocsBeta Docs Contribute
+Start typing...
+⌘ K
+NavigationHow to read environment variables from Node.js
+Navigation
+How to read environment variables from Node.js
+Getting Started
+Introduction to Node.jsHow much JavaScript do you need to know to use Node.js?Differences between Node.js and the BrowserThe V8 JavaScript EngineAn introduction to the npm package managerNode version managersECMAScript 2015 (ES6) and beyondDebugging Node.jsFetching data with Node.jsWebSocket client with Node.jsNode.js, the difference between development and productionProfiling Node.js ApplicationsNode.js with WebAssemblySecurity Best PracticesIntroduction to Userland Migrations
+Command Line
+Run Node.js scripts from the command lineHow to use the Node.js REPLOutput to the command line using Node.jsAccept input from the command line in Node.jsHow to read environment variables from Node.js
+HTTP
+Anatomy of an HTTP TransactionEnterprise Network Configuration
+Manipulating Files
+Node.js file statsNode.js File PathsReading files with Node.jsWriting files with Node.jsWorking with file descriptors in Node.jsWorking with folders in Node.jsHow to work with Different Filesystems
+Asynchronous Work
+JavaScript Asynchronous Programming and CallbacksAsynchronous flow controlDiscover Promises in Node.jsDiscover JavaScript TimersOverview of Blocking vs Non-BlockingThe Node.js Event LoopThe Node.js Event EmitterUnderstanding process.nextTick()Understanding setImmediate()Don't Block the Event Loop
+Concurrency
+Comparing Node.js concurrency models
+TypeScript
+Introduction to TypeScriptRunning TypeScript NativelyRunning TypeScript code using transpilationRunning TypeScript with a runnerPublishing a TypeScript package
+Modules
+How to use streamsBackpressuring in StreamsPublishing a packageHow to publish a Node-API packageABI StabilityUsing module customization hooks
+Diagnostics
+User JourneyOverviewUnderstanding and Tuning MemoryUsing Heap ProfilerUsing Heap SnapshotTracing garbage collectionOverviewUsing InspectorOverviewUsing Linux PerfFlame Graphs
+Test Runner
+Discovering Node.js's test runnerUsing Node.js's test runnerMocking in testsCollecting code coverage in Node.js
+Node-API
+What is Node-API?OverviewPre-requisitesToolsAnatomy of a Node-API projectYour First ProjectObject WrapMigrating to Node-APIOverviewnode-gypCMake.jsnode-pre-gypOverviewContext AwarenessObject and Function ReferencesAsyncWorkerThread-Safe Functions
+Userland Migrations
+ansi-colors to util.styleTextAxios to WHATWG FetchChalk to util.styleText()Correct TypeScript SpecifiersKleur to util.styleTextMocha to Node.js Test Runner
+Getting Started
+Introduction to Node.js
+How much JavaScript do you need to know to use Node.js?
+Differences between Node.js and the Browser
+The V8 JavaScript Engine
+An introduction to the npm package manager
+Node version managers
+ECMAScript 2015 (ES6) and beyond
+Debugging Node.js
+Fetching data with Node.js
+WebSocket client with Node.js
+Node.js, the difference between development and production
+Profiling Node.js Applications
+Node.js with WebAssembly
+Security Best Practices
+Introduction to Userland Migrations
+Command Line
+Run Node.js scripts from the command line
+How to use the Node.js REPL
+Output to the command line using Node.js
+Accept input from the command line in Node.js
+How to read environment variables from Node.js
+HTTP
+Anatomy of an HTTP Transaction
+Enterprise Network Configuration
+Manipulating Files
+Node.js file stats
+Node.js File Paths
+Reading files with Node.js
+Writing files with Node.js
+Working with file descriptors in Node.js
+Working with folders in Node.js
+How to work with Different Filesystems
+Asynchronous Work
+JavaScript Asynchronous Programming and Callbacks
+Asynchronous flow control
+Discover Promises in Node.js
+Discover JavaScript Timers
+Overview of Blocking vs Non-Blocking
+The Node.js Event Loop
+The Node.js Event Emitter
+Understanding process.nextTick()
+Understanding setImmediate()
+Don't Block the Event Loop
+Concurrency
+Comparing Node.js concurrency models
+TypeScript
+Introduction to TypeScript
+Running TypeScript Natively
+Running TypeScript code using transpilation
+Running TypeScript with a runner
+Publishing a TypeScript package
+Modules
+How to use streams
+Backpressuring in Streams
+Publishing a package
+How to publish a Node-API package
+ABI Stability
+Using module customization hooks
+Diagnostics
+User Journey
+Memory
+Overview
+Understanding and Tuning Memory
+Using Heap Profiler
+Using Heap Snapshot
+Tracing garbage collection
+Live Debugging
+Overview
+Using Inspector
+Poor Performance
+Overview
+Using Linux Perf
+Flame Graphs
+Test Runner
+Discovering Node.js's test runner
+Using Node.js's test runner
+Mocking in tests
+Collecting code coverage in Node.js
+Node-API
+What is Node-API?
+Getting Started
+Overview
+Pre-requisites
+Tools
+Anatomy of a Node-API project
+Your First Project
+Object Wrap
+Migrating to Node-API
+Build Tools
+Overview
+node-gyp
+CMake.js
+node-pre-gyp
+Special Topics
+Overview
+Context Awareness
+Object and Function References
+AsyncWorker
+Thread-Safe Functions
+Userland Migrations
+ansi-colors to util.styleText
+Axios to WHATWG Fetch
+Chalk to util.styleText()
+Correct TypeScript Specifiers
+Kleur to util.styleText
+Mocha to Node.js Test Runner
+On this page
+Loading .env files programmatically with process.loadEnvFile(path)
+Example
+# How to read environment variables from Node.js
+The process core module of Node.js provides the env property which hosts all the environment variables that were set at the moment the process was started.
+The below code runs app.js and set USER_ID and USER_KEY.
+USER_ID=239482 USER_KEY=foobar node app.js
+That will pass the user USER_ID as 239482 and the USER_KEY as foobar. This is suitable for testing, however for production, you will probably be configuring some bash scripts to export variables.
+Note: process does not need to be imported, it is a global object in Node.js.
+Here is an example that accesses the USER_ID and USER_KEY environment variables, which we set in above code.
+console.log(process.env.USER_ID); // "239482"
+console.log(process.env.USER_KEY); // "foobar"
+JavaScript Copy to clipboard
+In the same way you can access any custom environment variable you set.
+Node.js 20 introduced experimental support for .env files.
+Now, you can use the --env-file flag to specify an environment file when running your Node.js application. Here's an example .env file and how to access its variables using process.env.
+# .env file
+PORT=3000
+Shell Copy to clipboard
+In your js file
+console.log(process.env.PORT); // "3000"
+Run app.js file with environment variables set in .env file.
+node --env-file=.env app.js
+This command loads all the environment variables from the .env file, making them available to the application on process.env
+Also, you can pass multiple --env-file arguments. Subsequent files override pre-existing variables defined in previous files.
+node --env-file=.env --env-file=.development.env app.js
+Note: if the same variable is defined in the environment and in the file, the value from the environment takes precedence.
+In case you want to optionally read from a .env file, it's possible to avoid
+throwing an error if the file is missing using the --env-file-if-exists flag.
+node --env-file-if-exists=.env app.js
+## Loading .env files programmatically with process.loadEnvFile(path)
+Node.js provides a built-in API to load .env files directly from your code: process.loadEnvFile(path).
+This method loads variables from a .env file into process.env, similar to how the --env-file flag works — but can be invoked programmatically.
+Because this method is invoked post-initialization, the setting of startup-related environment variables (i.e. NODE_OPTIONS) has no effect on the process (however, these variables can still be accessed via process.env).
+### Example
+TXTCJSESM
+# .env file
+PORT=1234
+txt Copy to clipboard
+const { loadEnvFile } = require('node:process');
+// Loads environment variables from the default .env file
+loadEnvFile();
+console.log(process.env.PORT); // Logs '1234'
+JavaScript Copy to clipboard
+import { loadEnvFile } from 'node:process';
+// Loads environment variables from the default .env file
+loadEnvFile();
+console.log(process.env.PORT); // Logs '1234'
+JavaScript Copy to clipboard
+You can also specify a custom path:
+CJSESM
+const { loadEnvFile } = require('node:process');
+loadEnvFile('./config/.env');
+JavaScript Copy to clipboard
+import { loadEnvFile } from 'node:process';
+loadEnvFile('./config/.env');
+JavaScript Copy to clipboard
+PreviousAccept input from the command line in Node.js NextAnatomy of an HTTP Transaction
+Reading Time
+2 min read
+Authors
++3
+Contribute
+Edit this page
+Table of Contents
+Loading .env files programmatically with process.loadEnvFile(path)
+Example
+Copyright OpenJS Foundation and Node.js contributors. All rights reserved. The OpenJS Foundation has registered trademarks and uses trademarks. For a list of trademarks of the OpenJS Foundation, please see our Trademark Policy and Trademark List. Trademarks and logos not indicated on the list of OpenJS Foundation trademarks are trademarks™ or registered® trademarks of their respective holders. Use of them does not imply any affiliation with or endorsement by them.
+OpenJS FoundationAI Coding Assistants PolicyBylawsCode of ConductCookie PolicyPrivacy PolicySecurity PolicyTerms of UseTrademark ListTrademark Policy
