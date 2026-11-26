@@ -2,7 +2,21 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { canonicalLines, canonicalText } from "../loop/canonical-text.ts";
-import { bm25Windows, loadPages, loadPrompts, pageHtml, pageRendering, pageSplits, score, sharesRareWord, wholePage } from "../loop/url-pages.ts";
+import {
+  asksExact,
+  bm25Windows,
+  goldRanges,
+  loadPages,
+  loadPrompts,
+  pageHtml,
+  pageRendering,
+  pageSplits,
+  score,
+  SECTION_HIT_TOKENS,
+  sharesRareWord,
+  wholePage,
+  type Candidate,
+} from "../loop/url-pages.ts";
 
 test("canonical converter strips tags line by line and keeps text order", () => {
   const html = `<html><head><title>T &amp; U</title><style>p{color:red}</style><script>var x = "<p>no</p>";</script></head>
@@ -29,11 +43,11 @@ test("the split is by page, fixed, covers every page once, and puts content and 
     const ids = pages.filter((p) => splits.get(p.id) === side);
     assert.ok(ids.some((p) => p.failure) && ids.some((p) => !p.failure), side);
   }
-  const held = [...splits.values()].filter((s) => s === "held-out").length;
-  assert.ok(held >= pages.length / 4 && held <= pages.length / 2);
+  const held = pages.filter((p) => splits.get(p.id) === "held-out").map((p) => p.id).sort();
+  assert.deepEqual(held, ["crates-serde", "gem-rack-versions", "go-strings", "node-dev-prod", "node-env-vars", "node-learn-404", "node-path"]);
 });
 
-test("prompts: unique ids, known pages, gold inside the rendering and its section, stored rare-word flags match", () => {
+test("prompts: unique ids, known pages, every gold range inside the rendering and its section, gold text and stored flags match", () => {
   const pages = new Map(loadPages().map((p) => [p.id, p]));
   const prompts = loadPrompts();
   assert.equal(new Set(prompts.map((p) => p.id)).size, prompts.length);
@@ -43,15 +57,26 @@ test("prompts: unique ids, known pages, gold inside the rendering and its sectio
     assert.equal(p.gold === null, p.kind !== "answer", p.id);
     if (page.failure) assert.equal(p.kind, "abstain-failure", p.id);
     const lines = pageRendering(p.page).split("\n").slice(0, -1);
+    assert.equal(p.asksExact, asksExact(p.prompt), p.id);
     if (!p.gold) {
       assert.equal(p.sharesRareWord, false, p.id);
       continue;
     }
-    const [a, b] = p.gold.lines;
-    const [s, e] = p.gold.section;
-    assert.ok(1 <= s && s <= a && a <= b && b <= e && e <= lines.length, p.id);
-    assert.equal(p.sharesRareWord, sharesRareWord(p.prompt, lines, p.gold.lines), p.id);
+    const ranges = goldRanges(p.gold);
+    for (const { lines: [a, b], section: [s, e] } of ranges) assert.ok(1 <= s && s <= a && a <= b && b <= e && e <= lines.length, p.id);
+    assert.equal(lines[p.gold.lines[0] - 1], p.goldText, p.id);
+    assert.equal(p.sharesRareWord, sharesRareWord(p.prompt, lines, ranges.map((g) => g.lines)), p.id);
   }
+});
+
+test("scorer: alternate gold ranges count, and a span over the token cap gets no section hit", () => {
+  const [p] = loadPrompts().filter((x) => x.id === "pypi-requests-1");
+  const alt: Candidate = () => ({ lineStart: 206, lineEnd: 207 });
+  const s = score(alt, [p!]);
+  assert.deepEqual([s.sectionHits, s.covered, s.iouSum], [1, 1, 1]);
+  const huge = score(() => ({ lineStart: 1, lineEnd: 1184 }), [p!]);
+  assert.ok(huge.tokens > SECTION_HIT_TOKENS);
+  assert.deepEqual([huge.sectionHits, huge.covered], [0, 1]);
 });
 
 test("scorer: the whole page covers every gold range and never abstains; BM25 windows abstain on a wordless prompt", () => {

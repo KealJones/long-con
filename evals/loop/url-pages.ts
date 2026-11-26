@@ -25,9 +25,19 @@ export interface Prompt {
   page: string;
   kind: "answer" | "abstain-topic" | "abstain-off" | "abstain-failure";
   prompt: string;
-  gold: { lines: Span; section: Span } | null;
+  /** alt: other places on the page that answer it as well; the scorer takes the best match. */
+  gold: (Gold & { alt?: Gold[] }) | null;
+  /** Text of the first gold line, so a test catches a rendering that moved. */
+  goldText?: string;
+  /** Shares a rare word (at most 3 lines on the page) with any gold range. */
   sharesRareWord: boolean;
+  /** The prompt names an exact number or version string (it has a digit). */
+  asksExact: boolean;
 }
+type Gold = { lines: Span; section: Span };
+
+/** A candidate over this many tokens gets no section hit: a span that big doesn't point at a section. */
+export const SECTION_HIT_TOKENS = 1500;
 
 const SET = fileURLToPath(new URL("../sets/url-pages/", import.meta.url));
 export const loadPages = (): Page[] => JSON.parse(readFileSync(SET + "manifest.json", "utf8")).pages;
@@ -48,24 +58,27 @@ export function pageSplits(pages: Page[]): Map<string, "dev" | "held-out"> {
   return out;
 }
 
-/** A word "rare" on this page (in at most 3 canonical lines) that the prompt shares with its gold lines: an easy lexical hit. */
-export function sharesRareWord(prompt: string, lines: string[], gold: Span): boolean {
+/** A word "rare" on this page (in at most maxLines canonical lines) that the prompt shares with a gold range: an easy lexical hit. */
+export function sharesRareWord(prompt: string, lines: string[], gold: Span[], maxLines = 3): boolean {
   const asked = new Set(contentWords(prompt));
   const lineWords = lines.map((l) => new Set(contentWords(l)));
   const df = (w: string) => lineWords.reduce((n, s) => n + (s.has(w) ? 1 : 0), 0);
-  for (let i = gold[0] - 1; i < gold[1]; i++) for (const w of lineWords[i]!) if (asked.has(w) && df(w) <= 3) return true;
+  for (const [a, b] of gold) for (let i = a - 1; i < b; i++) for (const w of lineWords[i]!) if (asked.has(w) && df(w) <= maxLines) return true;
   return false;
 }
+
+export const asksExact = (prompt: string) => /\d/.test(prompt);
+export const goldRanges = (gold: NonNullable<Prompt["gold"]>): Gold[] => [gold, ...(gold.alt ?? [])];
 
 const overlap = (a: Span, b: Span) => Math.max(0, Math.min(a[1], b[1]) - Math.max(a[0], b[0]) + 1);
 const iou = (a: Span, b: Span) => overlap(a, b) / (Math.max(a[1], b[1]) - Math.min(a[0], b[0]) + 1);
 
 export interface Score {
   answerable: number;
-  /** Candidate's middle line falls in the gold section. */
+  /** Candidate's middle line falls in a gold section, and the candidate is at most SECTION_HIT_TOKENS. */
   sectionHits: number;
   iouSum: number;
-  /** Candidate contains every gold line. */
+  /** Candidate contains every line of some gold range. */
   covered: number;
   answerableEmpty: number;
   hard: number;
@@ -85,10 +98,12 @@ export function score(candidate: Candidate, prompts: Prompt[], verbose = false):
     const lines = pageRendering(p.page).split("\n").slice(0, -1);
     const got = candidate(html.get(p.page)!, p.prompt);
     let span: Span | null = null;
+    let tokens = 0;
     if (got) {
       span = [Math.max(1, got.lineStart), Math.min(lines.length, got.lineEnd)];
+      tokens = estimateTokens(lines.slice(span[0] - 1, span[1]).join("\n"));
       s.returned++;
-      s.tokens += estimateTokens(lines.slice(span[0] - 1, span[1]).join("\n"));
+      s.tokens += tokens;
     }
     if (!p.gold) {
       s.abstain[p.kind as keyof Score["abstain"]].n++;
@@ -98,12 +113,14 @@ export function score(candidate: Candidate, prompts: Prompt[], verbose = false):
       if (!p.sharesRareWord) s.hard++;
       if (!span) s.answerableEmpty++;
       else {
-        const mid = Math.floor((span[0] + span[1]) / 2);
-        const hit = mid >= p.gold.section[0] && mid <= p.gold.section[1];
-        const u = iou(span, p.gold.lines);
+        const at = span;
+        const mid = Math.floor((at[0] + at[1]) / 2);
+        const ranges = goldRanges(p.gold);
+        const hit = tokens <= SECTION_HIT_TOKENS && ranges.some((g) => mid >= g.section[0] && mid <= g.section[1]);
+        const u = Math.max(...ranges.map((g) => iou(at, g.lines)));
         s.sectionHits += +hit;
         s.iouSum += u;
-        s.covered += +(overlap(span, p.gold.lines) === p.gold.lines[1] - p.gold.lines[0] + 1);
+        s.covered += +ranges.some((g) => overlap(at, g.lines) === g.lines[1] - g.lines[0] + 1);
         if (!p.sharesRareWord) (s.hardHits += +hit), (s.hardIouSum += u);
       }
     }
@@ -150,7 +167,14 @@ export function main(argv: string[]): number {
   const splits = pageSplits(loadPages());
   const prompts = loadPrompts().filter((p) => values.split === "all" || splits.get(p.page) === values.split);
   const pages = new Set(prompts.map((p) => p.page));
-  console.log(`url-pages / ${values.split}: ${pages.size} pages, ${prompts.length} prompts (${prompts.filter((p) => p.gold).length} answerable)\n`);
+  const answerable = prompts.filter((p) => p.gold);
+  const hard = (maxLines: number) =>
+    answerable.filter((p) => !sharesRareWord(p.prompt, pageRendering(p.page).split("\n").slice(0, -1), goldRanges(p.gold!).map((g) => g.lines), maxLines)).length;
+  console.log(`url-pages / ${values.split}: ${pages.size} pages, ${prompts.length} prompts (${answerable.length} answerable)`);
+  console.log(
+    `hard answerable (no rare word shared with gold): ${hard(3)} at a 3-line cutoff (the stored flag), ${hard(5)} at 5; ` +
+      `ask an exact number or version: ${answerable.filter((p) => p.asksExact).length} answerable, ${prompts.filter((p) => !p.gold && p.asksExact).length} should-abstain\n`,
+  );
   console.log("| candidate | section hit@1 | line IoU | gold covered | answerable empty | hard: hit / IoU | abstain right | tokens per non-empty | tokens per prompt |");
   console.log("| --- | --- | --- | --- | --- | --- | --- | --- | --- |");
   for (const [name, c] of [["whole canonical page", wholePage], ["BM25 15-line windows, bar 0.5", bm25Windows()]] as const) {
