@@ -220,3 +220,9 @@ A fresh audit found no label leak, no high findings, and 2 medium and 7 low find
 | Outages counted in per-question token and cost averages (new, minor). | Per-question averages leave outages out; the run total keeps them. A test checks it. |
 | No test catches costing segments at confidence 1 again (L3). | A test sweeps 1,200 ceilings over many short matches of mixed strength; putting the old bug back fails it. |
 | Dropping the paired-against-bare table, or making the estimate floor search, failed no test. | Tests for both. |
+
+### Check of the round 5 fixes
+
+A narrower check read only the round 5 commit (`d8eb763`). It found every fix in place, no high or medium problems, and one low one: the estimate took the first "at most N words" in the prompt, so a benchmark chat containing those words could set the stand-in summary's length. It now takes the last, which is the instruction. Left open from that check: the subagent refusal has no test, a custom `--out` path isn't git-ignored, and a 403 might sometimes be a refusal rather than an outage.
+
+The raw reports from every round are in [eval-audit-reviews/](eval-audit-reviews/).

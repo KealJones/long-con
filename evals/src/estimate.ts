@@ -21,7 +21,8 @@ export class EstimatingModel implements ModelClient {
     }
     // A summary of realistic length, so later summarizer calls are sized right.
     // A summary as long as it's asked to be, so later folds are sized and billed as a real run's.
-    const asked = Number(/at most (\d+) words/.exec(JSON.stringify(req.messages))?.[1] ?? 0);
+    // The last match: the instruction follows the chats, which could contain the same words.
+    const asked = Number([...JSON.stringify(req.messages).matchAll(/at most (\d+) words/g)].at(-1)?.[1] ?? 0);
     const text = req.purpose === "summarizer" ? "summary ".repeat(asked) : req.purpose === "judge" ? "yes" : "estimate";
     const output = req.purpose === "summarizer" ? Math.max(OUTPUT.summarizer, Math.round(asked * 1.4)) : OUTPUT[req.purpose];
     return { text, toolCalls: [], content: [{ type: "text", text }], usage: { input, output }, latencyMs: 0 };
