@@ -105,7 +105,7 @@ export async function runArm(arm: ArmName, q: Question, cfg: ArmConfig): Promise
     // Calls made before the failure were still paid for, so they go with the error. A new error each time,
     // since a shared summary's failure reaches two arms.
     const e = err instanceof Error ? err : new Error(String(err));
-    throw Object.assign(new Error(e.message), { name: e.name, calls });
+    throw Object.assign(new Error(e.message), e, { name: e.name, calls });
   }
 }
 
@@ -117,7 +117,8 @@ function summarize(q: Question, cfg: ArmConfig): Promise<{ context: string; call
     return cached.then(
       (made) => ({ ...made, calls: reuse(made.calls) }),
       (err) => {
-        throw Object.assign(new Error(err instanceof Error ? err.message : String(err)), { calls: reuse((err as { calls?: Call[] }).calls ?? []) });
+        const e = err instanceof Error ? err : new Error(String(err));
+        throw Object.assign(new Error(e.message), e, { name: e.name, calls: reuse((err as { calls?: Call[] }).calls ?? []) });
       },
     );
   }
@@ -186,7 +187,7 @@ async function compact(sessions: Session[], cfg: ArmConfig, calls: Call[]): Prom
       messages: [
         {
           role: "user",
-          content: `${summary ? `Summary so far:\n${summary}\n\n` : ""}New chats:\n\n${pending}\n\nWrite the updated summary in at most ${words} words. Keep facts about the user, what they asked for, decisions, preferences, names, numbers and dates. Drop small talk.`,
+          content: `${summary ? `Summary so far:\n${summary}\n\n` : ""}New chats:\n\n${pending}\n\nWrite the updated summary in at most ${words} words. Keep facts about the user, what they asked for, decisions, preferences, names, numbers and dates, and what the assistant recommended, listed or answered. Drop small talk.`,
         },
       ],
       maxTokens: MAX_OUTPUT,

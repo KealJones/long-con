@@ -163,3 +163,34 @@ A fresh audit found no label leak, and 1 high, 2 medium and 9 low findings. A se
 ### Recall after round 3
 
 Unchanged: the packet already sorted by date, so sorting the loader moved no recall number. The cost estimates changed: claude $17.54 ceiling and $6.08 floor; small-local $13.53 and $9.86.
+
+## Round 4
+
+A fresh audit found no label leak, no high findings, and 2 medium and 8 low findings. A separate check of the original 16 found 15 fixed or design notes and M5 partly fixed and disclosed, with only minor notes. Both raw reports are in the audit report's appendix.
+
+### New findings from the round 4 audit
+
+| Id | Sorted as | File | What changed | Why |
+| --- | --- | --- | --- | --- |
+| R4-M1 | Blocking | evals/src/arms.ts | The compaction summary is also asked to keep what the assistant recommended, listed or answered. A test checks the prompt. | The prompt kept only the user's side, which handicapped both compaction arms on the 56 single-session-assistant questions. |
+| R4-M2 | Blocking | evals/src/model.ts, evals/src/arms.ts, evals/src/run.ts, evals/README.md | An API outage that outlasts the retries (429, 5xx, overload, lost connection) is left out of accuracy and the paired tables and counted in its own column; the model's own failures still count as wrong. Errors keep the API's status through the harness's wraps, including the shared summary. Retries go from 6 to 10. A test covers a rate-limited arm, a shared-summary overload, and a bad request that still counts as wrong. | Outages land hardest on `full`, whose calls are the biggest, and were scored as wrong answers. |
+| R4-L1 | Justified | evals/README.md | Documented: held-out grouping matches turns word for word, so reworded evidence about the same event can cross the split (one clear case in 437). | The builder has a few tuned settings and can't memorize answers; the README no longer claims more than the code does. |
+| R4-L2 | Blocking | evals/README.md, evals/src/estimate.ts | The README says the summary's length is asked for, not forced, and that a long summary gives compaction more than `compactAt`. The estimate's stand-in summary is as long as it's asked to be, so small-local's estimated compaction context is now 2,184 tokens, inside its 2,500. | The README said the last fold kept the context within `compactAt`, which holds only if the model obeys. |
+| R4-L3 | Blocking | evals/src/model.ts | The reader gets at most one search per round (`disable_parallel_tool_use`). A test checks the request. | Parallel searches could take a run past the estimate's ceiling and the Searches column. |
+| R4-L4 | Justified | evals/README.md | Documented: the judge isn't checked against the paper's judge or human labels, and its lenient rubric can help an arm that sees more candidates. | Same judge for every arm; validating it needs paid runs. |
+| R4-L5 | Justified | none | Already disclosed in the cost caveats. | Prices and caching need the live API to check. |
+| R4-L6 | Justified | none | Already disclosed; the 4 dev questions it affects are unaffected today. | How to score unlabeled evidence chats is the benchmark's labeling. |
+| R4-L7 | Justified | none | Already disclosed. | Held-out is for headline runs, which are run by hand. |
+| R4-L8 | Blocking | evals/README.md | The Metrics table says it's the target list, and points to what the harness computes today. | It listed metrics the harness doesn't compute. |
+
+### From the round 4 check of the original findings
+
+| Note | What changed |
+| --- | --- |
+| The Metrics table lists cost with caching, which isn't modeled. | Covered by R4-L8. |
+| "Several runs with standard deviation" in the Full-run tier. | Now says intervals that cover run-to-run noise. |
+| No test catches costing at confidence 1 again (L3), the long-prompt price has no test, duplicate session ids in 13 questions (filler only), search results don't mark partial turns, units go slightly past their 400-token cap. | Not changed; noted as open. None changes a score today. |
+
+### Recall and cost after round 4
+
+Recall is unchanged (none of these touch the packet). Cost estimates: claude $17.54 ceiling and $6.08 floor; small-local $12.64 and $9.00, lower because its stand-in summaries now match the length they're asked for.

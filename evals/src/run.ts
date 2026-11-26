@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { runArm, type ArmConfig, type ArmName, type ArmResult } from "./arms.ts";
 import { judge } from "./judge.ts";
 import type { Question } from "./longmemeval.ts";
-import { BilledError, costOf } from "./model.ts";
+import { BilledError, costOf, isOutage } from "./model.ts";
 
 export interface Answer extends ArmResult {
   questionId: string;
@@ -15,6 +15,8 @@ export interface Answer extends ArmResult {
   pass: boolean;
   judgeReply: string;
   error?: string;
+  /** The API failed (rate limit, overload, server error, lost connection): left out of accuracy, counted apart. */
+  outage?: boolean;
 }
 
 export interface RunOptions extends ArmConfig {
@@ -59,14 +61,15 @@ async function answerOne(q: Question, arm: ArmName, repeat: number, opts: RunOpt
     result.calls.push({ purpose: "judge", model: opts.judgeModel, ...verdict.usage, cost: costOf(opts.judgeModel, verdict.usage), latencyMs: verdict.latencyMs });
     return { ...base, ...result, pass: verdict.pass, judgeReply: verdict.reply };
   } catch (err) {
-    // A failed call counts as a wrong answer, and the error is kept so it can be looked at.
+    // A failed call counts as a wrong answer, unless the API itself failed (an outage), which is left out of
+    // accuracy instead, since outages hit the arms with the biggest prompts hardest. The error is kept either way.
     // Calls made before the failure, and a billed call that failed, keep their cost and tokens.
     if (result) {
       if (err instanceof BilledError) result.calls.push({ purpose: "judge", model: opts.judgeModel, ...err.usage, cost: costOf(opts.judgeModel, err.usage), latencyMs: err.latencyMs });
-      return { ...base, ...result, pass: false, judgeReply: "", error: String(err) };
+      return { ...base, ...result, pass: false, judgeReply: "", error: String(err), ...(isOutage(err) ? { outage: true } : {}) };
     }
     const calls = (err as { calls?: Answer["calls"] }).calls ?? [];
-    return { ...base, answer: "", calls, contextTokens: 0, toolCalls: 0, pass: false, judgeReply: "", error: String(err) };
+    return { ...base, answer: "", calls, contextTokens: 0, toolCalls: 0, pass: false, judgeReply: "", error: String(err), ...(isOutage(err) ? { outage: true } : {}) };
   }
 }
 
@@ -91,7 +94,10 @@ export interface ArmSummary {
   totalCost: number;
   readerLatencyMs: number;
   toolCallsPerQuestion: number;
+  /** Failed answers scored as wrong. */
   errors: number;
+  /** Answers lost to an API outage, left out of accuracy and the paired tables. */
+  outages: number;
 }
 
 export function summarize(answers: Answer[], arms: ArmName[]): ArmSummary[] {
@@ -101,7 +107,8 @@ export function summarize(answers: Answer[], arms: ArmName[]): ArmSummary[] {
     const sum = (f: (a: Answer) => number) => mine.reduce((acc, a) => acc + f(a), 0);
     const reader = (a: Answer) => a.calls.filter((c) => c.purpose === "reader");
     const byType: ArmSummary["byType"] = {};
-    for (const a of mine) {
+    const scored = mine.filter((a) => !a.outage);
+    for (const a of scored) {
       const t = (byType[a.type] ??= { n: 0, accuracy: 0 });
       t.n++;
       t.accuracy += a.pass ? 1 : 0;
@@ -114,8 +121,8 @@ export function summarize(answers: Answer[], arms: ArmName[]): ArmSummary[] {
     return {
       arm,
       questions: mine.length,
-      accuracy: sum((a) => (a.pass ? 1 : 0)) / n,
-      ci: bootstrap(perQuestion(mine)),
+      accuracy: scored.filter((a) => a.pass).length / (scored.length || 1),
+      ci: bootstrap(perQuestion(scored)),
       byType,
       readerInputTokens: sum((a) => reader(a).reduce((c, x) => c + x.input, 0)) / n,
       summarizerInputTokens: sum((a) => a.calls.filter((c) => c.purpose === "summarizer").reduce((c, x) => c + x.input, 0)) / n,
@@ -125,7 +132,8 @@ export function summarize(answers: Answer[], arms: ArmName[]): ArmSummary[] {
       totalCost,
       readerLatencyMs: sum((a) => reader(a).reduce((c, x) => c + x.latencyMs, 0)) / n,
       toolCallsPerQuestion: sum((a) => a.toolCalls) / n,
-      errors: mine.filter((a) => a.error).length,
+      errors: mine.filter((a) => a.error && !a.outage).length,
+      outages: mine.length - scored.length,
     };
   });
 }
@@ -133,11 +141,11 @@ export function summarize(answers: Answer[], arms: ArmName[]): ArmSummary[] {
 export function summaryTable(rows: ArmSummary[], withAccuracy = true): string {
   // Reader input (every reader call, tool results included) is the headline token number; the packet or
   // summary alone understates what the reader takes in once it searches.
-  const cols = ["Arm", ...(withAccuracy ? ["Accuracy", "95% interval", "Errors"] : []), "Reader input tokens", "Summarizer input tokens", "Packet or context tokens", "Searches", "Arm cost / question", "Judge cost / question", "Total cost, judge included"];
+  const cols = ["Arm", ...(withAccuracy ? ["Accuracy", "95% interval", "Errors", "Outages, left out"] : []), "Reader input tokens", "Summarizer input tokens", "Packet or context tokens", "Searches", "Arm cost / question", "Judge cost / question", "Total cost, judge included"];
   const lines = rows.map((r) => {
     const cells = [
       r.arm,
-      ...(withAccuracy ? [pct(r.accuracy), `${pct(r.ci[0])} to ${pct(r.ci[1])}`, String(r.errors)] : []),
+      ...(withAccuracy ? [pct(r.accuracy), `${pct(r.ci[0])} to ${pct(r.ci[1])}`, String(r.errors), String(r.outages)] : []),
       Math.round(r.readerInputTokens).toLocaleString("en-US"),
       Math.round(r.summarizerInputTokens).toLocaleString("en-US"),
       Math.round(r.contextTokens).toLocaleString("en-US"),
@@ -167,6 +175,7 @@ export function writeSummary(dir: string, rows: ArmSummary[], header: string, wi
  */
 export function pairedTable(answers: Answer[], arms: ArmName[], against: ArmName = "bare"): string {
   if (!arms.includes(against)) return "";
+  answers = answers.filter((a) => !a.outage);
   const base = perQuestion(answers.filter((a) => a.arm === against));
   const rows = arms
     .filter((arm) => arm !== against)

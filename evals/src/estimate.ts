@@ -20,7 +20,8 @@ export class EstimatingModel implements ModelClient {
       return { text: "", toolCalls: [tool], content: [{ type: "tool_use", ...tool }], usage: { input, output: 100 }, latencyMs: 0 };
     }
     // A summary of realistic length, so later summarizer calls are sized right.
-    const text = req.purpose === "summarizer" ? "summary ".repeat(OUTPUT.summarizer) : "estimate";
+    const asked = Number(/at most (\d+) words/.exec(JSON.stringify(req.messages))?.[1] ?? OUTPUT.summarizer);
+    const text = req.purpose === "summarizer" ? "summary ".repeat(Math.min(asked, OUTPUT.summarizer)) : "estimate";
     return { text, toolCalls: [], content: [{ type: "text", text }], usage: { input, output: OUTPUT[req.purpose] }, latencyMs: 0 };
   }
 }

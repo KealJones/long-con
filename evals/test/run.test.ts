@@ -328,3 +328,52 @@ test("both compaction arms keep their context within the profile's compactAt, ev
   const answers = await runEval([question], { ...tight, arms: ["compaction", "compaction-search"] });
   for (const a of answers) assert.ok(a.contextTokens <= 200 + 60, `${a.arm}: ${a.contextTokens} tokens`);
 });
+
+test("an answer lost to an API outage is left out of accuracy and the paired tables and counted apart, while the model's own failures still count as wrong", async () => {
+  const outage = (purpose: ModelRequest["purpose"], status: number, name: string) =>
+    new (class extends StandIn {
+      async complete(req: ModelRequest): Promise<ModelResponse> {
+        if (req.purpose === purpose) throw Object.assign(new Error(`${status} failed`), { status, name });
+        return super.complete(req);
+      }
+    })();
+  const two: Question = { ...question, id: "q2" };
+  // A rate limit on the reader that outlasted the retries: packet answers both questions, bare loses one.
+  const limited = new (class extends StandIn {
+    async complete(req: ModelRequest): Promise<ModelResponse> {
+      if (req.purpose === "reader" && !allText(req).includes("Denver") && req.toolChoice !== "none") throw Object.assign(new Error("429 rate limited"), { status: 429, name: "RateLimitError" });
+      return super.complete(req);
+    }
+  })();
+  const answers = await runEval([question, two], { ...opts(limited), arms: ["packet", "bare"], concurrency: 1 });
+  const [packet, bare] = summarize(answers, ["packet", "bare"]);
+  assert.equal(packet!.accuracy, 1);
+  assert.equal(bare!.outages, 2, "bare's searches hit the limit");
+  assert.equal(bare!.errors, 0);
+  assert.match(pairedTable(answers, ["packet", "bare"], "bare"), /\| packet \| 0 \|/, "no question is paired against a lost answer");
+
+  // An overloaded summarizer reaches both compaction arms through the shared summary, and both count it as an outage.
+  const shared = await runEval([question], { ...opts(outage("summarizer", 529, "OverloadedError")), arms: ["compaction", "compaction-search"] });
+  assert.deepEqual(shared.map((a) => a.outage), [true, true]);
+
+  // A bad request is the harness's or the model's problem, not the API's: still a wrong answer.
+  const [bad] = summarize(await runEval([question], { ...opts(outage("reader", 400, "BadRequestError")), arms: ["full"] }), ["full"]);
+  assert.equal(bad!.errors, 1);
+  assert.equal(bad!.outages, 0);
+  assert.equal(bad!.accuracy, 0);
+});
+
+test("the compaction summary is asked to keep what the assistant recommended or answered, which some questions ask about", async () => {
+  const model = new StandIn();
+  await runEval([question], { ...opts(model), arms: ["compaction"] });
+  const prompt = allText(model.calls.find((c) => c.purpose === "summarizer")!);
+  assert.match(prompt, /what the assistant recommended, listed or answered/);
+});
+
+test("the API client allows one search per round, so the cost ceiling and the Searches column hold", async () => {
+  const sent: Record<string, unknown>[] = [];
+  const client = { messages: { create: async (body: Record<string, unknown>) => (sent.push(body), { stop_reason: "end_turn", content: [{ type: "text", text: "ok" }], usage: { input_tokens: 1, output_tokens: 1 } }) } };
+  const tools = [{ name: "search_history", description: "d", input_schema: { type: "object" as const, properties: {} } }];
+  await new AnthropicModel(client as never).complete({ model: "claude-haiku-5-5", system: "s", messages: [{ role: "user", content: "q" }], maxTokens: 10, purpose: "reader", tools, toolChoice: "auto" });
+  assert.deepEqual(sent[0]!.tool_choice, { type: "auto", disable_parallel_tool_use: true });
+});

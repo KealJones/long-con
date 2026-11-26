@@ -59,7 +59,7 @@ export function costOf(model: string, usage: { input: number; output: number }):
 export class AnthropicModel implements ModelClient {
   // Retries rate limits and overloads with backoff, so they don't turn into wrong answers.
   private client: Pick<Anthropic, "messages">;
-  constructor(client: Pick<Anthropic, "messages"> = new Anthropic({ maxRetries: 6 })) {
+  constructor(client: Pick<Anthropic, "messages"> = new Anthropic({ maxRetries: 10 })) {
     this.client = client;
   }
 
@@ -71,7 +71,8 @@ export class AnthropicModel implements ModelClient {
       system: req.system,
       messages: req.messages,
       ...(req.tools ? { tools: req.tools } : {}),
-      ...(req.toolChoice ? { tool_choice: { type: req.toolChoice } } : {}),
+      // One search per round, so the estimate's ceiling and the Searches column hold.
+      ...(req.toolChoice ? { tool_choice: req.toolChoice === "auto" ? { type: "auto", disable_parallel_tool_use: true } : { type: req.toolChoice } } : {}),
       ...(req.effort ? { output_config: { effort: req.effort } } : {}),
     });
     const usage = { input: res.usage.input_tokens, output: res.usage.output_tokens };
@@ -85,4 +86,13 @@ export class AnthropicModel implements ModelClient {
       latencyMs: Date.now() - started,
     };
   }
+}
+
+/**
+ * A rate limit, overload, server error or lost connection that outlasted the retries: the API's failure, not the
+ * model's answer, so it's left out of accuracy and reported apart instead of scored as wrong.
+ */
+export function isOutage(err: unknown): boolean {
+  const { status, name } = (err ?? {}) as { status?: number; name?: string };
+  return status === 429 || (status ?? 0) >= 500 || /^APIConnection/.test(name ?? "");
 }
