@@ -18,6 +18,10 @@ export interface Profile {
    * packet retrieves nothing. minConfidence is relative, so without this the best weak match always gets in. 0 turns it off.
    */
   minScore: number;
+  /** Unit gate (gate.ts): units whose probability of holding evidence is under this stay out. 0 turns it off. */
+  unitGate: number;
+  /** Gate weights; the shipped UNIT_WEIGHTS when absent. Evals pass cross-validated folds here. */
+  unitWeights?: readonly number[];
   /** Recent turns of the current session that ride along raw, outside the packet. */
   rawTurns: number;
   /** Hard cap on one retrieved unit. A longer turn is split at paragraph breaks. */
@@ -58,6 +62,8 @@ export const PROFILES = {
     minConfidence: 0.3,
     // Highest bar with no all-evidence loss on the dev slice; 0.18 drops a question (P02 sweep).
     minScore: 0.17,
+    // Highest unit-gate threshold with no all-evidence loss in leave-one-type-out CV; 0.004 loses one question for half the FI (P03 sweep).
+    unitGate: 0.002,
     rawTurns: 6,
     // Small units beat whole exchanges at every budget on the dev slice (evals/results). 400 keeps a short
     // question and answer together; smaller still scored a little higher on a benchmark whose facts sit in user turns.
@@ -82,6 +88,8 @@ export const PROFILES = {
     minConfidence: 0.3,
     // Small models are misled by any context: this trades one dev question for two thirds fewer false inclusions.
     minScore: 0.2,
+    // CV sweep: one question for about half the false inclusions; 0.013 loses three. Keeps minScore, which the gate doesn't replace.
+    unitGate: 0.01,
     rawTurns: 2,
     segmentTokens: 400,
     // Off: on the dev slice every cap that kept its recall gain added wrong pieces on evidence-ablated histories (P06).

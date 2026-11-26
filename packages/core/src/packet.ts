@@ -9,6 +9,7 @@ import { splitIntoSegments, type Segment } from "./segments.ts";
 import { extractNotes, groupNotes, groupWords, renderGroup, type Note } from "./notes.ts";
 import type { Profile } from "./profiles.ts";
 import { isTallyQuestion, tallySearch } from "./tally.ts";
+import { unitProbability } from "./gate.ts";
 import { contentWords, estimateTokens } from "./text.ts";
 
 export interface BuildPacketInput {
@@ -85,7 +86,7 @@ export function buildPacket({ history, message, profile, currentSessionId }: Bui
 
   if (gateOpen) {
     const seen = new Set<string>();
-    const { hits, idf } = search(history, resolution.query, profile.segmentTokens, current?.id, recentStart);
+    const { hits, idf } = searchUnits(history, resolution.query, profile.segmentTokens, current?.id, recentStart);
     // The absolute bar asks whether history holds anything strong enough to answer at all. It judges the best unit
     // only: per unit, it cut the weaker second piece multi-session questions need (P02 dev sweep).
     const found = hits.some((h) => h.score >= profile.minScore);
@@ -113,10 +114,16 @@ export function buildPacket({ history, message, profile, currentSessionId }: Bui
     }
     // Counting questions take one small piece per matching user turn instead of whole segments (see tally.ts).
     const tally = found && profile.tallyPieces > 0 && isTallyQuestion(message);
-    const ranked = !found ? [] : tally ? tallySearch(history, resolution.query, current?.id, recentStart).slice(0, profile.tallyPieces) : hits;
-    for (const { hit, confidence } of ranked) {
+    const ranked: { hit: Hit<Segment>; confidence: number; features?: number[] }[] = !found
+      ? []
+      : tally
+        ? tallySearch(history, resolution.query, current?.id, recentStart).slice(0, profile.tallyPieces)
+        : hits;
+    for (const { hit, confidence, features } of ranked) {
       // The budget is a ceiling, not a target: weak matches stay out even when there's room.
       if (confidence < profile.minConfidence) continue;
+      // shortcut: tally pieces have no two-ranking features, so they skip the unit gate; fit a tally gate if their FI matters.
+      if (features && profile.unitGate > 0 && unitProbability(features, profile.unitWeights) < profile.unitGate) continue;
       // The same exchange saved twice only needs to come in once.
       const text = hit.item.turns.map((t) => t.content).join("\n");
       if (seen.has(text)) continue;
@@ -155,32 +162,56 @@ export function buildPacket({ history, message, profile, currentSessionId }: Bui
 /**
  * Units ranked by fusing two BM25 rankings. Confidence is the unit's best score as a share of the top score
  * in either ranking, so it says how close a unit comes to the best match. Score is its best score as a share of
- * the most any unit could score on the query: absolute, so a weak best match shows as weak.
+ * the most any unit could score on the query: absolute, so a weak best match shows as weak. Features feed the unit gate (gate.ts).
  */
-function search(history: Session[], query: string, segmentTokens: number, currentId: string | undefined, recentStart: number) {
+export function searchUnits(history: Session[], query: string, segmentTokens: number, currentId?: string, recentStart = 0) {
   // Each unit is indexed two ways, all its words and the user's words alone, then the rankings are fused.
   const all = new Bm25<Segment>();
   const user = new Bm25<Segment>();
+  const length = new Map<Segment, number>();
   for (const session of history) {
     for (const seg of splitIntoSegments(session, segmentTokens)) {
       // Turns already riding along raw don't need retrieving.
       if (session.id === currentId && seg.end >= recentStart) continue;
-      all.add(seg, contentWords(seg.turns.map((t) => t.content).join("\n")));
+      const words = contentWords(seg.turns.map((t) => t.content).join("\n"));
+      length.set(seg, words.length);
+      all.add(seg, words);
       user.add(seg, contentWords(seg.turns.filter((t) => t.role === "user").map((t) => t.content).join("\n")));
     }
   }
   const words = contentWords(query);
+  const terms = [...new Set(words)];
   const lists = [all.search(words), user.search(words)];
   const ceilings = [all.ceiling(words), user.ceiling(words)];
   const share = new Map<Segment, number>();
   const absolute = new Map<Segment, number>();
+  const ranks = lists.map((list) => new Map(list.map((h, r) => [h.item, r])));
   lists.forEach((list, i) => {
     for (const h of list) {
       share.set(h.item, Math.max(share.get(h.item) ?? 0, h.score / list[0]!.score));
       absolute.set(h.item, Math.max(absolute.get(h.item) ?? 0, h.score / ceilings[i]!));
     }
   });
-  const hits = fuse(...lists).map((hit) => ({ hit, confidence: share.get(hit.item)!, score: absolute.get(hit.item)! }));
+  const topAbsolute = Math.max(0, ...absolute.values());
+  const top5 = lists.map((l) => new Set(l.slice(0, 5).map((h) => h.item)));
+  const agreement = [...top5[0]!].filter((x) => top5[1]!.has(x)).length / 5;
+  const idfAll = terms.reduce((a, t) => a + all.idf(t), 0) || 1;
+  const hits = fuse(...lists).map((hit) => {
+    const rank = (i: number) => (ranks[i]!.has(hit.item) ? 1 / (1 + ranks[i]!.get(hit.item)!) : 0);
+    const features = [
+      absolute.get(hit.item)!,
+      topAbsolute,
+      share.get(hit.item)!,
+      rank(0),
+      rank(1),
+      agreement,
+      hit.matched.reduce((a, t) => a + all.idf(t), 0) / idfAll,
+      hit.matched.length / (terms.length || 1),
+      Math.log(1 + (length.get(hit.item) ?? 0)),
+      Math.log(1 + terms.length),
+    ];
+    return { hit, confidence: share.get(hit.item)!, score: absolute.get(hit.item)!, features };
+  });
   return { hits, idf: (w: string) => all.idf(w) };
 }
 
