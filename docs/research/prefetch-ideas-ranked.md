@@ -20,7 +20,7 @@ Score = expected gain × confidence ÷ cost, roughly. Measurement and safety ite
 
 | # | ID | Idea | Profile it helps most | Cost | Status |
 | --- | --- | --- | --- | --- | --- |
-| 1 | P01 | Should-be-empty set and empty-rate metric | Both (measurement) | Low | open |
+| 1 | P01 | Should-be-empty set and empty-rate metric | Both (measurement) | Low | kept |
 | 2 | P02 | Absolute relevance gate (normalized BM25, coverage, anchor) | small-local | Low | open |
 | 3 | P03 | Logistic gate on ~9 features, τ per profile | small-local | Low | open |
 | 4 | P04 | Cross-encoder rerank of top 40-60 | small-local | Medium | open |
@@ -31,8 +31,8 @@ Score = expected gain × confidence ÷ cost, roughly. Measurement and safety ite
 | 9 | P09 | Preference spans with category keys | small-local | Low | open |
 | 10 | P10 | Message-level dense channel with its own floor | Both | Medium | open |
 | 11 | P11 | Static embedder for small-local | small-local | Low | open |
-| 12 | P12 | URL to file with a line range | Both | Medium | open |
-| 13 | P13 | Identifier-exact `path:line` from a symbol index | Both | Medium | open |
+| 12 | P12 | URL to file with a line range | Both | Medium | dropped (retry with real pages) |
+| 13 | P13 | Identifier-exact `path:line` from a symbol index | Both | Medium | kept (not wired) |
 | 14 | P14 | Work-saved paired eval | Both (measurement) | Medium | open |
 | 15 | P15 | Pointer tier for medium confidence | small-local | Low | open |
 | 16 | P16 | Fact keys and predicted questions at write time | small-local | Medium | open |
