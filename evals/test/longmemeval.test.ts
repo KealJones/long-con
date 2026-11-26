@@ -129,3 +129,15 @@ test("an evidence chat sharing half its turns with a dev evidence chat is held o
   const { heldOut } = heldOutSplit([dev, other, q("c4a1ceb8", "I adopted a beagle named Pepper")], [dev]);
   assert.deepEqual(heldOut.map((h) => h.id), ["c4a1ceb8"]);
 });
+
+test("chats come in date order, as a real chat log does, whatever order the file has, and the evidence follows them", () => {
+  const shuffled = { ...raw[0]!, haystack_dates: [...raw[0]!.haystack_dates].reverse(), haystack_session_ids: [...raw[0]!.haystack_session_ids].reverse(), haystack_sessions: [...raw[0]!.haystack_sessions].reverse() };
+  const path = join(mkdtempSync(join(tmpdir(), "lme-")), "data.json");
+  writeFileSync(path, JSON.stringify([shuffled]));
+  const [q] = loadLongMemEval(path);
+  assert.deepEqual(q!.sessions.map((s) => s.date), ["2023/05/01 (Mon) 10:00", "2023/05/02 (Tue) 10:00"]);
+  assert.deepEqual(q!.sessions.map((s) => s.id), ["chat-1", "chat-2"]);
+  const evidence = q!.sessions.find((s) => s.id === q!.evidence.sessions[0])!;
+  assert.match(evidence.turns[0]!.content, /Denver/);
+  assert.deepEqual(q!.evidence.turns, [`${evidence.id}#0`]);
+});

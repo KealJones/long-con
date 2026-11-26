@@ -130,3 +130,36 @@ A fresh audit found no leaks and no split contamination, and 4 medium and 10 low
 ### Recall after round 2
 
 Unchanged: claude 78.7% (66.0% to 89.4%) against plain BM25 76.6%, a +2.1-point paired difference (+0.0 to +6.4). Small-local 68.1% (55.3% to 80.9%) against 57.4%, +10.6 (+2.1 to +21.3).
+
+## Round 3
+
+A fresh audit found no label leak, and 1 high, 2 medium and 9 low findings. A separate check of the original 16 found 13 fixed and 3 design notes, plus one small new problem (R3-L1 below). Both raw reports are in the audit report's appendix.
+
+### New findings from the round 3 audit
+
+| Id | Sorted as | File | What changed | Why |
+| --- | --- | --- | --- | --- |
+| R3-H1 | Blocking | evals/src/longmemeval.ts | The loader sorts each question's chats by date (ties keep file order) before numbering them, so every arm gets the same, time-ordered history. A test feeds chats out of order and checks the order and the evidence mapping. | The benchmark's file order isn't time order for 211 of 500 questions. The packet sorted by date and the other arms didn't, which helped the packet on "which came first" questions, and a real chat log is always in time order. |
+| R3-M1 | Blocking | evals/src/cli.ts | `--max-cost` must be a finite number of dollars, or nothing runs. | A typo like `$2` became NaN and switched both cost checks off. |
+| R3-M2 | Blocking | evals/src/arms.ts, evals/README.md | The summary is asked to stay within about half of `compactAt`, and a last fold keeps the whole context within it. A test checks both compaction arms stay inside a tight `compactAt`. The README says small-local's compaction and `full` numbers describe a bigger-window reader. | A chat bigger than `compactAt` passed through unfolded, and the summary had no length target. |
+| R3-L1 | Blocking | evals/src/arms.ts, evals/src/run.ts | The second compaction arm's copy of the shared summary is marked reused: it stays in that arm's own cost but not again in the run's total or the in-run cap. A test checks it. | Run totals counted the shared summary twice (also found by the round 3 check). |
+| R3-L2 | Justified | evals/README.md | Documented: standing rules aren't capped, so a history full of them could push a packet over its ceiling. | No LongMemEval question comes close; the largest header is under 400 tokens. How many rules to show is packet design. |
+| R3-L3 | Blocking | evals/src/cli.ts | The "all-evidence points per 1K tokens" column is gone. | It rewarded small packets for diminishing returns; the sweep table compares at matched sizes instead. |
+| R3-L4 | Blocking | evals/README.md | The README says the claude gain over plain BM25 is one question of 47 and isn't a shown gain. | It said the gain was visible. |
+| R3-L5 | Blocking | evals/README.md | The README says the dev and held-out filler overlap runs both ways. | It named only one direction. |
+| R3-L6 | Blocking | evals/src/run.ts, evals/test/run.test.ts | An empty answer is an error, skipped by the judge, with its cost kept. The stand-in model honors `tool_choice: none`. A test checks it. | An empty answer, for example if `tool_choice: none` weren't honored, was a quiet wrong answer. |
+| R3-L7 | Blocking | evals/README.md | The README calls the smoke runs a pipeline check from an older version, not results. Stale pending prompts are cleared each pass (R1-M2) and the committed ones are gone (R2-L9). | They were listed under Results. |
+| R3-L8 | Justified | evals/README.md | Documented: no correction for several comparisons; dev gaps under about 10 points are noise. | Small dev runs are for iteration; headline claims need held-out and repeats. |
+| R3-L9 | Justified | evals/README.md | Documented: the judge's temperature and its one-line system prompt. | Same judge for every arm; changing it needs a paid run to check. |
+
+### From the round 3 check of the original findings
+
+| Id | Gap the check found | What changed |
+| --- | --- | --- |
+| H2 | The shared summary counted twice in run totals. | Fixed (R3-L1). |
+| L3 | No test catches costing segments at confidence 1 again. | Not added: 0 of 500 real packets go over either ceiling. Noted as open. |
+| L4 | No test on the stratified `--limit`. | Not added; checked by hand. Noted as open. |
+
+### Recall after round 3
+
+Unchanged: the packet already sorted by date, so sorting the loader moved no recall number. The cost estimates changed: claude $17.54 ceiling and $6.08 floor; small-local $13.53 and $9.86.

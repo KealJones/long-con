@@ -191,6 +191,10 @@ export async function main(argv: string[]): Promise<number> {
     return 1;
   }
   const maxCost = Number(values["max-cost"]);
+  if (!Number.isFinite(maxCost) || maxCost < 0) {
+    console.error(`--max-cost must be a number of dollars, like 2. Got "${values["max-cost"]}". Nothing was run.`);
+    return 1;
+  }
   if (estimatedTotal > maxCost) {
     console.error(`Estimated $${estimatedTotal.toFixed(2)} is over --max-cost $${maxCost}. Nothing was run.`);
     return 1;
@@ -293,14 +297,14 @@ function recallReport(dev: Question[], profiles: Profile[]): { report: string; c
     const complete = mean(runs.map((r) => (r.complete ? 1 : 0)));
     const tokens = mean(runs.map((r) => r.tokens));
     main.push(
-      `| ${profile.name} | ${fmt(profile.packetTokens)} | ${pct(mean(runs.map((r) => r.sessionRecall)))} | ${pct(mean(runs.map((r) => r.turnRecall)))} | ${pct(complete)} | ${interval(completes(runs))} | ${fmt(tokens)} | ${fmt(Math.max(...runs.map((r) => r.tokens)))} | ${((complete * 100) / (tokens / 1000)).toFixed(1)} |`,
+      `| ${profile.name} | ${fmt(profile.packetTokens)} | ${pct(mean(runs.map((r) => r.sessionRecall)))} | ${pct(mean(runs.map((r) => r.turnRecall)))} | ${pct(complete)} | ${interval(completes(runs))} | ${fmt(tokens)} | ${fmt(Math.max(...runs.map((r) => r.tokens)))} |`,
     );
 
     const base = bm25Runs(answerable, profile);
     const baseComplete = mean(base.map((r) => (r.complete ? 1 : 0)));
     const baseTokens = mean(base.map((r) => r.tokens));
     main.push(
-      `| ${profile.name}: plain BM25 top-k | ${fmt(profile.packetTokens)} | ${pct(mean(base.map((r) => r.sessionRecall)))} | ${pct(mean(base.map((r) => r.turnRecall)))} | ${pct(baseComplete)} | ${interval(completes(base))} | ${fmt(baseTokens)} | ${fmt(Math.max(...base.map((r) => r.tokens)))} | ${((baseComplete * 100) / (baseTokens / 1000)).toFixed(1)} |`,
+      `| ${profile.name}: plain BM25 top-k | ${fmt(profile.packetTokens)} | ${pct(mean(base.map((r) => r.sessionRecall)))} | ${pct(mean(base.map((r) => r.turnRecall)))} | ${pct(baseComplete)} | ${interval(completes(base))} | ${fmt(baseTokens)} | ${fmt(Math.max(...base.map((r) => r.tokens)))} |`,
     );
 
     const ours = completes(runs);
@@ -375,8 +379,8 @@ function recallReport(dev: Question[], profiles: Profile[]): { report: string; c
     "",
     "## Each profile at its own settings",
     "",
-    "| Profile | Budget ceiling | Evidence chats found | Evidence turns found | All evidence in packet | 95% interval | Mean packet tokens | Largest packet | All-evidence points per 1K packet tokens |",
-    "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+    "| Profile | Budget ceiling | Evidence chats found | Evidence turns found | All evidence in packet | 95% interval | Mean packet tokens | Largest packet |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- |",
     ...main,
     "",
     "Packet against plain BM25 top-k on the same questions:",

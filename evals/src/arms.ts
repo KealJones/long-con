@@ -22,7 +22,8 @@ export interface ArmConfig {
   seed?: number;
   /**
    * Compaction summaries by question and repeat, so `compaction` and `compaction-search` read the same summary
-   * and differ only in the tool. Each arm still reports the summary's cost as its own.
+   * and differ only in the tool. Each arm still reports the summary's cost as its own; the second arm's copy is
+   * marked reused, so run totals count it once.
    */
   summaries?: Map<string, Promise<{ context: string; calls: Call[] }>>;
 }
@@ -33,6 +34,8 @@ export interface Call {
   input: number;
   output: number;
   cost: number;
+  /** A shared compaction summary another arm already paid for: in this arm's own cost, not again in the run's total. */
+  reused?: boolean;
   latencyMs: number;
 }
 
@@ -109,7 +112,15 @@ export async function runArm(arm: ArmName, q: Question, cfg: ArmConfig): Promise
 function summarize(q: Question, cfg: ArmConfig): Promise<{ context: string; calls: Call[] }> {
   const key = `${q.id}#${cfg.seed ?? 0}`;
   const cached = cfg.summaries?.get(key);
-  if (cached) return cached;
+  if (cached) {
+    const reuse = (calls: Call[]) => calls.map((c) => ({ ...c, reused: true }));
+    return cached.then(
+      (made) => ({ ...made, calls: reuse(made.calls) }),
+      (err) => {
+        throw Object.assign(new Error(err instanceof Error ? err.message : String(err)), { calls: reuse((err as { calls?: Call[] }).calls ?? []) });
+      },
+    );
+  }
   const own: Call[] = [];
   const made = compact(q.sessions, cfg, own).then(
     (context) => ({ context, calls: own }),
@@ -162,27 +173,34 @@ async function call(cfg: ArmConfig, calls: Call[], req: ModelRequest) {
 
 /** The classic approach: keep the transcript, and fold it into a summary whenever it gets too long. */
 async function compact(sessions: Session[], cfg: ArmConfig, calls: Call[]): Promise<string> {
+  const { compactAt } = cfg.profile;
+  // About half the budget in words, so the summary leaves room for recent chats. Asked for, not forced: the
+  // summary column in the run's summary shows what each arm really got.
+  const words = Math.round(compactAt * 0.375);
   let summary = "";
   let pending = "";
+  const fold = async () => {
+    const res = await call(cfg, calls, {
+      model: cfg.reader,
+      system: "You keep a running summary of a long chat between a user and an assistant, so the assistant can keep helping later without the full transcript.",
+      messages: [
+        {
+          role: "user",
+          content: `${summary ? `Summary so far:\n${summary}\n\n` : ""}New chats:\n\n${pending}\n\nWrite the updated summary in at most ${words} words. Keep facts about the user, what they asked for, decisions, preferences, names, numbers and dates. Drop small talk.`,
+        },
+      ],
+      maxTokens: MAX_OUTPUT,
+      purpose: "summarizer",
+    });
+    summary = res.text;
+    pending = "";
+  };
   for (const chat of renderEach(sessions)) {
-    if (pending && estimateTokens(summary + pending + chat) > cfg.profile.compactAt) {
-      const res = await call(cfg, calls, {
-        model: cfg.reader,
-        system: "You keep a running summary of a long chat between a user and an assistant, so the assistant can keep helping later without the full transcript.",
-        messages: [
-          {
-            role: "user",
-            content: `${summary ? `Summary so far:\n${summary}\n\n` : ""}New chats:\n\n${pending}\n\nWrite the updated summary. Keep facts about the user, what they asked for, decisions, preferences, names, numbers and dates. Drop small talk.`,
-          },
-        ],
-        maxTokens: MAX_OUTPUT,
-        purpose: "summarizer",
-      });
-      summary = res.text;
-      pending = "";
-    }
+    if (pending && estimateTokens(summary + pending + chat) > compactAt) await fold();
     pending += chat + "\n\n";
   }
+  // A last chat bigger than the budget on its own still gets folded, so the context stays within compactAt.
+  if (estimateTokens(summary + pending) > compactAt) await fold();
   return `${summary ? `Summary of earlier chats:\n${summary}\n\n` : ""}Recent chats:\n\n${pending.trim()}`;
 }
 

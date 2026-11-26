@@ -59,7 +59,8 @@ class StandIn implements ModelClient {
     if (req.purpose === "summarizer") return reply(allText(req).match(/[^"\\]*moving[^"\\]*/)?.[0] ?? "Gardening chats.");
     if (this.failReader) throw new Error("overloaded");
     if (allText(req).includes("Denver")) return reply("Your sister is moving to Denver.");
-    if (req.tools) {
+    // Like the real API, tool_choice none means no tool call.
+    if (req.tools && req.toolChoice !== "none") {
       const tool = { id: "t1", name: "search_history", input: { query: "sister moving" } };
       return { text: "", toolCalls: [tool], content: [{ type: "tool_use", ...tool }], usage: { input, output: 10 }, latencyMs: 1 };
     }
@@ -223,6 +224,10 @@ test("both compaction arms read one shared summary, so they differ only in the s
   // The searching arm is also told, as the packet and bare arms are, that the tool reaches the cut history.
   assert.match(firstContext(true), /may leave details out\. The search_history tool can reach all of it\./);
   assert.equal(firstContext(false), firstContext(true).replace(" The search_history tool can reach all of it.", ""));
+  const rows = summarize(answers, ["compaction", "compaction-search"]);
+  const summaryCost = answers[0]!.calls.filter((c) => c.purpose === "summarizer").reduce((t, c) => t + c.cost, 0);
+  assert.ok(summaryCost > 0);
+  assert.ok(Math.abs(rows[0]!.totalCost + rows[1]!.totalCost - (rows[0]!.costPerQuestion + rows[1]!.costPerQuestion + rows[0]!.judgeCostPerQuestion + rows[1]!.judgeCostPerQuestion - summaryCost)) < 1e-12, "each arm's own cost includes the summary, and the run total counts it once");
 });
 
 test("every arm that can search is told the tool reaches history it doesn't have in front of it", async () => {
@@ -300,4 +305,26 @@ test("the API client sends tool_choice none on the last round, so the model can'
   await model.complete({ model: "claude-haiku-5-5", system: "s", messages: [{ role: "user", content: "q" }], maxTokens: 10, purpose: "reader", tools, toolChoice: "none" });
   assert.deepEqual(sent[0]!.tool_choice, { type: "none" });
   assert.ok(Array.isArray(sent[0]!.tools), "the tool stays defined");
+});
+
+test("an empty answer, such as a tool call where only text was allowed, counts as an error, not a quiet wrong answer", async () => {
+  const ignoresToolChoice = new (class extends StandIn {
+    async complete(req: ModelRequest): Promise<ModelResponse> {
+      if (req.purpose !== "reader") return super.complete(req);
+      this.calls.push(req);
+      const tool = { id: "t", name: "search_history", input: { query: "nothing useful" } };
+      return { text: "", toolCalls: [tool], content: [{ type: "tool_use", ...tool }], usage: { input: 100, output: 10 }, latencyMs: 1 };
+    }
+  })();
+  const [answer] = await runEval([question], { ...opts(ignoresToolChoice), arms: ["bare"] });
+  assert.match(answer!.error ?? "", /Empty answer/);
+  assert.equal(answer!.pass, false);
+  assert.ok(answer!.calls.length > 0, "and what it cost is kept");
+});
+
+test("both compaction arms keep their context within the profile's compactAt, even when one chat is bigger than that", async () => {
+  const model = new StandIn();
+  const tight = { ...opts(model), profile: { ...opts(model).profile, compactAt: 200 } };
+  const answers = await runEval([question], { ...tight, arms: ["compaction", "compaction-search"] });
+  for (const a of answers) assert.ok(a.contextTokens <= 200 + 60, `${a.arm}: ${a.contextTokens} tokens`);
 });

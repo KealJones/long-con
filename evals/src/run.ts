@@ -40,7 +40,7 @@ export async function runEval(questions: Question[], opts: RunOptions): Promise<
     while (next < jobs.length && !(opts.maxCost !== undefined && spent >= opts.maxCost)) {
       const { q, arm, repeat } = jobs[next++]!;
       const answer = await answerOne(q, arm, repeat, shared);
-      spent += answer.calls.reduce((c, x) => c + x.cost, 0);
+      spent += answer.calls.reduce((c, x) => c + (x.reused ? 0 : x.cost), 0);
       answers.push(answer);
       if (opts.outDir) appendFileSync(join(opts.outDir, "answers.jsonl"), JSON.stringify(answer) + "\n");
     }
@@ -54,6 +54,7 @@ async function answerOne(q: Question, arm: ArmName, repeat: number, opts: RunOpt
   let result: ArmResult | undefined;
   try {
     result = await runArm(arm, q, { ...opts, seed: repeat });
+    if (!result.answer.trim()) return { ...base, ...result, pass: false, judgeReply: "", error: "Empty answer: the reader returned no text." };
     const verdict = await judge(opts.model, opts.judgeModel, q, result.answer);
     result.calls.push({ purpose: "judge", model: opts.judgeModel, ...verdict.usage, cost: costOf(opts.judgeModel, verdict.usage), latencyMs: verdict.latencyMs });
     return { ...base, ...result, pass: verdict.pass, judgeReply: verdict.reply };
@@ -86,7 +87,7 @@ export interface ArmSummary {
   costPerQuestion: number;
   /** The judge's cost per question, the same job for every arm, so it's kept out of the arm's own cost. */
   judgeCostPerQuestion: number;
-  /** Everything, judge included: what the run costs. */
+  /** What this arm adds to the run's bill, judge included. A summary another arm already paid for isn't counted again. */
   totalCost: number;
   readerLatencyMs: number;
   toolCallsPerQuestion: number;
@@ -106,7 +107,8 @@ export function summarize(answers: Answer[], arms: ArmName[]): ArmSummary[] {
       t.accuracy += a.pass ? 1 : 0;
     }
     for (const t of Object.values(byType)) t.accuracy /= t.n;
-    const totalCost = sum((a) => a.calls.reduce((c, x) => c + x.cost, 0));
+    const ownCost = sum((a) => a.calls.reduce((c, x) => c + x.cost, 0));
+    const totalCost = sum((a) => a.calls.reduce((c, x) => c + (x.reused ? 0 : x.cost), 0));
     const judgeCost = sum((a) => a.calls.filter((c) => c.purpose === "judge").reduce((c, x) => c + x.cost, 0));
     const ok = mine.filter((a) => !a.error);
     return {
@@ -118,7 +120,7 @@ export function summarize(answers: Answer[], arms: ArmName[]): ArmSummary[] {
       readerInputTokens: sum((a) => reader(a).reduce((c, x) => c + x.input, 0)) / n,
       summarizerInputTokens: sum((a) => a.calls.filter((c) => c.purpose === "summarizer").reduce((c, x) => c + x.input, 0)) / n,
       contextTokens: ok.reduce((acc, a) => acc + a.contextTokens, 0) / (ok.length || 1),
-      costPerQuestion: (totalCost - judgeCost) / n,
+      costPerQuestion: (ownCost - judgeCost) / n,
       judgeCostPerQuestion: judgeCost / n,
       totalCost,
       readerLatencyMs: sum((a) => reader(a).reduce((c, x) => c + x.latencyMs, 0)) / n,

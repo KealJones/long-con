@@ -45,8 +45,12 @@ export function loadLongMemEval(path: string): Question[] {
   return raw.map((q) => {
     const turns: string[] = [];
     const opaque = new Map<string, string>();
-    const sessions = q.haystack_sessions.map((chat, i): Session => {
-      const id = `chat-${i + 1}`;
+    // The benchmark's file order isn't time order for 211 of 500 questions. A real chat log is, and every arm
+    // must see the same order, so chats are sorted by date (ties keep file order) before they're numbered.
+    const order = q.haystack_sessions.map((_, i) => i).sort((a, b) => (q.haystack_dates[a]! < q.haystack_dates[b]! ? -1 : q.haystack_dates[a]! > q.haystack_dates[b]! ? 1 : a - b));
+    const sessions = order.map((i, n): Session => {
+      const chat = q.haystack_sessions[i]!;
+      const id = `chat-${n + 1}`;
       opaque.set(q.haystack_session_ids[i]!, id);
       chat.forEach((t, j) => t.has_answer && turns.push(turnKey(id, j)));
       return { id, date: q.haystack_dates[i], turns: chat.map(({ role, content }) => ({ role, content })) };
