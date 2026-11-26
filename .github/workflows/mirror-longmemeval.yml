@@ -1,0 +1,22 @@
+# Copies LongMemEval_S (MIT) to a release on this repo, so cloud sessions that can't reach
+# huggingface.co can still fetch it. Free: no API calls. Runs only when someone presses Run workflow.
+name: Mirror LongMemEval_S
+
+on: workflow_dispatch
+
+permissions:
+  contents: write
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: evals/scripts/fetch-longmemeval.sh
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=data-longmemeval-s
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "LongMemEval_S (cleaned) mirror" \
+            --notes "Copy of longmemeval_s_cleaned.json from huggingface.co/datasets/xiaowu0162/longmemeval-cleaned, MIT license, checked by sha256 in evals/scripts/fetch-longmemeval.sh."
+          gh release upload "$tag" evals/data/longmemeval/longmemeval_s_cleaned.json --clobber
