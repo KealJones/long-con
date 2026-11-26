@@ -77,3 +77,18 @@ test("small-local's stricter bar leaves a two-word count empty when one word nev
   const packet = buildPacket({ history: [...filler, ...history], message: "how many concerts have I been to this year?", profile: PROFILES.smallLocal });
   assert.ok(!packet.text.includes("Emily and Sarah's concert"));
 });
+
+test("counting words in the question don't pull in turns that only share them", () => {
+  const history = [
+    ...filler,
+    chatAbout("a", "1/10 (Sat)", "Can you check my math? The total number of apples is 12 and we split them evenly."),
+    chatAbout("b", "2/14 (Sat)", "Just got back from Emily and Sarah's concert at the beach."),
+  ];
+  const pieces = tallySearch(history, "what is the total number of concerts I went to", undefined, 0);
+  assert.equal(pieces[0]?.hit.item.sessionId, "b");
+  assert.ok(!pieces.some((p) => p.hit.item.sessionId === "a"), "the word problem shares only the counting words");
+  for (const profile of [PROFILES.claude, PROFILES.smallLocal]) {
+    const packet = buildPacket({ history, message: "what is the total number of concerts I went to", profile });
+    assert.ok(!packet.text.includes("apples"), `${profile.name} keeps the word problem out of the packet`);
+  }
+});

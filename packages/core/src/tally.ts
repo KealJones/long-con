@@ -23,6 +23,12 @@ const WHOLE_TURN_TOKENS = 150;
 // One sentence matches on fewer words than a segment, so a weak piece needs a higher share of the top to come in.
 const MIN_SHARE = 0.4;
 
+// Words of the counting-question grammar itself (TALLY above, plus "number of" and "count"), not the thing counted. They
+// match unrelated turns (word problems, "the total came to"), so piece ranking leaves them out; the bar and segment search
+// keep them. Dev sweep: dropping held recall with fewer wrong pieces on both profiles; weight 0.3 did less; down-weighting
+// words common in the history's user turns lost claude questions, since those were topic words ("music", "project").
+const COUNTING = "total altogether combined list every different number count";
+
 const sentences = (text: string) => text.split(/(?<=[.!?])\s+|\n+/).filter((s) => s.trim());
 
 /** Features of a tally piece, from the history and the message alone. The shipped gate uses segGate; evals fit the rest. */
@@ -64,7 +70,11 @@ export function tallySearch(
       all.forEach((s, at) => index.add({ session, turn: i, at, all }, contentWords(s, stemmer)));
     });
   }
-  const words = contentWords(query, stemmer);
+  const counting = new Set(contentWords(COUNTING, stemmer));
+  const asked = contentWords(query, stemmer);
+  const topic = asked.filter((w) => !counting.has(w));
+  // A question that is all counting words ("count them all") keeps them, or nothing would match.
+  const words = topic.length ? topic : asked;
   const terms = [...new Set(words)];
   const hits = index.search(words);
   const top = hits[0]?.score ?? 1;
