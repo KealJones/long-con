@@ -26,14 +26,17 @@ export const WORKING_SET = "Files named in this chat (marked *) and the folders 
  */
 export function workingSet(texts: string[], workspace: string[], maxTokens: number): WorkingSet {
   const ws = indexWorkspace(workspace);
-  const items: string[] = [];
+  const hits: Resolved[] = [];
   for (const text of texts) {
     // shortcut: a scan of every file per path-like token; index basenames if workspaces grow past a few thousand files.
     for (const token of text.split(/[^\w./@+~-]+/)) {
       const hit = resolvePath(token, ws);
-      if (hit && !items.includes(hit)) items.push(hit);
+      if (hit) hits.push(hit);
     }
   }
+  // A bare name or a partial path ("style.css", "src/text.ts") is just as likely another project's file, so they
+  // count only when the chat also writes out a whole path in this workspace, which shows the chat is about it.
+  const items = hits.some((h) => h.whole) ? [...new Set(hits.map((h) => h.path))] : [];
   const lines = renderTree(items.slice(0, MAX_ITEMS), ws, maxTokens - estimateTokens(`${WORKING_SET}\n`));
   if (!lines.length) return { items, text: "", tokens: 0 };
   const text = [WORKING_SET, ...lines].join("\n");
@@ -62,27 +65,33 @@ function indexWorkspace(paths: string[]): Workspace {
   return { files, dirs };
 }
 
+interface Resolved {
+  path: string;
+  /** Written out as the whole workspace path with a folder in it (diff, ./ and absolute forms too), not a bare name or a tail. */
+  whole: boolean;
+}
+
 /**
  * One token of chat text to a workspace path, or nothing. Exact paths, a/ and b/ diff prefixes, ./ and absolute
- * paths ending in a workspace path all resolve; a partial path or bare file name resolves only when exactly one
- * workspace file ends with it, so "index.ts" or "package.json" in a repo with several gets nothing, root one
- * included. A folder needs a slash in it and must match exactly.
+ * paths ending in a workspace path with a folder in it are whole. A partial path or bare file name resolves only
+ * when exactly one workspace file ends with it, so "index.ts" or "package.json" in a repo with several gets
+ * nothing, root one included. A folder needs a slash and must match exactly; a top-level one ("docs/") isn't whole.
  */
-function resolvePath(raw: string, ws: Workspace): string | undefined {
+function resolvePath(raw: string, ws: Workspace): Resolved | undefined {
   const rooted = /^(?:\.\/|[ab]\/)/.test(raw);
   const token = raw.replace(/\.+$/, "").replace(/^(?:\.\/|[ab]\/)/, "");
   if (token.length < 3 || !/[./]/.test(token)) return;
   const folder = token.replace(/\/+$/, "");
-  if ((folder.includes("/") || token.endsWith("/")) && folder && ws.dirs.has(folder)) return `${folder}/`;
+  if ((folder.includes("/") || token.endsWith("/")) && folder && ws.dirs.has(folder)) return { path: `${folder}/`, whole: folder.includes("/") };
   if (!/\.[A-Za-z0-9]+$/.test(token)) return;
   const ends = [...ws.files].filter((p) => p.endsWith(`/${token}`));
-  if (ws.files.has(token) && (rooted || token.includes("/") || !ends.length)) return token;
+  if (ws.files.has(token) && (rooted || token.includes("/") || !ends.length)) return { path: token, whole: rooted || token.includes("/") };
   if (ws.files.has(token)) return;
-  if (ends.length === 1) return ends[0];
+  if (ends.length === 1) return { path: ends[0]!, whole: false };
   if (ends.length > 1) return;
   // An absolute or prefixed path: the longest workspace path it ends with, if that path has a folder in it.
   const under = [...ws.files].filter((p) => p.includes("/") && token.endsWith(`/${p}`)).sort((a, b) => b.length - a.length);
-  return under[0];
+  return under[0] ? { path: under[0], whole: true } : undefined;
 }
 
 /**

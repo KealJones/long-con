@@ -6,9 +6,10 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
+import { fnv1a } from "./split.ts";
 import { buildPacket, estimateTokens, PROFILES, WORKING_SET, type Profile, type Session } from "@long-con/core";
 
-type Kind = "named" | "sibling" | "deep" | "empty-nocode" | "empty-falsepath";
+type Kind = "named" | "sibling" | "deep" | "empty-nocode" | "empty-falsepath" | "empty-collision";
 interface Chat {
   id: string;
   kind: Kind;
@@ -21,11 +22,6 @@ const ROOT = new URL("../..", import.meta.url).pathname;
 const SET = JSON.parse(readFileSync(new URL("../sets/working-set/chats.json", import.meta.url), "utf8")) as { commit: string; seed: number; chats: Chat[] };
 
 /** FNV-1a of seed:id, so the split is fixed and a third is held out. */
-function fnv1a(s: string): number {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193) >>> 0;
-  return h;
-}
 export const splitOf = (id: string) => (fnv1a(`${SET.seed}:${id}`) % 3 === 0 ? "held-out" : "dev");
 
 const workspace = execFileSync("git", ["-C", ROOT, "ls-tree", "-r", "--name-only", SET.commit], { encoding: "utf8" }).split("\n").filter(Boolean);
@@ -116,7 +112,7 @@ function score(chats: Chat[], profile: Profile, verbose: boolean): Score {
 const rate = (a: number, b: number) => (b ? `${((a / b) * 100).toFixed(1)}% (${a}/${b})` : "n/a");
 
 const HEADER = [
-  "| group / profile / split | chats | gold in section | gold in working set alone | false paths (of listed) | empty right | mean / max section tokens (n) | cap |",
+  "| group / profile / split | chats | gold in section | gold in working set alone | listed paths not in the workspace (0 by construction) | empty right | mean / max section tokens (n) | cap |",
   "| --- | --- | --- | --- | --- | --- | --- | --- |",
 ].join("\n");
 
@@ -129,7 +125,8 @@ const GROUPS: [string, (c: Chat) => boolean][] = [
   ["named earlier", (c) => c.kind === "named"],
   ["near a named file", (c) => c.kind === "sibling"],
   ["further away", (c) => c.kind === "deep"],
-  ["should be empty", (c) => c.kind.startsWith("empty")],
+  ["should be empty: no paths, or paths not here", (c) => c.kind === "empty-nocode" || c.kind === "empty-falsepath"],
+  ["should be empty: another project's files", (c) => c.kind === "empty-collision"],
 ];
 
 function main(): void {
