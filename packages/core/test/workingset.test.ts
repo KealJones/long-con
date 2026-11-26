@@ -43,6 +43,14 @@ test("paths that aren't in the workspace, and names with several matches, give n
   }
 });
 
+test("another project's file whose name exists here gets nothing, unless the chat writes out a path in this workspace", () => {
+  for (const text of ["my side project's text.ts word-wraps dialogue", "another repo: core/src/text.ts drops accents", "our docs/ folder at work"]) {
+    assert.equal(workingSet([text], workspace, 300).text, "", text);
+  }
+  const anchored = workingSet(["now text.ts too", "I changed packages/core/src/packet.ts"], workspace, 300);
+  assert.deepEqual(anchored.items, ["packages/core/src/text.ts", "packages/core/src/packet.ts"]);
+});
+
 test("the section stays under its cap, and keeps the working-set file when a folder is long", () => {
   const big = [...workspace, ...Array.from({ length: 40 }, (_, i) => `packages/core/src/zz${String(i).padStart(2, "0")}.ts`)];
   const ws = workingSet(["fix packages/core/src/packet.ts"], big, 80);
