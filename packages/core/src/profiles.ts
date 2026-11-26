@@ -2,6 +2,8 @@
 
 import type { Stemmer } from "./text.ts";
 
+export type BarCeiling = "all" | "filler" | "unseen";
+
 export interface Profile {
   name: string;
   /** The model's whole context window in tokens: prompt, packet, recent turns, tool results and answer. */
@@ -20,6 +22,8 @@ export interface Profile {
    * packet retrieves nothing. minConfidence is relative, so without this the best weak match always gets in. 0 turns it off.
    */
   minScore: number;
+  /** Which query words the absolute bar is judged on (packet.ts barTerms). "all" when absent. */
+  barCeiling?: BarCeiling;
   /** Unit gate (gate.ts): units whose probability of holding evidence is under this stay out. 0 turns it off. */
   unitGate: number;
   /** Gate weights; the shipped UNIT_WEIGHTS when absent. Evals pass cross-validated folds here. */
@@ -105,9 +109,12 @@ export const PROFILES = {
     unitGate: 0.01,
     // P17 sweep, with the tally and unit gates on: Porter stemming finds two more dev questions at bars 0.20 to 0.24 and
     // the bar cuts false inclusions; only 0.25 adds none on any tier (+1 question, 6% fewer tokens). 0.25 is the cliff
-    // (0.26 untested, 0.24 keeps a second question but adds tier-3 FI), and 7 of 47 answerable packets come back empty.
-    // Two-word queries where one word never matches ("concerts ... this year") come back empty at this bar.
-    minScore: 0.25,
+    // (0.24 keeps a second question but adds tier-3 FI). Then the bar was judged without time and filler words, which
+    // fills "how many days ago..." packets; at 0.25 that added false inclusions on tiers 1t-3, and 0.27 is the bar that
+    // holds all-evidence with 5% fewer tokens and a third fewer tier-1 FI (tier 2 +1 unit in 50 prompts; filler sweep).
+    // Claude keeps "all": every filler setting lost a question there, since "past three months" can be the evidence.
+    minScore: 0.27,
+    barCeiling: "filler",
     stemmer: "porter",
     rawTurns: 2,
     segmentTokens: 400,

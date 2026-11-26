@@ -6,6 +6,7 @@
 //
 // Tiers, all on the dev slice only:
 //   1  hand-written off-history prompts (evals/sets/should-be-empty/tier1.json, dev ids) on each dev history
+//   1t the same for off-history prompts that name a time ("last Saturday"), so time words can't open the bar
 //   2  cross-history: dev question A asked against dev question B's history, B holding none of A's evidence
 //   3  evidence-ablated: each answerable dev question on its own history with its evidence chats removed
 //   4  LongMemEval `_abs` (false-premise) dev questions on their own histories. Informational only: their related
@@ -24,11 +25,12 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");
 export const DATA = join(ROOT, "evals/data/longmemeval/longmemeval_s_cleaned.json");
 export const SLICE = join(ROOT, "evals/slices/longmemeval-s-dev50.json");
 export const TIER1 = join(ROOT, "evals/sets/should-be-empty/tier1.json");
+export const TIER1_TIME = join(ROOT, "evals/sets/should-be-empty/tier1-time.json");
 export const FIXTURE = join(ROOT, "evals/sets/should-be-empty/fixture-haystack.json");
 const RETRIEVED = "Retrieved history, oldest first:";
 const NOTES = "Notes on what the user said they like, newest value first:";
 
-export type TierName = "tier1-off-history" | "tier2-cross-history" | "tier3-evidence-ablated" | "tier4-abstention" | "answerable";
+export type TierName = "tier1-off-history" | "tier1t-time-phrases" | "tier2-cross-history" | "tier3-evidence-ablated" | "tier4-abstention" | "answerable";
 
 export interface Tier1Prompt {
   id: string;
@@ -157,6 +159,8 @@ export function distinctHistories(questions: Question[]): Question[] {
 export interface ProbeOptions {
   /** Cap on how many dev histories tier 1 runs on (tier 1 is prompts × histories). Default: all. */
   tier1Histories?: number;
+  /** Tier 1t prompts (off-history, naming a time), run on the same histories as tier 1. */
+  timePrompts?: Tier1Prompt[];
 }
 
 export function buildProbes(dev: Question[], tier1: Tier1Prompt[], opts: ProbeOptions = {}): Probe[] {
@@ -165,6 +169,7 @@ export function buildProbes(dev: Question[], tier1: Tier1Prompt[], opts: ProbeOp
   const histories = distinctHistories(dev);
   for (const q of histories.slice(0, opts.tier1Histories ?? histories.length)) {
     for (const p of tier1) probes.push({ tier: "tier1-off-history", id: `${p.id}@${q.id}`, message: p.prompt, history: q.sessions });
+    for (const p of opts.timePrompts ?? []) probes.push({ tier: "tier1t-time-phrases", id: `${p.id}@${q.id}`, message: p.prompt, history: q.sessions });
   }
   for (const { a, b } of crossPairs(dev)) probes.push({ tier: "tier2-cross-history", id: `${a.id}@${b.id}`, message: a.question, history: b.sessions });
   for (const q of answerable) probes.push({ tier: "tier3-evidence-ablated", id: q.id, message: q.question, history: ablate(q) });
@@ -202,7 +207,7 @@ export function runProbe(
 // the point is what the packet would hold; every LongMemEval_S history is past both profiles' switch points anyway.
 const defaultBuild = (profile: Profile) => (p: Probe) => buildPacket({ history: p.history, message: p.message, profile });
 
-export const TIER_ORDER: TierName[] = ["tier1-off-history", "tier2-cross-history", "tier3-evidence-ablated", "tier4-abstention", "answerable"];
+export const TIER_ORDER: TierName[] = ["tier1-off-history", "tier1t-time-phrases", "tier2-cross-history", "tier3-evidence-ablated", "tier4-abstention", "answerable"];
 
 export function summarize(results: ProbeResult[]): TierReport[] {
   return TIER_ORDER.flatMap((tier) => {
@@ -321,7 +326,7 @@ export function main(argv: string[]): number {
     console.error("--tier1-histories must be a whole number of 1 or more.");
     return 1;
   }
-  const probes = buildProbes(dev, loadTier1(), { tier1Histories: limit });
+  const probes = buildProbes(dev, loadTier1(), { tier1Histories: limit, timePrompts: loadTier1(TIER1_TIME) });
   const byProfile = (profiles as Profile[]).map((profile) => ({ profile: profile.name, tiers: scoreProfile(probes, profile) }));
   const title = values.fixture
     ? "Empty rate: FIXTURE SMOKE TEST (synthetic 4-question haystack, not a benchmark result)"

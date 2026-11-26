@@ -7,7 +7,7 @@ import { buildRegisters, refKey } from "./registers.ts";
 import { resolve, type Resolution } from "./resolver.ts";
 import { splitIntoSegments, type Segment } from "./segments.ts";
 import { extractNotes, groupNotes, groupWords, renderGroup, type Note } from "./notes.ts";
-import type { Profile } from "./profiles.ts";
+import type { BarCeiling, Profile } from "./profiles.ts";
 import { isTallyQuestion, SEG_GATE, tallySearch } from "./tally.ts";
 import { unitProbability } from "./gate.ts";
 import { contentWords, estimateTokens, type Stemmer } from "./text.ts";
@@ -86,10 +86,10 @@ export function buildPacket({ history, message, profile, currentSessionId }: Bui
 
   if (gateOpen) {
     const seen = new Set<string>();
-    const { hits, idf } = searchUnits(history, resolution.query, profile.segmentTokens, current?.id, recentStart, profile.stemmer);
+    const { hits, idf } = searchUnits(history, resolution.query, profile.segmentTokens, current?.id, recentStart, profile.stemmer, profile.barCeiling);
     // The absolute bar asks whether history holds anything strong enough to answer at all. It judges the best unit
     // only: per unit, it cut the weaker second piece multi-session questions need (P02 dev sweep).
-    const found = hits.some((h) => h.score >= profile.minScore);
+    const found = hits.some((h) => h.bar >= profile.minScore);
     // Interest notes come in only behind the same bar, and only when they cover enough of the message's weight,
     // so a note can never turn a should-be-empty packet into a non-empty one on its own.
     if (found && profile.noteCoverage > 0) {
@@ -167,7 +167,15 @@ export function buildPacket({ history, message, profile, currentSessionId }: Bui
  * in either ranking, so it says how close a unit comes to the best match. Score is its best score as a share of
  * the most any unit could score on the query: absolute, so a weak best match shows as weak. Features feed the unit gate (gate.ts).
  */
-export function searchUnits(history: Session[], query: string, segmentTokens: number, currentId?: string, recentStart = 0, stemmer: Stemmer = "suffix") {
+export function searchUnits(
+  history: Session[],
+  query: string,
+  segmentTokens: number,
+  currentId?: string,
+  recentStart = 0,
+  stemmer: Stemmer = "suffix",
+  barCeiling: BarCeiling = "all",
+) {
   // Each unit is indexed two ways, all its words and the user's words alone, then the rankings are fused.
   const all = new Bm25<Segment>();
   const user = new Bm25<Segment>();
@@ -195,6 +203,13 @@ export function searchUnits(history: Session[], query: string, segmentTokens: nu
       absolute.set(h.item, Math.max(absolute.get(h.item) ?? 0, h.score / ceilings[i]!));
     }
   });
+  // The bar's own score: the absolute score over only the words that say what the message is about (barTerms), in
+  // score and ceiling alike, so a time word can neither hold the bar out of reach nor carry a unit over it by itself.
+  // The gate features keep the absolute score they were fitted on.
+  const barWords = barTerms(words, barCeiling, stemmer, (t) => all.df(t));
+  const bar = new Map<Segment, number>();
+  for (const index of barWords.length === words.length ? [] : [all, user])
+    for (const h of index.search(barWords)) bar.set(h.item, Math.max(bar.get(h.item) ?? 0, h.score / index.ceiling(barWords)));
   const topAbsolute = Math.max(0, ...absolute.values());
   const top5 = lists.map((l) => new Set(l.slice(0, 5).map((h) => h.item)));
   const agreement = [...top5[0]!].filter((x) => top5[1]!.has(x)).length / 5;
@@ -213,7 +228,7 @@ export function searchUnits(history: Session[], query: string, segmentTokens: nu
       Math.log(1 + (length.get(hit.item) ?? 0)),
       Math.log(1 + terms.length),
     ];
-    return { hit, confidence: share.get(hit.item)!, score: absolute.get(hit.item)!, features };
+    return { hit, confidence: share.get(hit.item)!, score: absolute.get(hit.item)!, bar: barWords.length === words.length ? absolute.get(hit.item)! : (bar.get(hit.item) ?? 0), features };
   });
   return { hits, idf: (w: string) => all.idf(w) };
 }
@@ -223,9 +238,9 @@ export function searchUnits(history: Session[], query: string, segmentTokens: nu
  * abstains, the tool still answers: a unit the packet would leave out comes back marked low confidence.
  */
 export function searchHistory(history: Session[], query: string, profile: Profile): string {
-  const { hits } = searchUnits(history, query, profile.segmentTokens, undefined, 0, profile.stemmer);
+  const { hits } = searchUnits(history, query, profile.segmentTokens, undefined, 0, profile.stemmer, profile.barCeiling);
   if (!hits.length) return "No matches.";
-  const found = hits.some((h) => h.score >= profile.minScore);
+  const found = hits.some((h) => h.bar >= profile.minScore);
   const rejected = buildRegisters(history, profile.recentAnswers).rejected;
   return hits
     .slice(0, profile.searchResults)
@@ -236,6 +251,21 @@ export function searchHistory(history: Session[], query: string, profile: Profil
     })
     .join("\n\n");
 }
+
+/**
+ * The query words the absolute bar is judged on. "filler" drops time and filler words ("this year", "ago", "ever"),
+ * "unseen" drops words no unit in this history holds (it let off-history prompts through: tier 1 empty rate halved).
+ * Either way the words are still searched and ranked on. With no word left, nothing is judged found.
+ */
+export function barTerms(words: string[], mode: BarCeiling, stemmer: Stemmer, df: (t: string) => number): string[] {
+  if (mode === "all") return words;
+  if (mode === "unseen") return words.filter((w) => df(w) > 0);
+  const filler = new Set(contentWords(FILLER, stemmer));
+  return words.filter((w) => !filler.has(w));
+}
+
+// Words that place a question in time or pad it, rarely what it's about. Hand-picked, not fitted.
+const FILLER = "year years month months week weeks day days today yesterday tonight ago ever recently recent lately time times last past since currently now far total overall";
 
 /** Reciprocal-rank fusion, keeping the matched words from both lists. */
 function fuse<T>(...lists: Hit<T>[][]): Hit<T>[] {

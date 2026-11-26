@@ -18,6 +18,7 @@ import {
   scoreProfile,
   summarize,
   TIER1,
+  TIER1_TIME,
   type Probe,
 } from "../loop/empty-rate.ts";
 
@@ -152,4 +153,12 @@ test("missing data fails with a clear message instead of a stack trace", (t) => 
   t.mock.method(console, "error", (m: string) => errors.push(m));
   assert.equal(main(["--data", "/nonexistent/longmemeval.json"]), 1);
   assert.match(errors.join("\n"), /No LongMemEval data at \/nonexistent\/longmemeval\.json\. Run evals\/scripts\/fetch-longmemeval\.sh/);
+});
+
+test("tier 1t prompts are dev only and run on every tier 1 history", () => {
+  const file = JSON.parse(readFileSync(TIER1_TIME, "utf8"));
+  assert.deepEqual(file.split.heldOut, []);
+  assert.equal(loadTier1(TIER1_TIME).length, file.prompts.length);
+  const probes = buildProbes([question("q1", [chat("c1", ["hi", "hello"])], none)], [], { timePrompts: loadTier1(TIER1_TIME) });
+  assert.equal(probes.filter((p) => p.tier === "tier1t-time-phrases").length, file.prompts.length);
 });

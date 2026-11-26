@@ -67,13 +67,15 @@ test("the tally gate keeps pieces under its threshold out, and each piece knows 
   assert.equal(buildPacket({ history, message, profile: { ...profile, tallyWeights: [50, ...TALLY_FEATURES.map(() => 0)] } }).segments.length, 2);
 });
 
-test("small-local's stricter bar leaves a two-word count empty when one word never matches", () => {
+test("small-local's bar judges a count on its topic, not on a time word that never matches", () => {
   const history = [
     chatAbout("a", "1/10 (Sat)", "I went to my cousin's concert at a vineyard last weekend, it was lovely."),
     chatAbout("b", "2/14 (Sat)", "Just got back from Emily and Sarah's concert at the beach."),
     chatAbout("c", "3/21 (Sat)", "My college roommate's concert was yesterday, we danced all night."),
   ];
-  // "year" matches nothing, so the best unit scores about half the query's ceiling, under the bar (P17 review).
+  // "year" matches nothing; on the whole query the best unit scored about half the ceiling, under the bar (P17 review).
   const packet = buildPacket({ history: [...filler, ...history], message: "how many concerts have I been to this year?", profile: PROFILES.smallLocal });
-  assert.ok(!packet.text.includes("Emily and Sarah's concert"));
+  assert.ok(packet.text.includes("Emily and Sarah's concert"));
+  const off = buildPacket({ history: [...filler, ...history], message: "how many marathons have I run this year?", profile: PROFILES.smallLocal });
+  assert.equal(off.segments.length, 0, "a topic the history never mentions stays empty");
 });

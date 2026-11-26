@@ -3,6 +3,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buildPacket, PROFILES, type Session } from "../src/index.ts";
+import { barTerms } from "../src/packet.ts";
+import { contentWords } from "../src/text.ts";
 import { filler } from "./fixtures.ts";
 
 const chat = (s: Session): Session => s;
@@ -249,5 +251,14 @@ test("a question history never touched comes back empty even when some words mat
   assert.equal(buildPacket({ history, message, profile }).segments.length, 0, "with it, nothing does");
   const on = buildPacket({ history, message: "when is biscuit due for the rabies shot", profile });
   assert.match(on.text, /rabies shot next month/);
+});
+
+test("the bar can be judged without time and filler words, which are still searched", () => {
+  const df = (w: string) => (w === "concert" ? 3 : 0);
+  const words = contentWords("how many concerts have I been to this year?", "porter");
+  assert.deepEqual(barTerms(words, "all", "porter", df), words);
+  assert.deepEqual(barTerms(words, "filler", "porter", df), ["concert"]);
+  assert.deepEqual(barTerms(words, "unseen", "porter", df), ["concert"]);
+  assert.deepEqual(barTerms(contentWords("zorp blarg year"), "unseen", "suffix", df), [], "nothing known, nothing to judge");
 });
 

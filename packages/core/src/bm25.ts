@@ -8,7 +8,7 @@ export interface Hit<T> {
 
 export class Bm25<T> {
   private docs: { item: T; tf: Map<string, number>; length: number }[] = [];
-  private df = new Map<string, number>();
+  private df_ = new Map<string, number>();
   private totalLength = 0;
 
   private k1 = 1.2;
@@ -17,15 +17,20 @@ export class Bm25<T> {
   add(item: T, words: string[]): void {
     const tf = new Map<string, number>();
     for (const w of words) tf.set(w, (tf.get(w) ?? 0) + 1);
-    for (const w of tf.keys()) this.df.set(w, (this.df.get(w) ?? 0) + 1);
+    for (const w of tf.keys()) this.df_.set(w, (this.df_.get(w) ?? 0) + 1);
     this.docs.push({ item, tf, length: words.length });
     this.totalLength += words.length;
+  }
+
+  /** How many units hold the word. */
+  df(term: string): number {
+    return this.df_.get(term) ?? 0;
   }
 
   /** Rarity of a word in this index. A word in no unit gets the highest value. */
   idf(term: string): number {
     const n = this.docs.length;
-    const df = this.df.get(term) ?? 0;
+    const df = this.df_.get(term) ?? 0;
     return Math.log(1 + (n - df + 0.5) / (df + 0.5));
   }
 
