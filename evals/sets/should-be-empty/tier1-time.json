@@ -1,0 +1,21 @@
+{
+  "note": "Tier 1t should-be-empty prompts: off-history messages that name a time the date resolver reads (P07), so a time-range boost can be checked for false inclusions. Hand-written, dev split only; there is no held-out part.",
+  "split": {
+    "dev": ["sbt-01", "sbt-02", "sbt-03", "sbt-04", "sbt-05", "sbt-06", "sbt-07", "sbt-08", "sbt-09", "sbt-10", "sbt-11", "sbt-12"],
+    "heldOut": []
+  },
+  "prompts": [
+    { "id": "sbt-01", "kind": "general-knowledge", "prompt": "Why are stock markets closed on weekends? I tried to check a price last Saturday.", "why": "Asks how markets work; the Saturday is an aside." },
+    { "id": "sbt-02", "kind": "general-knowledge", "prompt": "Who won the Champions League final two weeks ago?", "why": "Public sports news, not anything said in chat." },
+    { "id": "sbt-03", "kind": "how-to", "prompt": "How do I convert a PDF to a Word document? I couldn't figure it out yesterday.", "why": "A how-to question; yesterday's attempt adds nothing to look up." },
+    { "id": "sbt-04", "kind": "general-knowledge", "prompt": "Which planets were visible in the night sky in March?", "why": "Astronomy, answerable without history." },
+    { "id": "sbt-05", "kind": "general-knowledge", "prompt": "Summarize the biggest science news from the past three months.", "why": "World news, not the user's history." },
+    { "id": "sbt-06", "kind": "general-knowledge", "prompt": "When does daylight saving time end? I think the clocks changed last Sunday.", "why": "A calendar fact about the world." },
+    { "id": "sbt-07", "kind": "trivia", "prompt": "What's the capital of Australia? My kid asked me last week and I blanked.", "why": "Trivia; the anecdote holds no reference to history." },
+    { "id": "sbt-08", "kind": "translation", "prompt": "How do you say good morning in Japanese? I learned it in March but forgot.", "why": "A translation, answerable without history." },
+    { "id": "sbt-09", "kind": "general-knowledge", "prompt": "Why does water boil at a lower temperature up a mountain? We noticed it last weekend.", "why": "Physics, answerable without history." },
+    { "id": "sbt-10", "kind": "how-to", "prompt": "What's the fastest way to defrost a windshield? It took forever three days ago.", "why": "A how-to question." },
+    { "id": "sbt-11", "kind": "general-knowledge", "prompt": "What were the top-grossing movies in the past two months?", "why": "Box office news, not the user's history." },
+    { "id": "sbt-12", "kind": "general-knowledge", "prompt": "Explain how a solar eclipse works, there was one a few days ago.", "why": "Science explainer." }
+  ]
+}
