@@ -4,6 +4,7 @@
 
 import type { Question } from "./longmemeval.ts";
 import type { ModelClient } from "./model.ts";
+import { MAX_OUTPUT } from "./arms.ts";
 
 export function judgePrompt(q: Question, response: string): string {
   if (q.abstention) {
@@ -39,7 +40,8 @@ export async function judge(model: ModelClient, judgeModel: string, q: Question,
     model: judgeModel,
     system: "You grade answers. Reply with yes or no only.",
     messages: [{ role: "user", content: judgePrompt(q, response) }],
-    maxTokens: 2000,
+    // Room for the judge's thinking: a judge cut off mid-thought is an error, not a verdict.
+    maxTokens: MAX_OUTPUT,
     effort: "low",
     purpose: "judge",
   });

@@ -93,3 +93,12 @@ test("held-out leaves out every question that shares evidence with dev, so tunin
   assert.deepEqual(heldOut.map((h) => h.id), ["c4a1ceb8"]);
   assert.equal(excluded, 2);
 });
+
+test("a near-copy of a dev question's evidence chat is left out too, not just an exact copy", () => {
+  const near = q("1e4a8aeb", "my sister is moving to Denver");
+  near.sessions[0] = { ...near.sessions[0]!, turns: [{ role: "user", content: "my sister is moving to Denver" }, { role: "assistant", content: "A different reply this time." }] };
+  const dev = q("1e4a8aec", "my sister is moving to Denver");
+  dev.sessions[0] = { ...dev.sessions[0]!, turns: [{ role: "user", content: "my sister is moving to Denver" }, { role: "assistant", content: "Exciting news for her!" }] };
+  const { heldOut } = heldOutSplit([dev, near, q("c4a1ceb8", "I adopted a beagle named Pepper")], [dev]);
+  assert.deepEqual(heldOut.map((h) => h.id), ["c4a1ceb8"]);
+});

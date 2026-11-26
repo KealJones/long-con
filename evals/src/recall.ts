@@ -1,6 +1,6 @@
 // Packet recall: is the evidence for a question inside the packet? No model, no judge, free.
 
-import type { Packet } from "@long-con/core";
+import { splitTurn, type Packet } from "@long-con/core";
 import type { Question } from "./longmemeval.ts";
 
 export interface RecallResult {
@@ -12,13 +12,21 @@ export interface RecallResult {
   complete: boolean;
 }
 
-export function packetRecall(question: Question, packet: Packet): RecallResult {
+/**
+ * A turn counts only when all of its text is in the packet: a long turn split into pieces needs every piece, and a turn
+ * the packet blanked out doesn't count. `segmentTokens` is the cap the packet was built with, so pieces split the same way.
+ */
+export function packetRecall(question: Question, packet: Pick<Packet, "segments" | "text">, segmentTokens: number): RecallResult {
   const inPacket = (sessionId: string, turn?: number) =>
     packet.segments.some((s) => s.sessionId === sessionId && (turn === undefined || (turn >= s.start && turn <= s.end)));
+  const whole = (sessionId: string, turn: number) => {
+    const content = question.sessions.find((s) => s.id === sessionId)?.turns[turn]?.content ?? "";
+    return splitTurn(content, segmentTokens).every((piece) => packet.text.includes(piece));
+  };
   const { sessions, turns } = question.evidence;
   const turnHits = turns.filter((key) => {
     const [sid, t] = splitKey(key);
-    return inPacket(sid, t);
+    return inPacket(sid, t) && whole(sid, t);
   }).length;
   const sessionHits = sessions.filter((sid) => inPacket(sid)).length;
   return {

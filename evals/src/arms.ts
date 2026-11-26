@@ -5,7 +5,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { assemblePrompt, Bm25, buildPacket, contentWords, estimateTokens, HISTORY_NOTICE, splitIntoSegments, type Profile, type Segment, type Session } from "@long-con/core";
 import type { Question } from "./longmemeval.ts";
-import { costOf, type ModelClient, type ModelRequest } from "./model.ts";
+import { BilledError, costOf, type ModelClient, type ModelRequest } from "./model.ts";
 
 export type ArmName = "full" | "compaction" | "compaction-search" | "packet" | "bare";
 export const ARMS: ArmName[] = ["full", "compaction", "compaction-search", "packet", "bare"];
@@ -20,6 +20,11 @@ export interface ArmConfig {
   profile: Profile;
   /** Which repeat this is. Real models vary run to run; the subagent backend keys answers by it. */
   seed?: number;
+  /**
+   * Compaction summaries by question and repeat, so `compaction` and `compaction-search` read the same summary
+   * and differ only in the tool. Each arm still reports the summary's cost as its own.
+   */
+  summaries?: Map<string, Promise<{ context: string; calls: Call[] }>>;
 }
 
 export interface Call {
@@ -68,7 +73,7 @@ export function firstMessages(arm: Exclude<ArmName, "compaction" | "compaction-s
       return { messages: assemblePrompt({ system: SYSTEM, packet: packet.text, recentTurns: packet.recentTurns, message: ask(q) }).messages, contextTokens: packet.tokens };
     }
     case "bare": {
-      const notice = HISTORY_NOTICE(q.sessions.map((s) => s.date ?? "").filter(Boolean).sort()[0] ?? "");
+      const notice = HISTORY_NOTICE(q.sessions.map((s) => s.date ?? "").filter(Boolean).sort()[0] ?? "", profile.maxToolRounds > 0);
       return { messages: [{ role: "user", content: `${notice}\n\n${ask(q)}` }], contextTokens: estimateTokens(notice) };
     }
   }
@@ -78,16 +83,37 @@ export async function runArm(arm: ArmName, q: Question, cfg: ArmConfig): Promise
   const calls: Call[] = [];
   try {
     if (arm === "compaction" || arm === "compaction-search") {
-      const context = await compact(q.sessions, cfg, calls);
+      const { context, calls: paid } = await summarize(q, cfg).catch((err) => {
+        calls.push(...((err as { calls?: Call[] }).calls ?? []));
+        throw err;
+      });
+      calls.push(...paid);
       const reader = arm === "compaction" ? { ...cfg, profile: { ...cfg.profile, maxToolRounds: 0 } } : cfg;
       return await readerLoop(reader, calls, [{ role: "user", content: `${context}\n\n${ask(q)}` }], estimateTokens(context), q);
     }
     const { messages, contextTokens } = firstMessages(arm, q, cfg.profile);
     return await readerLoop(cfg, calls, messages, contextTokens, q);
   } catch (err) {
-    // Calls made before the failure were still paid for, so they go with the error.
-    throw Object.assign(err instanceof Error ? err : new Error(String(err)), { calls });
+    // Calls made before the failure were still paid for, so they go with the error. A new error each time,
+    // since a shared summary's failure reaches two arms.
+    const e = err instanceof Error ? err : new Error(String(err));
+    throw Object.assign(new Error(e.message), { name: e.name, calls });
   }
+}
+
+function summarize(q: Question, cfg: ArmConfig): Promise<{ context: string; calls: Call[] }> {
+  const key = `${q.id}#${cfg.seed ?? 0}`;
+  const cached = cfg.summaries?.get(key);
+  if (cached) return cached;
+  const own: Call[] = [];
+  const made = compact(q.sessions, cfg, own).then(
+    (context) => ({ context, calls: own }),
+    (err) => {
+      throw Object.assign(err instanceof Error ? err : new Error(String(err)), { calls: own });
+    },
+  );
+  cfg.summaries?.set(key, made);
+  return made;
 }
 
 async function readerLoop(cfg: ArmConfig, calls: Call[], messages: Anthropic.MessageParam[], contextTokens: number, q: Question): Promise<ArmResult> {
@@ -116,9 +142,17 @@ async function readerLoop(cfg: ArmConfig, calls: Call[], messages: Anthropic.Mes
 }
 
 async function call(cfg: ArmConfig, calls: Call[], req: ModelRequest) {
-  const res = await cfg.model.complete({ ...req, seed: cfg.seed });
-  calls.push({ purpose: req.purpose, model: req.model, ...res.usage, cost: costOf(req.model, res.usage), latencyMs: res.latencyMs });
-  return res;
+  const record = (usage: { input: number; output: number }, latencyMs: number) =>
+    calls.push({ purpose: req.purpose, model: req.model, ...usage, cost: costOf(req.model, usage), latencyMs });
+  try {
+    const res = await cfg.model.complete({ ...req, seed: cfg.seed });
+    record(res.usage, res.latencyMs);
+    return res;
+  } catch (err) {
+    // A cut-off or refused answer is still billed.
+    if (err instanceof BilledError) record(err.usage, err.latencyMs);
+    throw err;
+  }
 }
 
 /** The classic approach: keep the transcript, and fold it into a summary whenever it gets too long. */

@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { runArm, type ArmConfig, type ArmName, type ArmResult } from "./arms.ts";
 import { judge } from "./judge.ts";
 import type { Question } from "./longmemeval.ts";
-import { costOf } from "./model.ts";
+import { BilledError, costOf } from "./model.ts";
 
 export interface Answer extends ArmResult {
   questionId: string;
@@ -31,11 +31,12 @@ export async function runEval(questions: Question[], opts: RunOptions): Promise<
   const repeats = Array.from({ length: opts.repeats ?? 1 }, (_, r) => r);
   const jobs = repeats.flatMap((repeat) => questions.flatMap((q) => opts.arms.map((arm) => ({ q, arm, repeat }))));
   const answers: Answer[] = [];
+  const shared = { ...opts, summaries: opts.summaries ?? new Map() };
   let next = 0;
   const worker = async () => {
     while (next < jobs.length) {
       const { q, arm, repeat } = jobs[next++]!;
-      const answer = await answerOne(q, arm, repeat, opts);
+      const answer = await answerOne(q, arm, repeat, shared);
       answers.push(answer);
       if (opts.outDir) appendFileSync(join(opts.outDir, "answers.jsonl"), JSON.stringify(answer) + "\n");
     }
@@ -46,14 +47,19 @@ export async function runEval(questions: Question[], opts: RunOptions): Promise<
 
 async function answerOne(q: Question, arm: ArmName, repeat: number, opts: RunOptions): Promise<Answer> {
   const base = { questionId: q.id, type: q.abstention ? "abstention" : q.type, arm, repeat };
+  let result: ArmResult | undefined;
   try {
-    const result = await runArm(arm, q, { ...opts, seed: repeat });
+    result = await runArm(arm, q, { ...opts, seed: repeat });
     const verdict = await judge(opts.model, opts.judgeModel, q, result.answer);
     result.calls.push({ purpose: "judge", model: opts.judgeModel, ...verdict.usage, cost: costOf(opts.judgeModel, verdict.usage), latencyMs: verdict.latencyMs });
     return { ...base, ...result, pass: verdict.pass, judgeReply: verdict.reply };
   } catch (err) {
     // A failed call counts as a wrong answer, and the error is kept so it can be looked at.
-    // Calls made before the failure keep their cost and tokens.
+    // Calls made before the failure, and a billed call that failed, keep their cost and tokens.
+    if (result) {
+      if (err instanceof BilledError) result.calls.push({ purpose: "judge", model: opts.judgeModel, ...err.usage, cost: costOf(opts.judgeModel, err.usage), latencyMs: err.latencyMs });
+      return { ...base, ...result, pass: false, judgeReply: "", error: String(err) };
+    }
     const calls = (err as { calls?: Answer["calls"] }).calls ?? [];
     return { ...base, answer: "", calls, contextTokens: 0, toolCalls: 0, pass: false, judgeReply: "", error: String(err) };
   }
@@ -68,6 +74,8 @@ export interface ArmSummary {
   byType: Record<string, { n: number; accuracy: number }>;
   /** Reader input tokens per question, all reader calls included. */
   readerInputTokens: number;
+  /** Summarizer input tokens per question: what compaction reads to write its summaries. */
+  summarizerInputTokens: number;
   contextTokens: number;
   costPerQuestion: number;
   totalCost: number;
@@ -97,6 +105,7 @@ export function summarize(answers: Answer[], arms: ArmName[]): ArmSummary[] {
       ci: bootstrap(perQuestion(mine)),
       byType,
       readerInputTokens: sum((a) => reader(a).reduce((c, x) => c + x.input, 0)) / n,
+      summarizerInputTokens: sum((a) => a.calls.filter((c) => c.purpose === "summarizer").reduce((c, x) => c + x.input, 0)) / n,
       contextTokens: sum((a) => a.contextTokens) / n,
       costPerQuestion: totalCost / n,
       totalCost,
@@ -110,12 +119,13 @@ export function summarize(answers: Answer[], arms: ArmName[]): ArmSummary[] {
 export function summaryTable(rows: ArmSummary[], withAccuracy = true): string {
   // Reader input (every reader call, tool results included) is the headline token number; the packet or
   // summary alone understates what the reader takes in once it searches.
-  const cols = ["Arm", ...(withAccuracy ? ["Accuracy", "95% interval", "Errors"] : []), "Reader input tokens", "Packet or context tokens", "Searches", "Cost / question", "Total cost"];
+  const cols = ["Arm", ...(withAccuracy ? ["Accuracy", "95% interval", "Errors"] : []), "Reader input tokens", "Summarizer input tokens", "Packet or context tokens", "Searches", "Cost / question", "Total cost"];
   const lines = rows.map((r) => {
     const cells = [
       r.arm,
       ...(withAccuracy ? [pct(r.accuracy), `${pct(r.ci[0])} to ${pct(r.ci[1])}`, String(r.errors)] : []),
       Math.round(r.readerInputTokens).toLocaleString("en-US"),
+      Math.round(r.summarizerInputTokens).toLocaleString("en-US"),
       Math.round(r.contextTokens).toLocaleString("en-US"),
       r.toolCallsPerQuestion.toFixed(1),
       `$${r.costPerQuestion.toFixed(4)}`,
@@ -128,13 +138,16 @@ export function summaryTable(rows: ArmSummary[], withAccuracy = true): string {
 
 export function writeSummary(dir: string, rows: ArmSummary[], header: string, withAccuracy = true, answers: Answer[] = []): void {
   mkdirSync(dir, { recursive: true });
-  const paired = withAccuracy ? pairedTable(answers, rows.map((r) => r.arm)) : "";
+  // Against bare: what any context adds. Against packet: the comparison the project is about.
+  const arms = rows.map((r) => r.arm);
+  const paired = withAccuracy ? [pairedTable(answers, arms, "bare"), pairedTable(answers, arms, "packet")].filter(Boolean).join("\n\n") : "";
   writeFileSync(join(dir, "summary.json"), JSON.stringify(rows, null, 2));
   writeFileSync(join(dir, "summary.md"), `${header}\n\n${summaryTable(rows, withAccuracy)}\n${paired ? `\n${paired}\n` : ""}`);
 }
 
 /**
- * Each arm against `bare` (no packet, same tools) on the same questions: the clean "what does the context add".
+ * Each arm against another on the same questions. Against `bare` (no packet, same tools) it is the clean "what does the
+ * context add"; against `packet` it is how each other way of giving history compares with the packet.
  * The interval resamples questions, so an interval that spans 0 is no evidence of a difference.
  */
 export function pairedTable(answers: Answer[], arms: ArmName[], against: ArmName = "bare"): string {

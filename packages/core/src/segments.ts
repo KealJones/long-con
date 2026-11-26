@@ -48,7 +48,7 @@ export function splitIntoSegments(session: Session, maxTokens: number): Segment[
 }
 
 /** One turn as pieces under the cap, cut at blank lines, then lines, then sentences, then anywhere. */
-function splitTurn(text: string, maxTokens: number): string[] {
+export function splitTurn(text: string, maxTokens: number): string[] {
   if (estimateTokens(text) <= maxTokens) return [text];
   for (const sep of ["\n\n", "\n", ". "]) {
     const parts = text.split(sep);

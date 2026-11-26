@@ -106,8 +106,9 @@ function mulberry32(seed: number): () => number {
 }
 
 /**
- * Groups questions that share evidence: `X` and `X_abs` siblings, and questions whose evidence chats are word
- * for word the same. A question's group id is the smallest question id in it.
+ * Groups questions that share evidence: `X` and `X_abs` siblings, and questions whose evidence chats share an
+ * evidence turn word for word or at least half their turns (the benchmark has near-copies of some chats).
+ * A question's group id is the smallest question id in it.
  */
 export function evidenceGroups(questions: Question[]): Map<string, string> {
   const parent = new Map(questions.map((q) => [q.id, q.id]));
@@ -119,17 +120,33 @@ export function evidenceGroups(questions: Question[]): Map<string, string> {
     const [ra, rb] = [find(a), find(b)];
     if (ra !== rb) parent.set(ra < rb ? rb : ra, ra < rb ? ra : rb);
   };
-  const owner = new Map<string, string>();
+  const hash = (text: string) => createHash("sha256").update(text).digest("hex");
+  // Turn hash -> evidence chats holding it, as [question id, chat key, turn count].
+  const holders = new Map<string, [string, string, number][]>();
+  const evidenceTurn = new Map<string, string>(); // evidence-turn hash -> question id
   for (const q of questions) {
     const sibling = q.id.replace(/_abs$/, "");
     if (sibling !== q.id && parent.has(sibling)) join(q.id, sibling);
     for (const sid of q.evidence.sessions) {
       const chat = q.sessions.find((s) => s.id === sid);
       if (!chat) continue;
-      const key = createHash("sha256").update(JSON.stringify(chat.turns)).digest("hex");
-      const seen = owner.get(key);
-      if (seen) join(q.id, seen);
-      else owner.set(key, q.id);
+      const key = `${q.id}/${sid}`;
+      const shared = new Map<string, { q: string; n: number; total: number }>();
+      for (const [i, turn] of chat.turns.entries()) {
+        const h = hash(turn.content);
+        if (q.evidence.turns.includes(`${sid}#${i}`)) {
+          const seen = evidenceTurn.get(h);
+          if (seen) join(q.id, seen);
+          else evidenceTurn.set(h, q.id);
+        }
+        for (const [other, otherKey, total] of holders.get(h) ?? []) {
+          const c = shared.get(otherKey) ?? { q: other, n: 0, total };
+          c.n++;
+          shared.set(otherKey, c);
+        }
+        holders.set(h, [...(holders.get(h) ?? []), [q.id, key, chat.turns.length]]);
+      }
+      for (const c of shared.values()) if (c.n * 2 >= Math.min(c.total, chat.turns.length)) join(q.id, c.q);
     }
   }
   return new Map(questions.map((q) => [q.id, find(q.id)]));

@@ -27,6 +27,17 @@ export interface ModelResponse {
   latencyMs: number;
 }
 
+/** A call that was billed but gave no usable answer. Carries its usage so the cost isn't lost. */
+export class BilledError extends Error {
+  usage: { input: number; output: number };
+  latencyMs: number;
+  constructor(message: string, usage: { input: number; output: number }, latencyMs: number) {
+    super(message);
+    this.usage = usage;
+    this.latencyMs = latencyMs;
+  }
+}
+
 export interface ModelClient {
   complete(req: ModelRequest): Promise<ModelResponse>;
 }
@@ -47,7 +58,10 @@ export function costOf(model: string, usage: { input: number; output: number }):
 
 export class AnthropicModel implements ModelClient {
   // Retries rate limits and overloads with backoff, so they don't turn into wrong answers.
-  private client = new Anthropic({ maxRetries: 6 });
+  private client: Pick<Anthropic, "messages">;
+  constructor(client: Pick<Anthropic, "messages"> = new Anthropic({ maxRetries: 6 })) {
+    this.client = client;
+  }
 
   async complete(req: ModelRequest): Promise<ModelResponse> {
     const started = Date.now();
@@ -60,13 +74,14 @@ export class AnthropicModel implements ModelClient {
       ...(req.toolChoice ? { tool_choice: { type: req.toolChoice } } : {}),
       ...(req.effort ? { output_config: { effort: req.effort } } : {}),
     });
-    if (res.stop_reason === "refusal") throw new Error(`${req.model} declined the request`);
-    if (res.stop_reason === "max_tokens") throw new Error(`${req.model} ran out of output tokens (${req.maxTokens}) before answering`);
+    const usage = { input: res.usage.input_tokens, output: res.usage.output_tokens };
+    if (res.stop_reason === "refusal") throw new BilledError(`${req.model} declined the request`, usage, Date.now() - started);
+    if (res.stop_reason === "max_tokens") throw new BilledError(`${req.model} ran out of output tokens (${req.maxTokens}) before answering`, usage, Date.now() - started);
     return {
       text: res.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("").trim(),
       toolCalls: res.content.flatMap((b) => (b.type === "tool_use" ? [{ id: b.id, name: b.name, input: b.input as Record<string, unknown> }] : [])),
       content: res.content as Anthropic.ContentBlockParam[],
-      usage: { input: res.usage.input_tokens, output: res.usage.output_tokens },
+      usage,
       latencyMs: Date.now() - started,
     };
   }

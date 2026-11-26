@@ -151,6 +151,11 @@ test("the packet stays inside the profile's budget even when lots of history mat
   const packet = buildPacket({ history, message: "what did we say about the deploy pipeline", profile: { ...profile, packetTokens: 2000 } });
   assert.ok(packet.tokens <= 2000, `packet was ${packet.tokens} tokens`);
   assert.match(packet.text, /deploy pipeline/);
+  // At every ceiling, not just a round one: a packet filled to the brim still fits.
+  for (let ceiling = 300; ceiling <= 3000; ceiling += 7) {
+    const p = buildPacket({ history, message: "what did we say about the deploy pipeline", profile: { ...profile, packetTokens: ceiling } });
+    assert.ok(p.tokens <= ceiling, `packet was ${p.tokens} tokens at a ${ceiling} ceiling`);
+  }
 });
 
 test("turns already riding along raw aren't repeated in the packet", () => {

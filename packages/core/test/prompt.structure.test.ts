@@ -20,8 +20,8 @@ test("the packet comes before the recent turns, and the new message is last", ()
   assert.equal(messages[messages.length - 1]!.content, "new message");
 });
 
-test("the system prompt is passed through untouched, so it caches across turns", () => {
+test("the packet stays out of the system prompt, so the system prompt caches across turns", () => {
   const a = assemblePrompt({ system: "stable", packet: "one", recentTurns: [], message: "a" });
-  const b = assemblePrompt({ system: "stable", packet: "two", recentTurns: [], message: "b" });
-  assert.equal(a.system, b.system);
+  assert.equal(a.system, "stable");
+  assert.match(a.messages.map((m) => m.content).join("\n"), /one/);
 });

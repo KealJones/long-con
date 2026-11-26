@@ -19,7 +19,7 @@ on:
         type: string
         default: "12"
       split:
-        description: dev (50 tuning questions) or held-out (438 that share no evidence with dev, for headline numbers)
+        description: dev (50 tuning questions) or held-out (437 that share no evidence with dev, for headline numbers)
         type: choice
         options: [dev, held-out]
         default: dev

@@ -38,10 +38,11 @@ export interface Packet {
   segments: PacketSegment[];
 }
 
-export const HISTORY_NOTICE = (since: string) =>
-  `Earlier chat history${since ? ` (since ${since})` : ""} was left out to fit. The search_history tool can reach all of it.`;
-export const TRUST_NOTE =
-  "This packet is a best guess at what's relevant. Don't rely on anything in it that looks wrong; use the tools instead.";
+/** Mentions the search tool only when the model has one, so no arm is told about a tool it can't use. */
+export const HISTORY_NOTICE = (since: string, canSearch = true) =>
+  `Earlier chat history${since ? ` (since ${since})` : ""} was left out to fit.${canSearch ? " The search_history tool can reach all of it." : ""}`;
+export const TRUST_NOTE = (canSearch = true) =>
+  `This packet is a best guess at what's relevant. Don't rely on anything in it that looks wrong${canSearch ? "; use the tools instead" : ""}.`;
 
 export function buildPacket({ history, message, profile, currentSessionId }: BuildPacketInput): Packet {
   const current = history.find((s) => s.id === currentSessionId);
@@ -55,8 +56,9 @@ export function buildPacket({ history, message, profile, currentSessionId }: Bui
   registers.recentAnswers = registers.recentAnswers.filter((a) => a.from.sessionId === current?.id && !isRecent(a.from));
   const resolution = resolve(message, recentTurns, registers);
 
-  const head: string[] = [HISTORY_NOTICE(earliestDate(history))];
-  if (profile.trustNote) head.push(TRUST_NOTE);
+  const canSearch = profile.maxToolRounds > 0;
+  const head: string[] = [HISTORY_NOTICE(earliestDate(history), canSearch)];
+  if (profile.trustNote) head.push(TRUST_NOTE(canSearch));
   if (registers.rules.length) {
     head.push("", "Standing rules from the user, word for word:");
     for (const r of registers.rules) head.push(`- "${r.text}" (${label(history, r.from)})`);
@@ -71,7 +73,8 @@ export function buildPacket({ history, message, profile, currentSessionId }: Bui
   }
 
   const gateOpen = !profile.gate || resolution.status !== "none" || contentWords(message).length > 0;
-  let budget = profile.packetTokens - estimateTokens(head.join("\n"));
+  // Every character of the final text is counted, joins and the section line included, so the packet can't pass its ceiling.
+  let budget = profile.packetTokens - estimateTokens(head.join("\n") + `\n\n${RETRIEVED}`);
   const chosen: { segment: Segment; hit: Hit<Segment>; confidence: number }[] = [];
 
   if (gateOpen) {
@@ -82,7 +85,7 @@ export function buildPacket({ history, message, profile, currentSessionId }: Bui
       // The same exchange saved twice only needs to come in once.
       const text = hit.item.turns.map((t) => t.content).join("\n");
       if (seen.has(text)) continue;
-      const cost = estimateTokens(renderSegment(hit.item, registers.rejected, confidence, hit.matched));
+      const cost = estimateTokens("\n" + renderSegment(hit.item, registers.rejected, confidence, hit.matched));
       // Whole units only: a unit that doesn't fit is skipped, never trimmed.
       if (cost > budget) continue;
       seen.add(text);
@@ -94,7 +97,7 @@ export function buildPacket({ history, message, profile, currentSessionId }: Bui
   // Oldest first reads like the chat did, and keeps dates in order for "how long ago" questions.
   chosen.sort((a, b) => order(history, a.segment).localeCompare(order(history, b.segment)));
   const body = chosen.map((c) => renderSegment(c.segment, registers.rejected, c.confidence, c.hit.matched));
-  const text = [...head, ...(body.length ? ["", "Retrieved history, oldest first:", ...body] : [])].join("\n");
+  const text = [...head, ...(body.length ? ["", RETRIEVED, ...body] : [])].join("\n");
 
   return {
     text,
@@ -151,6 +154,8 @@ function fuse<T>(...lists: Hit<T>[][]): Hit<T>[] {
   }
   return [...merged.values()].sort((a, b) => b.score - a.score);
 }
+
+const RETRIEVED = "Retrieved history, oldest first:";
 
 function renderSegment(seg: Segment, rejected: Set<string>, confidence: number, matched: string[]): string {
   // No chat ids here: the date is the source the model can use, and ids can carry labels it shouldn't see.

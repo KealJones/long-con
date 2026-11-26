@@ -3,12 +3,12 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
-import { Bm25, buildPacket, contentWords, estimateTokens, PROFILES, profileByName, splitIntoSegments, type Packet, type Profile, type Segment } from "@long-con/core";
+import { Bm25, buildPacket, contentWords, estimateTokens, PROFILES, profileByName, splitIntoSegments, type Profile, type Segment } from "@long-con/core";
 import { ARMS, firstMessages, SEARCH_TOOL, searchHistory, SYSTEM, type ArmName } from "./arms.ts";
 import { recallChart, type Series } from "./chart.ts";
 import { EstimatingModel } from "./estimate.ts";
 import { heldOutSplit, loadLongMemEval, stratifiedSlice, type Question } from "./longmemeval.ts";
-import { AnthropicModel } from "./model.ts";
+import { AnthropicModel, PRICES } from "./model.ts";
 import { packetRecall } from "./recall.ts";
 import { runEval, summarize, summaryTable, writeSummary, type RunOptions } from "./run.ts";
 import { SubagentModel } from "./subagent.ts";
@@ -25,17 +25,17 @@ const usage = `Usage: long-con eval <command> [options]
 
 Commands:
   recall     Free check: is each question's evidence in the packet? No model calls.
-  estimate   Dry run of all four arms with a stand-in model, to price a real run.
+  estimate   Dry run of the arms with a stand-in model, to price a real run.
   run        Answer and judge the dev slice. --backend subagent (default) runs on a Claude plan through
              subagents; --backend api uses ANTHROPIC_API_KEY and stops if the estimate passes --max-cost.
 
 Options:
   --profile <name>     Model profile: ${PROFILE_NAMES.join(", ")} (recall runs all of them by default; others default to claude)
   --data <path>        LongMemEval_S file (default evals/data/longmemeval/longmemeval_s_cleaned.json)
-  --arms <list>        Arms for estimate/run (default full,compaction,packet,bare)
+  --arms <list>        Arms for estimate/run (default ${ARMS.join(",")})
   --reader <model>     Reader model (default claude-haiku-5-5)
   --judge <model>      Judge model (default claude-opus-5-5)
-  --split <name>       dev (default, the 50 tuning questions) or held-out (the other 450, for headline numbers)
+  --split <name>       dev (default, the 50 tuning questions) or held-out (the rest minus any that share evidence with dev: 437, for headline numbers)
   --limit <n>          A smaller stratified pick of the split
   --repeats <n>        Run every question n times; intervals then cover run-to-run noise (default 1)
   --backend <name>     subagent (default) or api
@@ -107,9 +107,12 @@ export async function main(argv: string[]): Promise<number> {
   if (command === "recall") {
     const profiles = picked ? [picked] : Object.values(PROFILES);
     const { report, chart } = recallReport(dev, profiles);
-    mkdirSync(RESULTS, { recursive: true });
-    writeFileSync(join(RESULTS, "longmemeval-s-dev50-recall.md"), report);
-    writeFileSync(join(RESULTS, "longmemeval-s-dev50-recall.svg"), chart);
+    // Only the full dev slice with every profile is the committed report; anything narrower just prints.
+    if (!picked && !values.limit) {
+      mkdirSync(RESULTS, { recursive: true });
+      writeFileSync(join(RESULTS, "longmemeval-s-dev50-recall.md"), report);
+      writeFileSync(join(RESULTS, "longmemeval-s-dev50-recall.svg"), chart);
+    }
     console.log(report);
     return 0;
   }
@@ -121,18 +124,40 @@ export async function main(argv: string[]): Promise<number> {
   const arms = values.arms.split(",") as ArmName[];
   const repeats = Number(values.repeats);
   const unknown = arms.filter((a) => !ARMS.includes(a));
+  // An unpriced model would make every estimate $0 and slip past --max-cost, so it stops here.
+  const unpriced = [values.reader, values.judge].filter((m) => !PRICES[m]);
+  if (unpriced.length) {
+    console.error(`No price for ${unpriced.join(" or ")}: add it to PRICES in evals/src/model.ts. Nothing was run.`);
+    return 1;
+  }
   if (unknown.length || !Number.isInteger(repeats) || repeats < 1) {
     console.error(unknown.length ? `Unknown arm ${unknown.join(", ")}: use ${ARMS.join(", ")}.` : `--repeats must be a whole number of 1 or more.`);
     return 1;
   }
   const base = { arms, reader: values.reader, judgeModel: values.judge, profile, concurrency: 4, repeats };
-  const estimate = summarize(await runEval(dev, { ...base, model: new EstimatingModel() }), arms);
+  const estimate = summarize(await runEval(dev, { ...base, model: new EstimatingModel(true) }), arms);
   const estimatedTotal = estimate.reduce((a, r) => a + r.totalCost, 0);
-  const estimateHeader = `# Cost estimate: ${dev.length} LongMemEval_S ${values.split} questions, ${profile.name} profile\n\nReader ${values.reader}, judge ${values.judge}. Token counts are estimates (about 3.5 characters per token), and every arm that can search is assumed to use every search it's allowed, so this is a ceiling. ${COST_CAVEATS} Estimated total: **$${estimatedTotal.toFixed(2)}**.`;
+  const estimateErrors = estimate.reduce((a, r) => a + r.errors, 0);
+  if (estimateErrors) {
+    console.error(`The estimate failed on ${estimateErrors} answers, so its total can't be trusted. Nothing was run.`);
+    return 1;
+  }
 
   if (command === "estimate") {
-    writeFileSync(join(RESULTS, `longmemeval-s-dev50-estimate-${profile.name}.md`), `${estimateHeader}\n\n${summaryTable(estimate, false)}\n`);
-    console.log(`${estimateHeader}\n\n${summaryTable(estimate, false)}`);
+    // The cap uses the ceiling. The no-search floor shows how much of the gap between arms is the ceiling's assumption.
+    const floor = summarize(await runEval(dev, { ...base, model: new EstimatingModel(false) }), arms);
+    const floorTotal = floor.reduce((a, r) => a + r.totalCost, 0);
+    const report = [
+      `# Cost estimate: ${dev.length} LongMemEval_S ${values.split} questions × ${repeats} run(s), ${profile.name} profile`,
+      `Reader ${values.reader}, judge ${values.judge}. Token counts are estimates (about 3.5 characters per token). A real run lands between the two tables: readers search when they need to, not always or never. The --max-cost check uses the ceiling. ${COST_CAVEATS}`,
+      `## Ceiling: every arm that can search uses every search it's allowed. Total **$${estimatedTotal.toFixed(2)}**`,
+      summaryTable(estimate, false),
+      `## Floor: no arm searches. Total **$${floorTotal.toFixed(2)}**`,
+      summaryTable(floor, false),
+    ].join("\n\n");
+    // Only the full dev slice is the committed estimate; other splits and picks just print.
+    if (values.split === "dev" && !values.limit && repeats === 1) writeFileSync(join(RESULTS, `longmemeval-s-dev50-estimate-${profile.name}.md`), `${report}\n`);
+    console.log(report);
     return 0;
   }
 
@@ -211,7 +236,7 @@ interface RecallRun {
 function recallRuns(questions: Question[], profile: Profile): RecallRun[] {
   return questions.map((q) => {
     const packet = buildPacket({ history: q.sessions, message: q.question, profile });
-    return { q, tokens: packet.tokens, ...packetRecall(q, packet) };
+    return { q, tokens: packet.tokens, ...packetRecall(q, packet, profile.segmentTokens) };
   });
 }
 
@@ -224,14 +249,18 @@ function bm25Runs(questions: Question[], profile: Profile): RecallRun[] {
     const index = new Bm25<Segment>();
     for (const s of q.sessions) for (const seg of splitIntoSegments(s, profile.segmentTokens)) index.add(seg, contentWords(seg.turns.map((t) => t.content).join("\n")));
     const picked: Segment[] = [];
+    const texts: string[] = [];
     let tokens = 0;
     for (const { item } of index.search(contentWords(q.question), 1000)) {
-      const cost = estimateTokens(item.turns.map((t) => `${t.role}: ${t.content}`).join("\n"));
+      const text = item.turns.map((t) => `${t.role}: ${t.content}`).join("\n");
+      const cost = estimateTokens(text);
       if (tokens + cost > profile.packetTokens) continue;
       picked.push(item);
+      texts.push(text);
       tokens += cost;
     }
-    return { q, tokens, ...packetRecall(q, { segments: picked } as unknown as Packet) };
+    const segments = picked.map((s) => ({ ...s, confidence: 1, why: "bm25" }));
+    return { q, tokens, ...packetRecall(q, { segments, text: texts.join("\n") }, profile.segmentTokens) };
   });
 }
 
@@ -338,7 +367,7 @@ function recallReport(dev: Question[], profiles: Profile[]): { report: string; c
     "| --- | --- | --- | --- | --- | --- | --- | --- |",
     ...main,
     "",
-    "Plain BM25 top-k is the baseline: the same units ranked by BM25 over all words and filled to the same ceiling, with nothing else. It also shows what ranking by the user's words adds, which suits LongMemEval, where 94% of evidence turns are user turns, and may not carry over to real chats.",
+    "Plain BM25 top-k is the baseline: the same units ranked by BM25 over all words and filled to the same ceiling, with nothing else. It also shows what ranking by the user's words adds, which suits LongMemEval, where 95% of the dev slice's evidence turns are user turns, and may not carry over to real chats.",
     "",
     "## What the reader takes in per question",
     "",

@@ -1,10 +1,12 @@
 // A reader backend that runs on a Claude plan instead of an API key. The harness runs as usual, but each
 // model call it hasn't seen is written to a pending folder and counted as not answered yet. Subagents
 // answer the pending files; their answers go in the answers folder, keyed by the same hash, and the next
-// pass picks them up. Same prompts, byte for byte, as an API run. Cost and latency are not comparable.
+// pass picks them up. The harness's prompts are byte for byte an API run's, but the subagent also reads its own system
+// prompt, its model is whatever the orchestrating session spawns (the reader and judge names only key the files), and
+// nothing stops it reading other files. Results are anecdotes for checking the pipeline, not measurements.
 
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ModelClient, ModelRequest, ModelResponse } from "./model.ts";
 import { estimateTokens } from "@long-con/core";
@@ -17,6 +19,8 @@ export class SubagentModel implements ModelClient {
   dir: string;
   constructor(dir: string) {
     this.dir = dir;
+    // Each pass rewrites what it still needs, so stale prompts from earlier runs never pile up.
+    rmSync(join(dir, "pending"), { recursive: true, force: true });
     mkdirSync(join(dir, "pending"), { recursive: true });
     mkdirSync(join(dir, "answers"), { recursive: true });
   }

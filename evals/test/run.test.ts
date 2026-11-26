@@ -3,8 +3,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { estimateTokens, PROFILES, type Session } from "@long-con/core";
 import type { Question } from "../src/longmemeval.ts";
-import type { ModelClient, ModelRequest, ModelResponse } from "../src/model.ts";
-import { bootstrap, pairedTable, runEval, summarize } from "../src/run.ts";
+import { AnthropicModel, BilledError, type ModelClient, type ModelRequest, type ModelResponse } from "../src/model.ts";
+import { MAX_OUTPUT } from "../src/arms.ts";
+import { bootstrap, pairedTable, runEval, summarize, type Answer } from "../src/run.ts";
 
 const filler = (i: number): Session => ({
   id: `f${i}`,
@@ -36,14 +37,20 @@ const allText = (req: ModelRequest) => JSON.stringify(req.messages);
 class StandIn implements ModelClient {
   calls: ModelRequest[] = [];
   failReader: boolean;
-  constructor(failReader = false) {
+  failJudge: boolean;
+  cutOff: boolean;
+  constructor(failReader = false, { failJudge = false, cutOff = false } = {}) {
     this.failReader = failReader;
+    this.failJudge = failJudge;
+    this.cutOff = cutOff;
   }
   async complete(req: ModelRequest): Promise<ModelResponse> {
     this.calls.push(req);
     // Billed by what was actually sent, so token and cost comparisons between arms mean something.
     const input = estimateTokens(req.system + allText(req));
     const reply = (text: string): ModelResponse => ({ text, toolCalls: [], content: [{ type: "text", text }], usage: { input, output: 10 }, latencyMs: 1 });
+    if (req.purpose === "judge" && this.failJudge) throw new BilledError("judge cut off", { input, output: req.maxTokens }, 1);
+    if (req.purpose === "reader" && this.cutOff) throw new BilledError("reader cut off", { input, output: req.maxTokens }, 1);
     if (req.purpose === "judge") {
       const prompt = String(req.messages[0]!.content);
       const response = prompt.split("Model Response:")[1] ?? "";
@@ -78,7 +85,8 @@ test("each arm is scored on what its reader saw, and the packet sees far less th
   for (const arm of opts(model).arms) assert.equal(row(arm).accuracy, 1, `${arm} should find Denver`);
   assert.equal(row("packet").toolCallsPerQuestion, 0, "the packet already held the fact");
   assert.equal(row("bare").toolCallsPerQuestion, 1, "with no packet the reader had to search");
-  assert.ok(row("packet").readerInputTokens < row("full").readerInputTokens / 5, "measured on everything the reader took in");
+  assert.ok(row("packet").readerInputTokens < row("full").readerInputTokens / 5);
+  assert.ok(row("bare").readerInputTokens > row("bare").contextTokens * 5, "reader input counts the search results too, not just the first context");
   const compaction = answers.find((a) => a.arm === "compaction")!;
   const summaries = compaction.calls.filter((c) => c.purpose === "summarizer");
   assert.ok(summaries.length > 0 && summaries.every((c) => c.cost > 0), "the summaries are paid for");
@@ -169,3 +177,68 @@ test("the bootstrap interval is wide on a few questions and narrows with more", 
   assert.ok(lo2 <= 0.7 && hi2 >= 0.7 && hi2 - lo2 < 0.1);
 });
 
+
+test("a question counts once in the interval however many times it was repeated", () => {
+  const a = (questionId: string, repeat: number, pass: boolean) =>
+    ({ questionId, repeat, pass, arm: "packet", type: "t", answer: "", calls: [], contextTokens: 0, toolCalls: 0, judgeReply: "" }) as Answer;
+  const answers = [0, 1, 2].flatMap((r) => [a("q1", r, true), a("q2", r, false)]);
+  // Two questions, one right and one wrong: resampling two values can land on all-wrong or all-right.
+  // Counted as six separate answers, the interval would be far narrower.
+  assert.deepEqual(summarize(answers, ["packet"])[0]!.ci, [0, 1]);
+});
+
+test("a cut-off reader answer is an error that keeps what the cut-off call cost", async () => {
+  const answers = await runEval([question], { ...opts(new StandIn(false, { cutOff: true })), arms: ["packet"] });
+  const [a] = answers;
+  assert.ok(a!.error);
+  const reader = a!.calls.filter((c) => c.purpose === "reader");
+  assert.equal(reader.length, 1);
+  assert.equal(reader[0]!.output, MAX_OUTPUT, "the billed output of the failed call is counted");
+  assert.ok(reader[0]!.cost > 0);
+});
+
+test("a judge failure keeps the reader's answer and everything already paid for", async () => {
+  const [a] = await runEval([question], { ...opts(new StandIn(false, { failJudge: true })), arms: ["packet"] });
+  assert.match(a!.answer, /Denver/);
+  assert.ok(a!.error);
+  assert.equal(a!.pass, false);
+  assert.deepEqual(a!.calls.map((c) => c.purpose), ["reader", "judge"]);
+});
+
+test("every call gets the same generous output cap, so no arm's answers are cut short by a smaller one", async () => {
+  const model = new StandIn();
+  await runEval([question], { ...opts(model), arms: [...opts(model).arms] });
+  assert.ok(model.calls.length > 10);
+  assert.ok(model.calls.every((c) => c.maxTokens === MAX_OUTPUT));
+});
+
+test("both compaction arms read one shared summary, so they differ only in the search tool", async () => {
+  const model = new StandIn();
+  const answers = await runEval([question], { ...opts(model), arms: ["compaction", "compaction-search"] });
+  const summaries = model.calls.filter((c) => c.purpose === "summarizer");
+  const perArm = answers.map((a) => a.calls.filter((c) => c.purpose === "summarizer").length);
+  assert.equal(perArm[0], summaries.length, "the summary was written once");
+  assert.equal(perArm[0], perArm[1], "and each arm reports its cost");
+  const firstContext = (tools: boolean) => JSON.stringify(model.calls.find((c) => c.purpose === "reader" && !!c.tools === tools)!.messages[0]);
+  assert.equal(firstContext(false), firstContext(true));
+});
+
+test("with no tools, no arm is told about a search tool it doesn't have", async () => {
+  const model = new StandIn();
+  const noTools = { ...opts(model), profile: { ...opts(model).profile, maxToolRounds: 0, trustNote: true } };
+  await runEval([question], { ...noTools, arms: [...opts(model).arms] });
+  const readers = model.calls.filter((c) => c.purpose === "reader");
+  assert.ok(readers.length >= 5);
+  for (const c of readers) assert.doesNotMatch(allText(c), /search_history|use the tools/);
+});
+
+test("the API client turns a cut-off or refused answer into an error that carries the billed usage", async () => {
+  for (const stop_reason of ["max_tokens", "refusal"]) {
+    const client = { messages: { create: async () => ({ stop_reason, content: [{ type: "text", text: "partial" }], usage: { input_tokens: 1234, output_tokens: 16000 } }) } };
+    const model = new AnthropicModel(client as never);
+    await assert.rejects(
+      model.complete({ model: "claude-haiku-5-5", system: "s", messages: [{ role: "user", content: "q" }], maxTokens: 16000, purpose: "reader" }),
+      (err: unknown) => err instanceof BilledError && err.usage.input === 1234 && err.usage.output === 16000,
+    );
+  }
+});
