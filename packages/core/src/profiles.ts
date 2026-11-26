@@ -49,6 +49,8 @@ export interface Profile {
    * confidence multiplied by 1 + this (P07). 0 turns it off, and the time words then stay in the keyword query.
    */
   timeBoost: number;
+  /** Keeps the time phrase's words in the keyword query when boosting. Off unless set; the P07 sweep's control arm. */
+  timeKeepWords?: boolean;
   /** The fixed "this is a best guess" line. Tested on and off per model. */
   trustNote: boolean;
   /** The standing-rules register in the packet's head. On unless set false; the eval's packet-norules arm turns it off. */

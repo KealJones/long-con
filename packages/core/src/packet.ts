@@ -90,7 +90,7 @@ export function buildPacket({ history, message, profile, currentSessionId, now }
   if (gateOpen) {
     const seen = new Set<string>();
     const today = profile.timeBoost > 0 ? dayOf(now) : undefined;
-    const time = today === undefined ? undefined : { ranges: timeRanges(message, today), boost: profile.timeBoost };
+    const time = today === undefined ? undefined : { ranges: timeRanges(message, today), boost: profile.timeBoost, keepWords: profile.timeKeepWords };
     const { hits, idf } = searchUnits(history, resolution.query, profile.segmentTokens, current?.id, recentStart, time);
     // The absolute bar asks whether history holds anything strong enough to answer at all. It judges the best unit
     // only: per unit, it cut the weaker second piece multi-session questions need (P02 dev sweep).
@@ -178,11 +178,11 @@ export function searchUnits(
   segmentTokens: number,
   currentId?: string,
   recentStart = 0,
-  time?: { ranges: DayRange[]; boost: number },
+  time?: { ranges: DayRange[]; boost: number; keepWords?: boolean },
 ) {
   const ranges = time?.ranges ?? [];
   // A time phrase says when, not what: its words leave the keyword query and pick days instead (P07).
-  for (const r of ranges) query = query.replace(new RegExp(`\\b${r.phrase}\\b`, "i"), " ");
+  if (!time?.keepWords) for (const r of ranges) query = query.replace(new RegExp(`\\b${r.phrase}\\b`, "i"), " ");
   // Each unit is indexed two ways, all its words and the user's words alone, then the rankings are fused.
   const all = new Bm25<Segment>();
   const user = new Bm25<Segment>();
