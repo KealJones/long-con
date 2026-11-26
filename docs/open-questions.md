@@ -19,7 +19,7 @@ Lean: on the device. Pending a pick. Background in [research/history-storage.md]
 
 ## Topic window vs fully fresh packet
 
-Keep a small window of the current topic's recent turns, or build a fully fresh packet every turn? Lean: keep a small one, and eval both.
+The last few turns now always ride along raw, with the count set per model profile (it can be zero). Still open: whether a wider topic window adds anything on top of that. Lean: eval both, per model.
 
 ## Voice in v1
 

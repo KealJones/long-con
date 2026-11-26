@@ -8,13 +8,14 @@ Does a fresh packet each turn remember as well as the alternatives, for fewer to
 
 The benchmark is **Long Con versus compaction**, not versus a huge context window. A million tokens only delays the problem. The win is never reaching the moment where you have to say "reread our transcript" or "look at our past chats".
 
-## Three arms, same replayed chats
+## Four arms, same replayed chats
 
 | Arm | What the model sees each turn |
 | --- | --- |
 | `packet` | The Long Con context packet |
 | `compaction` | The running transcript, summarized whenever it passes a budget (the classic approach) |
 | `full` | The plain full long conversation, as long as it fits |
+| `bare` | Only the new message and the lookup tools, no packet. Shows what the packet saves and when it hurts |
 
 ## Metrics
 
@@ -25,7 +26,12 @@ The benchmark is **Long Con versus compaction**, not versus a huge context windo
 | Packet recall vs plain retrieval | If the answer lives in span X, is X in the packet? Tracked for the baseline and every sorter version. |
 | Packet misses | Model tool calls right after the packet, a sign it was missing or wrong |
 | Needless searches | Searches when the packet already held the answer, to check the left-out-history notice doesn't make the model over-search |
+| Harm rate | Questions that pass with no packet and fail with it. A wrong pull costs more than a missing one |
+| Wasted lookups | Lookups the builder ran that nothing in the answer used |
+| Tool calls and turns saved | Against the `bare` arm at the same accuracy |
 | Tokens per turn | Cost, and fit inside ~3K tokens for small models |
+| Cost per turn with caching | Real cost with prompt caching on, since cached history is cheap and a packet only wins past a certain length |
+| Time to first token | For local models, where caching is about speed |
 | Sorter split/merge | Over-splitting and over-merging reported separately (overlapping B-cubed precision and recall), scored at decision time |
 
 ## Test sets
@@ -47,6 +53,15 @@ Every builder runs with three readers, strongest first:
 3. **LFM3 1.7B:** the small-model track.
 
 Each reader reports accuracy against packet size, next to packet recall.
+
+## Per-model sweeps
+
+Each model profile gets its own settings, so each reader sweeps them:
+
+- **Raw-turn window:** how many recent turns ride along raw.
+- **Switch threshold:** how long the history gets before packets replace the plain chat, from turn one up.
+
+The result for each model is where the packet starts beating the full chat on accuracy, cost and speed. That point becomes the profile's default. Expect it to be late for Claude and early for small local models.
 
 ## When evals run
 

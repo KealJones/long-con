@@ -23,11 +23,30 @@ Nothing is summarized away. The packet is rebuilt from the log on every turn, an
 
 ## Fresh context: the core bet
 
-The model never sees a running transcript. Every turn the context is rebuilt from scratch, so nothing grows and nothing ever gets compacted. That's what makes the chat endless.
+Once a chat is past its model's threshold, the model never sees a running transcript. Every turn the context is rebuilt from scratch, so nothing grows and nothing ever gets compacted. That's what makes the chat endless. Short chats just run as normal chats, since a packet only pays off once history is long.
 
 - **A normal chat** sends the whole conversation every turn. It grows until it has to be summarized, and summaries lose things, like a standing rule.
 - **Long Con** treats every message as brand new, then pulls in only what that message needs: your rules, the state of the threads it touches, and the raw words from the past that matter.
 - **So the packet builder is the product.** Choosing what goes in, and what stays out, within a fixed size is the core problem, not a side detail.
+
+## Model profiles
+
+Long Con is for every model, not just Claude, and the right amount of context differs a lot between them. Each model gets a profile:
+
+| Setting | What it controls |
+| --- | --- |
+| Raw-turn window | How many recent turns always ride along word for word |
+| Switch threshold | How long the history gets before packets replace the plain chat. Can be turn one |
+| Packet budget | Token size of the packet |
+| Gate | Whether a per-turn gate can skip retrieval |
+| Tools | Which lookup tools the model gets |
+
+Two defaults ship:
+
+- **Claude:** long windows and a late switch. The win is token cost, since cached history is already cheap and a packet only beats it once the chat is long.
+- **Small local, e.g. LFM3 1.7B:** a short window, an early switch and a budget of about 3K tokens. Repeats and junk turns get dropped, because small models fall apart on long, repetitive context. Caching here is about speed: a local runtime like llama.cpp reuses the KV cache for an unchanged prompt prefix, so the stable part isn't reprocessed.
+
+The evals sweep the window and the threshold for each model, so the defaults come from measurements.
 
 ## Storage
 
@@ -38,7 +57,7 @@ The model never sees a running transcript. Every turn the context is rebuilt fro
 - **Span-to-span links.** The sorter records "this span continues that earlier span", and a thread is a connected group of linked spans. Merging and splitting are just adding or removing links, and user corrections become permanent "together" or "never together" rules.
 - **Pick, don't invent.** The sorter pulls a few candidate threads and must choose one of them, NEW, or the unsorted inbox, quoting its evidence. Unsure beats wrong.
 - **State files and status lines are a cache.** Every claim in them points back at a span, so drift can be caught. Thread state keeps a timeline: what was decided, what got rejected or replaced, and what you changed your mind to, each with a date and a pointer, so it knows where you landed and not just what you once said.
-- **Registers.** Open loops, results, lists and rules are tagged when a turn is written, so "go", "yes" or "now do all that" resolve deterministically.
+- **Registers.** Open loops, results, lists, rules and the model's own recent answers are tagged when a turn is written, so "go", "yes" or "now do all that" resolve deterministically, and the model stays consistent with what it already said.
 - **Multi-label topics.** A message can carry several topic labels, since one message often touches more than one subject.
 - **Negative replies.** "No", "that didn't work" and "not that one" mark the idea or answer they reply to as rejected or superseded. The packet leaves it out, so shot-down ideas don't come back as false memories.
 - **Cheap tagging.** Labels come from the reply call's structured output or a tiny classifier, never a separate model call per message. They stay only if they beat plain retrieval in the evals.
@@ -47,31 +66,38 @@ Where the log lives and syncs is still open: see [research/history-storage.md](r
 
 ## The context packet
 
-Built fresh every turn, stable part first so prompt caching still works:
+Built fresh every turn. The prompt order is fixed so the cached prefix never breaks:
 
-1. **Pinned rules,** word for word. The stable prefix, cached across turns.
-2. **Thread state** for the threads this message touches, where every claim cites a pointer to raw spans.
-3. **Raw spans** pulled in by retrieval and by pointers.
-4. **Topic window:** the current topic's stretch of conversation, then the new message.
+1. **System prompt and tools.** Stable.
+2. **Pinned rules,** word for word, and the history notice. Stable, cached across turns.
+3. **The packet:** thread state for the threads this message touches (every claim cites a pointer to raw spans), registers including the model's own recent answers, and raw spans pulled in by retrieval and by pointers.
+4. **Recent turns,** raw, as many as the profile's window says, so follow-ups never depend on retrieval.
+5. **The new message.**
 
 ### Retrieval order
 
 Search is the last resort. Most turns should be filled before anything is searched.
 
-1. **Resolve.** A deterministic resolver turns follow-ups like "multiply it by 32" into a standalone query using the registers. Often the registers answer it outright and nothing needs searching.
+0. **Gate.** Before the history crosses the profile's threshold, there's no packet at all, just a normal chat. After it, a cheap gate decides whether this turn needs retrieval. A turn that needs nothing gets the rules, the recent turns and the new message. Always retrieving can score below never retrieving ([prefetch.md](research/prefetch.md)).
+1. **Resolve.** A deterministic resolver turns follow-ups like "multiply it by 32" into a standalone query using the registers. Often the registers answer it outright and nothing needs searching. When it can't tell, it says "unsure" instead of guessing, and the turn falls back to plain search and the recent turns. A tiny trained resolver gets tested behind the rules, since rules alone miss about a third of follow-ups.
 2. **Registers.** Rules, open loops and recent results go straight into the packet.
 3. **Search what's left.** Hybrid BM25 plus embedding search over topic segments that a tiny online splitter makes as you chat. Each segment is indexed three ways: your words, the assistant's words, and both ([threader.md](research/threader.md)).
-4. **Filter and trim.** Drop anything marked rejected or superseded, boost label matches, rerank, then trim inside each segment to the hit messages plus a neighbor or two. A hit on a question pulls in its answer.
-5. **Fill** the packet to budget.
+4. **Filter.** Drop anything marked rejected or superseded, boost label matches, rerank. A hit on a question pulls in its answer.
+5. **Fit** the packet to budget with whole units: whole segments of history and whole functions or blocks of code. Drop whole units from the bottom rather than trimming them into snippets.
+
+Files and lines:
+
+- **A quoted line needs proof:** a path:line you typed, or an exact symbol match. Anything else comes in as the whole enclosing function or block plus a pointer.
+- **Always fresh.** Files are re-read from disk every turn and checked against a hash, since they change under the chat.
 
 Choosing what goes in:
 
-- **Lean by default.** The packet holds only what this message needs, not a big budget filled up, and the recall slot catches anything it missed. Rules and the topic window are protected; everything else is ranked by relevance and cut to fit.
-- **Retrieval every turn.** Cheap keyword or embedding search over all thread states and raw spans runs on every message, so "that thing from earlier" still lands after a long tangent. Recency only boosts; it never decides alone.
+- **Lean by default.** The packet holds only what this message needs, not a big budget filled up, and the recall slot catches anything it missed. Rules and the recent turns are protected; everything else is ranked by relevance and cut to fit.
+- **Gated retrieval.** Once the gate says a turn needs it, cheap keyword or embedding search runs over all thread states and raw spans, so "that thing from earlier" still lands after a long tangent. Recency only boosts; it never decides alone.
 - **Lookup, not a full index.** The packet never carries a list of every thread, which would grow and break caching. The model can search for any thread the packet missed.
 - **Topic window.** While you stay on one topic, that stretch rides along like a normal chat. When the topic shifts, the old stretch drops out and the new topic's state and spans come in. A long single-topic stretch still gets a size cap. When it's unclear whether the topic shifted, keep going: a false shift that drops context mid-thought is worse than carrying a little extra. A message that touches two topics brings both.
 
-Whether to keep the topic window at all, or build a fully fresh packet every turn, is an open question to settle with evals.
+The raw-turn window is the floor; whether a wider topic window adds anything on top of it is an open question to settle with evals, per model.
 
 ## Every packet source is also a tool
 
@@ -86,6 +112,8 @@ The packet is a head start, never the only path. Anything the builder can look u
 | Chat history | Search the whole chat |
 | Memory and facts | Search memory and facts |
 | Files | Find, read and edit files |
+
+Which of these tools a model gets is set in its profile, since a small model can drown in a long tool list.
 
 Every packet carries a short fixed notice, one or two lines, saying that earlier chat history exists but was left out to fit the context, how far back it goes (since the log's first turn, so the line stays cacheable), and that the search tools can reach it.
 

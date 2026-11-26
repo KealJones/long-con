@@ -2,9 +2,9 @@
 
 One endless chat that never compacts.
 
-A normal chat resends the whole conversation every turn until it has to be summarized, and summaries lose things: a standing rule, a date that changed, a decision from last week. Long Con never sends the transcript. Every turn, the model gets a fresh, small **context packet** built from a lossless log of everything said: your rules, the state of the threads the new message touches, and the raw words from the past that matter.
+A normal chat resends the whole conversation every turn until it has to be summarized, and summaries lose things: a standing rule, a date that changed, a decision from last week. Once a chat gets long, Long Con stops sending the transcript. Every turn, the model gets a fresh, small **context packet** built from a lossless log of everything said: your rules, the state of the threads the new message touches, and the raw words from the past that matter.
 
-The bet: a good packet beats classic compaction, and matches the full long conversation on recall, at a fraction of the tokens.
+The bet: a good packet beats classic compaction, and matches the full long conversation on recall, at a fraction of the tokens. It's built for every model: Claude gets cheaper turns, and small local models get the short, clean context they need to stay sharp.
 
 ## Status
 
