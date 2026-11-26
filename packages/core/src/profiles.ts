@@ -25,6 +25,13 @@ export interface Profile {
   unitGate: number;
   /** Gate weights; the shipped UNIT_WEIGHTS when absent. Evals pass cross-validated folds here. */
   unitWeights?: readonly number[];
+  /**
+   * Pointer tier (P15): units the unit gate lets in with a probability under this come in as a one-line pointer (date,
+   * opening words, a search_history query that brings the unit back) instead of whole. Needs a search tool. 0 turns it off.
+   */
+  pointerGate: number;
+  /** Most pointers in one packet; medium units past it stay out. */
+  maxPointers: number;
   /** How search stems words (see text.ts). minScore depends on it: a stemmer that matches more words lifts every score. */
   stemmer: Stemmer;
   /** P26: denoise mode (segments.ts) for the text the absolute score and the gate judge; ranking keeps the full text. */
@@ -78,6 +85,10 @@ export const PROFILES = {
     minScore: 0.17,
     // Highest unit-gate threshold with no all-evidence loss in leave-one-type-out CV; 0.004 loses one question for half the FI (P03 sweep).
     unitGate: 0.002,
+    // P15 sweep on dev: units under 0.004 shrink to pointers, at most 3 (one per search round); whole all-evidence loses
+    // a question, but every question stays readable through its pointers, with 12% fewer tokens and less FI on every tier.
+    pointerGate: 0.004,
+    maxPointers: 3,
     // Porter matched more wrong units at every bar that kept recall (P17 sweep), so claude keeps the suffix stripper.
     stemmer: "suffix",
     // P26 on the gate only: the bar and the gate judge units with stock assistant sentences dropped, at the full text's
@@ -110,6 +121,11 @@ export const PROFILES = {
     minConfidence: 0.3,
     // CV sweep: one question for about half the false inclusions; 0.013 loses three. Keeps minScore, which the gate doesn't replace.
     unitGate: 0.01,
+    // Off. Recorded option (P15 dev sweep): 0.05 with no cap halves packet tokens (1,425 -> 752) at the same false
+    // inclusions, but whole all-evidence falls 66.0 -> 46.8% (63.8% readable in one search), a bet that a 1.7B model runs
+    // the pointer search. Not taken until a reader run shows it does. Any cap cost more readable recall than it saved.
+    pointerGate: 0,
+    maxPointers: Infinity,
     // P17 sweep, with the tally and unit gates on: Porter stemming finds two more dev questions at bars 0.20 to 0.24 and
     // the bar cuts false inclusions; only 0.25 adds none on any tier (+1 question, 6% fewer tokens). 0.25 is the cliff
     // (0.26 untested, 0.24 keeps a second question but adds tier-3 FI), and 7 of 47 answerable packets come back empty.

@@ -2,7 +2,7 @@
 // the model would, by its words, and don't care how it's laid out or built.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildPacket, PROFILES, type Session } from "../src/index.ts";
+import { buildPacket, PROFILES, searchUnits, type Session } from "../src/index.ts";
 import { filler } from "./fixtures.ts";
 
 const chat = (s: Session): Session => s;
@@ -249,5 +249,38 @@ test("a question history never touched comes back empty even when some words mat
   assert.equal(buildPacket({ history, message, profile }).segments.length, 0, "with it, nothing does");
   const on = buildPacket({ history, message: "when is biscuit due for the rabies shot", profile });
   assert.match(on.text, /rabies shot next month/);
+});
+
+test("a medium-confidence unit comes in as a one-line pointer whose words find it again (P15)", () => {
+  const history = [
+    ...filler,
+    chat({
+      id: "answer_9c1d_2",
+      date: "2026/03/27 (Fri) 12:00",
+      turns: [
+        { role: "user", content: "my landlord said the lease renewal for the tempe apartment is due june 3rd, rent goes up to 1840" },
+        { role: "assistant", content: "Worth asking whether they'd hold the old rate for a longer lease." },
+      ],
+    }),
+  ];
+  const message = "when is my lease renewal due";
+  // Every unit the gate lets in sits under this pointerGate, so it shows as a pointer, not whole.
+  const pointing = { ...profile, pointerGate: 1 };
+  const packet = buildPacket({ history, message, profile: pointing });
+  assert.equal(packet.segments.length, 0);
+  assert.equal(packet.pointers.length, 1);
+  assert.match(packet.text, /2026\/03\/27/, "the pointer has the date");
+  assert.match(packet.text, /my landlord said the lease renewal/, "and the opening words");
+  assert.doesNotMatch(packet.text, /1840/, "but not the whole unit");
+  assert.doesNotMatch(packet.text, /answer_9c1d/, "and no chat id");
+  const top = searchUnits(history, packet.pointers[0]!.query, profile.segmentTokens).hits[0]!.hit.item;
+  assert.equal(top.sessionId, "answer_9c1d_2", "its quoted words bring the unit back");
+  assert.ok(packet.tokens < buildPacket({ history, message, profile }).tokens);
+  // Off, or with no search tool to open it, the unit comes in whole as before.
+  for (const p of [profile, { ...pointing, maxToolRounds: 0 }]) {
+    const whole = buildPacket({ history, message, profile: p });
+    assert.equal(whole.pointers.length, 0);
+    assert.match(whole.text, /1840/);
+  }
 });
 

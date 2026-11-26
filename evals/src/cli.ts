@@ -241,6 +241,8 @@ interface RecallRun {
   sessionRecall: number;
   turnRecall: number;
   complete: boolean;
+  turnRecallWithPointers?: number;
+  completeWithPointers?: boolean;
 }
 
 // Every LongMemEval_S history (about 140K tokens) is past both profiles' switch points, so the packet always runs.
@@ -303,6 +305,12 @@ function recallReport(dev: Question[], profiles: Profile[]): { report: string; c
     main.push(
       `| ${profile.name} | ${fmt(profile.packetTokens)} | ${pct(mean(runs.map((r) => r.sessionRecall)))} | ${pct(mean(runs.map((r) => r.turnRecall)))} | ${pct(complete)} | ${interval(completes(runs))} | ${fmt(tokens)} | ${fmt(Math.max(...runs.map((r) => r.tokens)))} |`,
     );
+
+    // P15: a pointer to an evidence turn counts as found, needs a read. Shown apart so it can't hide a whole-unit loss.
+    if (profile.pointerGate > 0) {
+      const withPointers = mean(runs.map((r) => (r.completeWithPointers ? 1 : 0)));
+      main.push(`| ${profile.name}: pointers as found | | | ${pct(mean(runs.map((r) => r.turnRecallWithPointers!)))} | ${pct(withPointers)} | | | |`);
+    }
 
     const base = bm25Runs(answerable, profile);
     const baseComplete = mean(base.map((r) => (r.complete ? 1 : 0)));

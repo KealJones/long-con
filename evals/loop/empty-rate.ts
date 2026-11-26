@@ -29,6 +29,7 @@ export const TIER1_TIME = join(ROOT, "evals/sets/should-be-empty/tier1-time.json
 export const FIXTURE = join(ROOT, "evals/sets/should-be-empty/fixture-haystack.json");
 const RETRIEVED = "Retrieved history, oldest first:";
 const NOTES = "Notes on what the user said they like, newest value first:";
+const POINTERS = "Maybe related, not shown (search_history with the quoted words opens one):";
 
 export type TierName = "tier1-off-history" | "tier1t-time-phrases" | "tier2-cross-history" | "tier3-evidence-ablated" | "tier4-abstention" | "answerable";
 
@@ -56,14 +57,18 @@ export interface TierReport {
   emptyRate: number;
   /** Tier 4 only: kept out of any headline, since its "evidence" is related, not the answer. */
   informational: boolean;
-  /** Included units that aren't evidence, averaged over prompts. */
+  /** Included units that aren't evidence, averaged over prompts. Pointers (P15) count: they cost tokens and can mislead. */
   falseInclusions: number;
+  /** The pointers among those false inclusions. */
+  falsePointers: number;
   /** Included units that are evidence, averaged over prompts. On tier 4 these are units from the related evidence chats. */
   evidenceUnits: number;
   /** Whole packet, notices included. */
   meanTokens: number;
-  /** The retrieved section alone: the part a gate can save. */
+  /** The retrieved section alone: the part a gate can save. Pointer lines included. */
   meanRetrievedTokens: number;
+  /** The pointer lines alone. */
+  meanPointerTokens: number;
   /** Evidence units over all included units, pooled over prompts. Only for tiers with evidence; null when nothing was included. */
   precision: number | null;
 }
@@ -182,25 +187,41 @@ export interface ProbeResult {
   probe: Probe;
   units: number;
   evidenceUnits: number;
+  pointers: number;
+  evidencePointers: number;
   tokens: number;
   retrievedTokens: number;
+  pointerTokens: number;
 }
 
 export function runProbe(
   probe: Probe,
   profile: Profile,
-  build: (p: Probe) => Pick<Packet, "segments" | "text" | "tokens"> & Partial<Pick<Packet, "notes">> = defaultBuild(profile),
+  build: (p: Probe) => Pick<Packet, "segments" | "text" | "tokens"> & Partial<Pick<Packet, "notes" | "pointers">> = defaultBuild(profile),
 ): ProbeResult {
   const packet = build(probe);
   // Each interest note shown is a unit too, judged by its source turn, so a note on a should-be-empty prompt counts as a false inclusion.
   // A note whose source turn is already inside a shown segment adds nothing new, so it isn't counted twice.
   const inShown = (sessionId: string, turn: number) => packet.segments.some((s) => s.sessionId === sessionId && s.start <= turn && turn <= s.end);
   const notes = (packet.notes ?? []).filter((n) => !inShown(n.from.sessionId, n.from.turn));
-  const units = [...packet.segments, ...notes.map((n) => ({ sessionId: n.from.sessionId, start: n.from.turn, end: n.from.turn }))];
+  const pointers = packet.pointers ?? [];
+  const units = [...packet.segments, ...notes.map((n) => ({ sessionId: n.from.sessionId, start: n.from.turn, end: n.from.turn })), ...pointers];
   const evidenceUnits = probe.evidence ? units.filter((s) => isEvidenceUnit(s, probe.evidence!)).length : 0;
-  const found = [NOTES, RETRIEVED].map((h) => packet.text.indexOf(h)).filter((i) => i >= 0);
+  const evidencePointers = probe.evidence ? pointers.filter((s) => isEvidenceUnit(s, probe.evidence!)).length : 0;
+  const found = [NOTES, RETRIEVED, POINTERS].map((h) => packet.text.indexOf(h)).filter((i) => i >= 0);
   const at = found.length ? Math.min(...found) : -1;
-  return { probe, units: units.length, evidenceUnits, tokens: packet.tokens, retrievedTokens: at < 0 ? 0 : estimateTokens(packet.text.slice(at)) };
+  // The pointer section is last in the packet.
+  const pointerAt = packet.text.indexOf(POINTERS);
+  return {
+    probe,
+    units: units.length,
+    evidenceUnits,
+    pointers: pointers.length,
+    evidencePointers,
+    tokens: packet.tokens,
+    retrievedTokens: at < 0 ? 0 : estimateTokens(packet.text.slice(at)),
+    pointerTokens: pointerAt < 0 ? 0 : estimateTokens(packet.text.slice(pointerAt)),
+  };
 }
 
 // Same call as `eval recall`: no current session, so nothing rides along raw. The switch point isn't applied, since
@@ -224,9 +245,11 @@ export function summarize(results: ProbeResult[]): TierReport[] {
         informational: tier === "tier4-abstention",
         emptyRate: rs.filter((r) => r.units === 0).length / n,
         falseInclusions: mean((r) => r.units - r.evidenceUnits),
+        falsePointers: mean((r) => r.pointers - r.evidencePointers),
         evidenceUnits: mean((r) => r.evidenceUnits),
         meanTokens: mean((r) => r.tokens),
         meanRetrievedTokens: mean((r) => r.retrievedTokens),
+        meanPointerTokens: mean((r) => r.pointerTokens),
         precision: tier === "answerable" && hasEvidence && units ? rs.reduce((a, r) => a + r.evidenceUnits, 0) / units : null,
       },
     ];
@@ -244,9 +267,16 @@ export function formatReport(byProfile: { profile: string; tiers: TierReport[] }
   const lines = [`# ${title}`, ""];
   for (const { profile, tiers } of byProfile) {
     const head = "| Tier | Prompts | Empty rate | False inclusions / prompt | Mean packet tokens | Mean retrieved tokens |";
+    const pointing = tiers.some((t) => t.meanPointerTokens > 0);
     lines.push(`## ${profile}`, "", "Should be empty (the headline):", "", head, "| --- | ---: | ---: | ---: | ---: | ---: |");
     for (const t of tiers.filter((t) => t.tier.startsWith("tier") && !t.informational)) {
       lines.push(`| ${t.tier} | ${t.prompts} | ${pct(t.emptyRate)} | ${num(t.falseInclusions)} | ${Math.round(t.meanTokens)} | ${Math.round(t.meanRetrievedTokens)} |`);
+    }
+    if (pointing) {
+      lines.push("", "Of those, pointers (P15): whole units and one-line pointers counted apart.", "", "| Tier | Whole-unit FI / prompt | Pointer FI / prompt | Mean pointer tokens |", "| --- | ---: | ---: | ---: |");
+      for (const t of tiers.filter((t) => t.tier.startsWith("tier") && !t.informational)) {
+        lines.push(`| ${t.tier} | ${num(t.falseInclusions - t.falsePointers)} | ${num(t.falsePointers)} | ${Math.round(t.meanPointerTokens)} |`);
+      }
     }
     for (const t of tiers.filter((t) => t.informational)) {
       lines.push(

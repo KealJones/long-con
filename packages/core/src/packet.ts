@@ -36,6 +36,11 @@ export interface PacketSegment {
   why: string;
 }
 
+/** A medium-confidence unit shown as one line (P15): the reader runs `query` through search_history to open it. */
+export interface PacketPointer extends PacketSegment {
+  query: string;
+}
+
 export interface Packet {
   /** The packet as the model reads it. */
   text: string;
@@ -45,6 +50,8 @@ export interface Packet {
   resolution: Resolution;
   retrieved: boolean;
   segments: PacketSegment[];
+  /** Units shown as one-line pointers, not whole (profile.pointerGate). */
+  pointers: PacketPointer[];
   /** Interest notes shown, newest value of each topic first. Their source turns stay reachable by search. */
   notes: Note[];
   /** Definitions in the Code section: a signature for a single match, pointers otherwise. */
@@ -92,13 +99,18 @@ export function buildPacket({ history, message, profile, currentSessionId, code 
   const symbols = code ? lookupSymbols(message, code, { blockTokens: 0, packetTokens: budget - estimateTokens(`\n\n${CODE}\n`), shape: "signature" }) : undefined;
   const codeLines = symbols?.text ? ["", CODE, symbols.text] : [];
   budget -= estimateTokens(codeLines.join("\n"));
-  const chosen: { segment: Segment; hit: Hit<Segment>; confidence: number }[] = [];
+  const chosen: { segment: Segment; hit: Hit<Segment>; confidence: number; medium: boolean }[] = [];
+  const pointed: { segment: Segment; hit: Hit<Segment>; confidence: number; query: string; line: string }[] = [];
+  // A pointer is only worth its line when the reader can open it.
+  const pointing = canSearch && profile.pointerGate > 0;
+  let idfOf = (_: string) => 0;
   const noteLines: string[] = [];
   const shownNotes: Note[] = [];
 
   if (gateOpen) {
     const seen = new Set<string>();
     const { hits, idf } = searchUnits(history, resolution.query, profile.segmentTokens, current?.id, recentStart, profile.stemmer, profile.gateKey);
+    idfOf = idf;
     // The absolute bar asks whether history holds anything strong enough to answer at all. It judges the best unit
     // only: per unit, it cut the weaker second piece multi-session questions need (P02 dev sweep).
     const found = hits.some((h) => h.score >= profile.minScore);
@@ -138,7 +150,8 @@ export function buildPacket({ history, message, profile, currentSessionId, code 
     for (const { hit, confidence, features } of ranked) {
       // The budget is a ceiling, not a target: weak matches stay out even when there's room.
       if (confidence < profile.minConfidence) continue;
-      if (features && gate > 0 && probability(features) < gate) continue;
+      const p = features && gate > 0 ? probability(features) : 1;
+      if (p < gate) continue;
       // The same exchange saved twice only needs to come in once.
       const text = hit.item.turns.map((t) => t.content).join("\n");
       if (seen.has(text)) continue;
@@ -147,14 +160,43 @@ export function buildPacket({ history, message, profile, currentSessionId, code 
       if (cost > budget) continue;
       seen.add(text);
       budget -= cost;
-      chosen.push({ segment: hit.item, hit, confidence });
+      chosen.push({ segment: hit.item, hit, confidence, medium: pointing && !tally && p < profile.pointerGate });
     }
+  }
+
+  // Pointer tier (P15): the units above were picked exactly as before, at whole cost, so the pointer tier can't let in
+  // a unit that wouldn't have come in whole. Medium ones then shrink to a line, best first, up to what the reader can
+  // open; past that they drop. A unit shorter than its pointer stays whole.
+  let room = profile.maxPointers;
+  for (let i = 0; i < chosen.length; i++) {
+    const c = chosen[i]!;
+    if (!c.medium) continue;
+    const query = pointerQuery(c.segment, idfOf, profile.stemmer);
+    const line = renderPointer(c.segment, query);
+    if (estimateTokens(`\n${line}`) >= estimateTokens("\n" + renderSegment(c.segment, registers.rejected, c.confidence, c.hit.matched))) continue;
+    if (room-- > 0) pointed.push({ ...c, query, line });
+    chosen.splice(i--, 1);
   }
 
   // Oldest first reads like the chat did, and keeps dates in order for "how long ago" questions.
   chosen.sort((a, b) => order(history, a.segment).localeCompare(order(history, b.segment)));
+  pointed.sort((a, b) => order(history, a.segment).localeCompare(order(history, b.segment)));
   const body = chosen.map((c) => renderSegment(c.segment, registers.rejected, c.confidence, c.hit.matched));
-  const text = [...head, ...codeLines, ...(noteLines.length ? ["", NOTES, ...noteLines] : []), ...(body.length ? ["", RETRIEVED, ...body] : [])].join("\n");
+  const text = [
+    ...head,
+    ...codeLines,
+    ...(noteLines.length ? ["", NOTES, ...noteLines] : []),
+    ...(body.length ? ["", RETRIEVED, ...body] : []),
+    ...(pointed.length ? ["", POINTERS, ...pointed.map((p) => p.line)] : []),
+  ].join("\n");
+  const shown = ({ segment, hit, confidence }: Pick<(typeof chosen)[number], "segment" | "hit" | "confidence">): PacketSegment => ({
+    sessionId: segment.sessionId,
+    date: segment.date,
+    start: segment.start,
+    end: segment.end,
+    confidence: round(confidence),
+    why: `matched ${hit.matched.slice(0, 3).join(", ")}`,
+  });
 
   return {
     text,
@@ -162,14 +204,8 @@ export function buildPacket({ history, message, profile, currentSessionId, code 
     recentTurns,
     resolution,
     retrieved: gateOpen,
-    segments: chosen.map(({ segment, hit, confidence }) => ({
-      sessionId: segment.sessionId,
-      date: segment.date,
-      start: segment.start,
-      end: segment.end,
-      confidence: round(confidence),
-      why: `matched ${hit.matched.slice(0, 3).join(", ")}`,
-    })),
+    segments: chosen.map(shown),
+    pointers: pointed.map((p) => ({ ...shown(p), query: p.query })),
     notes: shownNotes,
     code: symbols?.items ?? [],
   };
@@ -282,6 +318,32 @@ export const NOTES = "Notes on what the user said they like, newest value first:
 // shortcut: a fixed cap; make it per profile once a reader run shows how many notes help.
 const MAX_NOTE_GROUPS = 3;
 const MIN_NOTE_WORDS = 2;
+export const POINTERS = "Maybe related, not shown (search_history with the quoted words opens one):";
+// shortcut: fixed sizes picked by eye, not swept; tune once a reader run shows whether pointers get opened.
+const POINTER_WORDS = 4;
+const SNIPPET_WORDS = 8;
+
+/** The unit's rarest user words (all its words when it has no user turn), so a search for them brings the unit back. */
+function pointerQuery(seg: Segment, idf: (w: string) => number, stemmer: Stemmer): string {
+  const own = seg.turns.filter((t) => t.role === "user");
+  const raw = (own.length ? own : seg.turns).map((t) => t.content).join(" ").toLowerCase().split(/[^a-z0-9]+/);
+  const byStem = new Map<string, string>();
+  for (const w of raw) {
+    const stem = contentWords(w, stemmer)[0];
+    if (stem && !byStem.has(stem)) byStem.set(stem, w);
+  }
+  return [...byStem]
+    .sort((a, b) => idf(b[0]) - idf(a[0]))
+    .slice(0, POINTER_WORDS)
+    .map(([, w]) => w)
+    .join(" ");
+}
+
+function renderPointer(seg: Segment, query: string): string {
+  const first = (seg.turns.find((t) => t.role === "user") ?? seg.turns[0])?.content.split(/\s+/).filter(Boolean) ?? [];
+  const snippet = first.slice(0, SNIPPET_WORDS).join(" ") + (first.length > SNIPPET_WORDS ? "…" : "");
+  return `- ${seg.date ?? "undated"}: "${snippet}" · "${query}"`;
+}
 
 function renderSegment(seg: Segment, rejected: Set<string>, confidence: number, matched: string[]): string {
   // No chat ids here: the date is the source the model can use, and ids can carry labels it shouldn't see.

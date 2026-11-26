@@ -16,7 +16,7 @@ const packet = (parts: [Session, number, number][]) => ({
 });
 
 test("all evidence inside the packet is complete recall", () => {
-  assert.deepEqual(packetRecall(q, packet([[s1, 2, 5], [s2, 0, 1]]), 400), { sessionRecall: 1, turnRecall: 1, complete: true });
+  assert.deepEqual(packetRecall(q, packet([[s1, 2, 5], [s2, 0, 1]]), 400), { sessionRecall: 1, turnRecall: 1, complete: true, turnRecallWithPointers: 1, completeWithPointers: true });
 });
 
 test("the right chat but the wrong part of it finds the chat, not the turn", () => {
@@ -27,7 +27,7 @@ test("the right chat but the wrong part of it finds the chat, not the turn", () 
 });
 
 test("an empty packet finds nothing", () => {
-  assert.deepEqual(packetRecall(q, { segments: [], text: "" }, 400), { sessionRecall: 0, turnRecall: 0, complete: false });
+  assert.deepEqual(packetRecall(q, { segments: [], text: "" }, 400), { sessionRecall: 0, turnRecall: 0, complete: false, turnRecallWithPointers: 0, completeWithPointers: false });
 });
 
 test("a long turn counts only when every piece of it made it in, not just the piece that matched", () => {
@@ -41,4 +41,13 @@ test("a long turn counts only when every piece of it made it in, not just the pi
 test("a turn the packet blanked out isn't recalled, even though its place is covered", () => {
   const blanked = { segments: [{ sessionId: "chat-1", start: 4, end: 5, confidence: 1, why: "" }], text: "user: [an answer the user rejected, left out]\nassistant: Exciting!" };
   assert.equal(packetRecall(q, blanked, 400).turnRecall, 0);
+});
+
+test("a pointer to an evidence turn counts as found, needs a read, and only in the pointer columns (P15)", () => {
+  const p = { ...packet([[s2, 0, 1]]), pointers: [{ sessionId: "chat-1", start: 4, end: 5, confidence: 0.5, why: "", query: "sister denver" }] };
+  const r = packetRecall(q, p, 400);
+  assert.equal(r.turnRecall, 0.5, "the pointed-at turn isn't in the packet");
+  assert.equal(r.complete, false);
+  assert.equal(r.turnRecallWithPointers, 1);
+  assert.equal(r.completeWithPointers, true);
 });
