@@ -215,6 +215,25 @@ export function searchUnits(history: Session[], query: string, segmentTokens: nu
   return { hits, idf: (w: string) => all.idf(w) };
 }
 
+/**
+ * The search_history tool: the same fused search the packet uses, so a better ranking helps both. Where the packet
+ * abstains, the tool still answers: a unit the packet would leave out comes back marked low confidence.
+ */
+export function searchHistory(history: Session[], query: string, profile: Profile): string {
+  const { hits } = searchUnits(history, query, profile.segmentTokens);
+  if (!hits.length) return "No matches.";
+  const found = hits.some((h) => h.score >= profile.minScore);
+  const rejected = buildRegisters(history, profile.recentAnswers).rejected;
+  return hits
+    .slice(0, profile.searchResults)
+    .map(({ hit, confidence, features }) => {
+      const strong = found && confidence >= profile.minConfidence && !(profile.unitGate > 0 && unitProbability(features, profile.unitWeights) < profile.unitGate);
+      const text = renderSegment(hit.item, rejected, confidence, hit.matched);
+      return strong ? text : text.replace("\n", " · low confidence, likely not what you asked about\n");
+    })
+    .join("\n\n");
+}
+
 /** Reciprocal-rank fusion, keeping the matched words from both lists. */
 function fuse<T>(...lists: Hit<T>[][]): Hit<T>[] {
   const merged = new Map<T, Hit<T>>();

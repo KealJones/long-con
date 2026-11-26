@@ -3,7 +3,7 @@
 // tool, so `compaction` stays the classic approach and `compaction-search` is the fair comparison.
 
 import type Anthropic from "@anthropic-ai/sdk";
-import { assemblePrompt, Bm25, buildPacket, contentWords, estimateTokens, HISTORY_NOTICE, splitIntoSegments, type Packet, type Profile, type Segment, type Session } from "@long-con/core";
+import { assemblePrompt, buildPacket, searchHistory, estimateTokens, HISTORY_NOTICE, type Packet, type Profile, type Session } from "@long-con/core";
 import type { Question } from "./longmemeval.ts";
 import { BilledError, costOf, type ModelClient, type ModelRequest } from "./model.ts";
 
@@ -255,13 +255,6 @@ async function compact(sessions: Session[], cfg: ArmConfig, calls: Call[]): Prom
   return `${summary ? `Summary of earlier chats:\n${summary}\n\n` : ""}Recent chats:\n\n${pending.trim()}`;
 }
 
-export function searchHistory(sessions: Session[], query: string, profile: Profile): string {
-  const index = new Bm25<Segment>();
-  for (const s of sessions) for (const seg of splitIntoSegments(s, profile.segmentTokens)) index.add(seg, contentWords(seg.turns.map((t) => t.content).join("\n")));
-  const hits = index.search(contentWords(query), profile.searchResults);
-  if (!hits.length) return "No matches.";
-  return hits.map(({ item }) => `### ${item.date ?? "undated"}\n${item.turns.map((t) => `${t.role}: ${t.content}`).join("\n")}`).join("\n\n");
-}
 
 const renderEach = (sessions: Session[]) =>
   sessions.map((s) => `### Chat on ${s.date ?? "an unknown date"}\n${s.turns.map((t) => `${t.role}: ${t.content}`).join("\n")}`);
