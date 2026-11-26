@@ -23,6 +23,7 @@ The benchmark is **Long Con versus compaction**, not versus a huge context windo
 | Canary recall | Facts planted in old history, checked directly |
 | False-memory rate | Confident claims about things never said, or rejected and superseded ideas brought back as current. Worse than forgetting. |
 | Packet recall vs plain retrieval | If the answer lives in span X, is X in the packet? Tracked for the baseline and every sorter version. |
+| Packet misses | Model tool calls right after the packet, a sign it was missing or wrong |
 | Tokens per turn | Cost, and fit inside ~3K tokens for small models |
 | Sorter split/merge | Over-splitting and over-merging reported separately (overlapping B-cubed precision and recall), scored at decision time |
 

@@ -16,6 +16,7 @@ Hand-built packets with a frontier model passed 12/12 recall tests at about 7% o
 - **Shape:** one shared core engine with thin front ends. Command line first, web app next, Mac app last if ever.
 - **Repo:** its own repo, so the git history shows how it evolved.
 - **Providers:** v1 is Claude only, on your own Anthropic key. The free Cloudflare Workers AI demo is its own provider connection beside it.
+- **Every packet source is also a model tool:** labels, references, past questions and answers, open loops, registers, chat search, memory, facts and files. The packet is a head start, never the only path, so the model can look things up itself when the packet looks incomplete, irrelevant or wrong. A tool call right after the packet is logged as a packet miss.
 - **Labels on every message:** a message can carry more than one topic label. Negative replies ("no", "that didn't work", "not that one") mark the idea or answer they reply to as rejected or superseded, so the packet leaves it out. Tagging rides on the reply call or a tiny classifier, never a separate model call per message. Labels stay only if they beat plain retrieval in the evals.
 
 The full log, with dates and what each decision replaced, is in [decisions.md](decisions.md).

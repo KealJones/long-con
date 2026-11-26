@@ -73,6 +73,22 @@ Choosing what goes in:
 
 Whether to keep the topic window at all, or build a fully fresh packet every turn, is an open question to settle with evals.
 
+## Every packet source is also a tool
+
+The packet is a head start, never the only path. Anything the builder can look up, the model can look up too, so when it thinks the packet is incomplete, irrelevant or wrong it can try for itself. A packet can be wrong because of how the message was phrased or because the resolver guessed wrong.
+
+| Packet source | Matching tool |
+| --- | --- |
+| Topic labels | Look up spans by label |
+| References and their resolution | Resolve a reference, or see what the resolver picked and why |
+| Past questions and answers, open questions | Find the answer to an earlier question; list open questions and loops |
+| Registers: rules, results, lists | Read a register |
+| Chat history | Search the whole chat |
+| Memory and facts | Search memory and facts |
+| Files | Find, read and edit files |
+
+A tool call right after the packet marks a packet miss. Those calls are logged, so the evals can see what the packet should have held.
+
 ## Filling gaps mid-turn
 
 A lean packet will sometimes miss something that matters. Three ways to catch it, most favoured first:
