@@ -164,12 +164,12 @@ function main(argv: string[]) {
       for (const tau of taus) {
         if (minScore === 0 && tau === 0) continue;
         const profileFor = (p: Probe): Profile => ({ ...base, minScore, unitGate: tau, unitWeights: folds.get(typeOf.get(probeQuestion(p))!)! });
-        const results = probes.map((p) => runProbe(p, profileFor(p), (q) => buildPacket({ history: q.history, message: q.message, profile: profileFor(q) })));
+        const results = probes.map((p) => runProbe(p, profileFor(p), (q) => buildPacket({ history: q.history, message: q.message, profile: profileFor(q), now: q.date })));
         const tiers = summarize(results);
         const answerable = probes.filter((p) => p.tier === "answerable");
         const recall = answerable.map((p) => {
           const q = dev.find((d) => d.id === p.id)! as Question;
-          return packetRecall(q, buildPacket({ history: q.sessions, message: q.question, profile: profileFor(p) }), base.segmentTokens);
+          return packetRecall(q, buildPacket({ history: q.sessions, message: q.question, profile: profileFor(p), now: q.date }), base.segmentTokens);
         });
         const t = (name: string) => tiers.find((r) => r.tier === name)!;
         const pct = (x: number) => (x * 100).toFixed(1);

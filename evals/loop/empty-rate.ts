@@ -45,6 +45,8 @@ export interface Probe {
   history: Session[];
   /** Absent for tiers 1-3: there every included unit is a false inclusion. */
   evidence?: Question["evidence"];
+  /** When the message is sent: the date of the question whose history this is. */
+  date?: string;
 }
 
 export interface TierReport {
@@ -164,12 +166,13 @@ export function buildProbes(dev: Question[], tier1: Tier1Prompt[], opts: ProbeOp
   const probes: Probe[] = [];
   const histories = distinctHistories(dev);
   for (const q of histories.slice(0, opts.tier1Histories ?? histories.length)) {
-    for (const p of tier1) probes.push({ tier: "tier1-off-history", id: `${p.id}@${q.id}`, message: p.prompt, history: q.sessions });
+    for (const p of tier1) probes.push({ tier: "tier1-off-history", id: `${p.id}@${q.id}`, message: p.prompt, history: q.sessions, date: q.date });
   }
-  for (const { a, b } of crossPairs(dev)) probes.push({ tier: "tier2-cross-history", id: `${a.id}@${b.id}`, message: a.question, history: b.sessions });
-  for (const q of answerable) probes.push({ tier: "tier3-evidence-ablated", id: q.id, message: q.question, history: ablate(q) });
-  for (const q of dev.filter((d) => d.abstention)) probes.push({ tier: "tier4-abstention", id: q.id, message: q.question, history: q.sessions, evidence: q.evidence });
-  for (const q of answerable) probes.push({ tier: "answerable", id: q.id, message: q.question, history: q.sessions, evidence: q.evidence });
+  // Asked on B's history, so it's asked on B's date.
+  for (const { a, b } of crossPairs(dev)) probes.push({ tier: "tier2-cross-history", id: `${a.id}@${b.id}`, message: a.question, history: b.sessions, date: b.date });
+  for (const q of answerable) probes.push({ tier: "tier3-evidence-ablated", id: q.id, message: q.question, history: ablate(q), date: q.date });
+  for (const q of dev.filter((d) => d.abstention)) probes.push({ tier: "tier4-abstention", id: q.id, message: q.question, history: q.sessions, evidence: q.evidence, date: q.date });
+  for (const q of answerable) probes.push({ tier: "answerable", id: q.id, message: q.question, history: q.sessions, evidence: q.evidence, date: q.date });
   return probes;
 }
 
@@ -200,7 +203,7 @@ export function runProbe(
 
 // Same call as `eval recall`: no current session, so nothing rides along raw. The switch point isn't applied, since
 // the point is what the packet would hold; every LongMemEval_S history is past both profiles' switch points anyway.
-const defaultBuild = (profile: Profile) => (p: Probe) => buildPacket({ history: p.history, message: p.message, profile });
+const defaultBuild = (profile: Profile) => (p: Probe) => buildPacket({ history: p.history, message: p.message, profile, now: p.date });
 
 export const TIER_ORDER: TierName[] = ["tier1-off-history", "tier2-cross-history", "tier3-evidence-ablated", "tier4-abstention", "answerable"];
 

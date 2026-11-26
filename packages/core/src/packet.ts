@@ -11,6 +11,7 @@ import type { Profile } from "./profiles.ts";
 import { isTallyQuestion, SEG_GATE, tallySearch } from "./tally.ts";
 import { unitProbability } from "./gate.ts";
 import { contentWords, estimateTokens } from "./text.ts";
+import { dayOf, overlaps, timeRanges, type DayRange } from "./dates.ts";
 
 export interface BuildPacketInput {
   history: Session[];
@@ -18,6 +19,8 @@ export interface BuildPacketInput {
   profile: Profile;
   /** Set when the message continues an existing session; its latest turns ride along raw. */
   currentSessionId?: string;
+  /** When the message is sent, in the history's date format. Lets "last Saturday" in the message pick days (P07). */
+  now?: string;
 }
 
 /** One retrieved unit of history in the packet, with the labels the model sees. */
@@ -49,7 +52,7 @@ export const HISTORY_NOTICE = (since: string, canSearch = true) =>
 export const TRUST_NOTE = (canSearch = true) =>
   `This packet is a best guess at what's relevant. Don't rely on anything in it that looks wrong${canSearch ? "; use the tools instead" : ""}.`;
 
-export function buildPacket({ history, message, profile, currentSessionId }: BuildPacketInput): Packet {
+export function buildPacket({ history, message, profile, currentSessionId, now }: BuildPacketInput): Packet {
   const current = history.find((s) => s.id === currentSessionId);
   const recentStart = current ? Math.max(0, current.turns.length - profile.rawTurns) : 0;
   const recentTurns = current ? current.turns.slice(recentStart) : [];
@@ -86,7 +89,9 @@ export function buildPacket({ history, message, profile, currentSessionId }: Bui
 
   if (gateOpen) {
     const seen = new Set<string>();
-    const { hits, idf } = searchUnits(history, resolution.query, profile.segmentTokens, current?.id, recentStart);
+    const today = profile.timeBoost > 0 ? dayOf(now) : undefined;
+    const time = today === undefined ? undefined : { ranges: timeRanges(message, today), boost: profile.timeBoost };
+    const { hits, idf } = searchUnits(history, resolution.query, profile.segmentTokens, current?.id, recentStart, time);
     // The absolute bar asks whether history holds anything strong enough to answer at all. It judges the best unit
     // only: per unit, it cut the weaker second piece multi-session questions need (P02 dev sweep).
     const found = hits.some((h) => h.score >= profile.minScore);
@@ -167,7 +172,17 @@ export function buildPacket({ history, message, profile, currentSessionId }: Bui
  * in either ranking, so it says how close a unit comes to the best match. Score is its best score as a share of
  * the most any unit could score on the query: absolute, so a weak best match shows as weak. Features feed the unit gate (gate.ts).
  */
-export function searchUnits(history: Session[], query: string, segmentTokens: number, currentId?: string, recentStart = 0) {
+export function searchUnits(
+  history: Session[],
+  query: string,
+  segmentTokens: number,
+  currentId?: string,
+  recentStart = 0,
+  time?: { ranges: DayRange[]; boost: number },
+) {
+  const ranges = time?.ranges ?? [];
+  // A time phrase says when, not what: its words leave the keyword query and pick days instead (P07).
+  for (const r of ranges) query = query.replace(new RegExp(`\\b${r.phrase}\\b`, "i"), " ");
   // Each unit is indexed two ways, all its words and the user's words alone, then the rankings are fused.
   const all = new Bm25<Segment>();
   const user = new Bm25<Segment>();
@@ -215,6 +230,7 @@ export function searchUnits(history: Session[], query: string, segmentTokens: nu
     ];
     return { hit, confidence: share.get(hit.item)!, score: absolute.get(hit.item)!, features };
   });
+  if (ranges.length) boostInRange(hits, ranges, time!.boost);
   return { hits, idf: (w: string) => all.idf(w) };
 }
 
@@ -235,6 +251,32 @@ export function searchHistory(history: Session[], query: string, profile: Profil
       return strong ? text : text.replace("\n", " · low confidence, likely not what you asked about\n");
     })
     .join("\n\n");
+}
+
+/**
+ * Units dated inside a range the message names, by their session's date or by an event a user turn dates ("yesterday"),
+ * get their confidence raised and a third reciprocal-rank list, so they rank and clear the cutoff sooner. Only units the
+ * keyword search already found are touched: a date alone never brings a unit in.
+ */
+function boostInRange(hits: { hit: Hit<Segment>; confidence: number; score: number; features: number[] }[], ranges: DayRange[], boost: number): void {
+  const inRange = (seg: Segment) => {
+    const day = dayOf(seg.date);
+    if (day === undefined) return false;
+    if (ranges.some((r) => day >= r.from && day <= r.to)) return true;
+    const said = seg.turns.filter((t) => t.role === "user").map((t) => t.content).join("\n");
+    return timeRanges(said, day).some((e) => ranges.some((r) => overlaps(e, r)));
+  };
+  let rank = 0;
+  for (const h of hits) {
+    if (!inRange(h.hit.item)) continue;
+    h.hit.score += 1 / (60 + rank++);
+    // Scored as if it matched 1 + boost times better: the cutoff, the absolute bar and the unit gate all see it.
+    h.confidence = Math.min(1, h.confidence * (1 + boost));
+    h.score = Math.min(1, h.score * (1 + boost));
+    h.features[0] = h.score;
+    h.features[2] = h.confidence;
+  }
+  hits.sort((a, b) => b.hit.score - a.hit.score);
 }
 
 /** Reciprocal-rank fusion, keeping the matched words from both lists. */

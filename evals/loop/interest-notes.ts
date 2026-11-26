@@ -68,7 +68,7 @@ for (const profile of Object.values(PROFILES) as Profile[]) {
     const qs = dev.filter((q) => q.type === type && !q.abstention);
     let complete = 0, noted = 0, tokens = 0, shown = 0;
     for (const q of qs) {
-      const packet = buildPacket({ history: q.sessions, message: q.question, profile });
+      const packet = buildPacket({ history: q.sessions, message: q.question, profile, now: q.date });
       complete += packetRecall(q, packet, profile.segmentTokens).complete ? 1 : 0;
       const hit = packet.notes.some((n) => q.evidence.turns.includes(`${n.from.sessionId}#${n.from.turn}`));
       noted += hit ? 1 : 0;

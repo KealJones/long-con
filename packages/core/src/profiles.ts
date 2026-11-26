@@ -44,6 +44,11 @@ export interface Profile {
   recentAnswers: number;
   /** Whether a per-turn gate can skip retrieval for messages that need none, like "thanks". */
   gate: boolean;
+  /**
+   * When the message names a time ("two weeks ago") and its date is known, units dated in that range have their
+   * confidence multiplied by 1 + this (P07). 0 turns it off, and the time words then stay in the keyword query.
+   */
+  timeBoost: number;
   /** The fixed "this is a best guess" line. Tested on and off per model. */
   trustNote: boolean;
   /** The standing-rules register in the packet's head. On unless set false; the eval's packet-norules arm turns it off. */
@@ -79,6 +84,9 @@ export const PROFILES = {
     // The unit gate's own threshold, so no new tuned number (fit-tally-gate.ts sweep: any higher bar loses a multi-session question).
     tallyGate: 0.002,
     noteCoverage: 0.5,
+    // P07 sweep: 0.5 brought one more temporal question in at fewer tokens and fewer false inclusions; 1 and 2 kept the
+    // question but let more in on tier 3.
+    timeBoost: 0.5,
     recentAnswers: 2,
     gate: true,
     trustNote: true,
@@ -106,6 +114,9 @@ export const PROFILES = {
     tallyPieces: Infinity,
     tallyGate: 0.01,
     noteCoverage: 0.5,
+    // Off: no boost from 0.25 to 2 found another question here; with the time words stripped each lost an evidence turn,
+    // and with them kept each added false inclusions on tier 3 (P07 sweep).
+    timeBoost: 0,
     recentAnswers: 1,
     gate: true,
     trustNote: true,

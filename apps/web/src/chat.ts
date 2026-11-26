@@ -39,7 +39,7 @@ export interface TurnResult {
 export async function sendTurn(history: Session[], message: string, opts: TurnOptions): Promise<TurnResult> {
   const today = dayLabel(opts.now ?? new Date());
   // Always a packet, even on a short chat (the profile's switchAt would send it whole), since seeing it is the point.
-  const packet = buildPacket({ history, message, profile: PROFILE, currentSessionId: today });
+  const packet = buildPacket({ history, message, profile: PROFILE, currentSessionId: today, now: today });
   const prompt = assemblePrompt({ system: `${SYSTEM}\n\nToday is ${today}.`, packet: packet.text, recentTurns: packet.recentTurns, message });
 
   const res = await (opts.fetch ?? fetch)("https://api.anthropic.com/v1/messages", {

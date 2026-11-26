@@ -246,7 +246,7 @@ interface RecallRun {
 // Every LongMemEval_S history (about 140K tokens) is past both profiles' switch points, so the packet always runs.
 function recallRuns(questions: Question[], profile: Profile): RecallRun[] {
   return questions.map((q) => {
-    const packet = buildPacket({ history: q.sessions, message: q.question, profile });
+    const packet = buildPacket({ history: q.sessions, message: q.question, profile, now: q.date });
     return { q, tokens: packet.tokens, ...packetRecall(q, packet, profile.segmentTokens) };
   });
 }
