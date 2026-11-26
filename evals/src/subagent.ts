@@ -9,7 +9,9 @@ import { join } from "node:path";
 import type { ModelClient, ModelRequest, ModelResponse } from "./model.ts";
 import { estimateTokens } from "@long-con/core";
 
-export class Pending extends Error {}
+export class Pending extends Error {
+  name = "Pending";
+}
 
 export class SubagentModel implements ModelClient {
   dir: string;
@@ -22,7 +24,7 @@ export class SubagentModel implements ModelClient {
   async complete(req: ModelRequest): Promise<ModelResponse> {
     if (req.tools && req.toolChoice !== "none") throw new Error("The subagent backend can't run tools; use --no-tools.");
     const prompt = render(req);
-    const key = `${req.purpose}-${createHash("sha256").update(req.model + prompt).digest("hex").slice(0, 16)}`;
+    const key = `${req.purpose}-${createHash("sha256").update(req.model + prompt + (req.seed ? `#${req.seed}` : "")).digest("hex").slice(0, 16)}`;
     const answer = join(this.dir, "answers", `${key}.txt`);
     if (!existsSync(answer)) {
       writeFileSync(join(this.dir, "pending", `${key}.txt`), prompt);

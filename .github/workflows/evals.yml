@@ -11,7 +11,7 @@ on:
         options: [claude, small-local]
         default: claude
       arms:
-        description: Arms, comma separated (full, compaction, packet, bare)
+        description: Arms, comma separated (full, compaction, compaction-search, packet, bare)
         type: string
         default: packet,bare
       limit:
@@ -19,10 +19,14 @@ on:
         type: string
         default: "12"
       split:
-        description: dev (50 tuning questions) or held-out (the other 450, for headline numbers)
+        description: dev (50 tuning questions) or held-out (438 that share no evidence with dev, for headline numbers)
         type: choice
         options: [dev, held-out]
         default: dev
+      repeats:
+        description: Runs of every question (above 1, intervals include run-to-run noise)
+        type: string
+        default: "1"
       max_cost:
         description: Max dollars. The run stops before any call if its estimate is higher.
         type: string
@@ -70,13 +74,14 @@ jobs:
           ARMS: ${{ inputs.arms }}
           LIMIT: ${{ inputs.limit }}
           SPLIT: ${{ inputs.split }}
+          REPEATS: ${{ inputs.repeats }}
           MAX_COST: ${{ inputs.max_cost }}
           READER: ${{ inputs.reader }}
           JUDGE: ${{ inputs.judge }}
         run: |
           node --experimental-strip-types --no-warnings apps/cli/src/main.ts eval run \
             --backend api --out evals/runs/actions \
-            --profile "$PROFILE" --arms "$ARMS" --split "$SPLIT" \
+            --profile "$PROFILE" --arms "$ARMS" --split "$SPLIT" --repeats "$REPEATS" \
             --reader "$READER" --judge "$JUDGE" --max-cost "$MAX_COST" \
             ${LIMIT:+--limit "$LIMIT"}
 

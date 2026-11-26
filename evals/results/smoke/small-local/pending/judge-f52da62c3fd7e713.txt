@@ -1,0 +1,19 @@
+[system]
+You grade answers. Reply with yes or no only.
+
+[user]
+I will give you a question, a rubric for desired personalized response, and a response from a model. Please answer yes if the response satisfies the desired response. Otherwise, answer no. The model does not need to reflect all the points in the rubric. The response is correct as long as it recalls and utilizes the user's personal information correctly.
+
+Question: Can you suggest some useful accessories for my phone?
+
+Rubric: The user would prefer suggestions of accessories that are compatible with an iPhone 13 Pro, such as high-quality screen protectors, durable cases, portable power banks, or phone wallet cases. They may not prefer suggestions of accessories that are not compatible with Apple products or do not enhance the functionality or protection of their phone.
+
+Model Response: From your past chats, you have an iPhone 13 Pro, and in May 2023 you asked about a few phone accessories:
+
+- Screen protector: the earlier reply covered what to look for (tempered glass or film, thickness, clarity, a high scratch-resistance rating such as 9H, ease of installation, and warranty) and named Skinomi as one brand. Check that any protector is compatible with the iPhone 13 Pro before you buy.
+- Phone wallet case: you asked for brands that make high-quality wallet cases for the iPhone 13 Pro. The reply started listing them, but the brand names are not in the retrieved history.
+- Portable power bank: you asked for good power bank brands for charging on the go. The brand list is not in the retrieved history either.
+
+The retrieved history doesn't say which of these you already own, so I can't tell you what you still need.
+
+Is the model response correct? Answer yes or no only.

@@ -1,19 +1,25 @@
-// The four arms. Each answers one question from the same past chats, seeing them a different way.
-// Every arm gets the same system prompt, the same question and the same search tool; only the context differs.
+// The arms. Each answers one question from the same past chats, seeing them a different way.
+// Every arm gets the same system prompt and question. Every arm but plain `compaction` gets the same search
+// tool, so `compaction` stays the classic approach and `compaction-search` is the fair comparison.
 
 import type Anthropic from "@anthropic-ai/sdk";
 import { assemblePrompt, Bm25, buildPacket, contentWords, estimateTokens, HISTORY_NOTICE, splitIntoSegments, type Profile, type Segment, type Session } from "@long-con/core";
 import type { Question } from "./longmemeval.ts";
 import { costOf, type ModelClient, type ModelRequest } from "./model.ts";
 
-export type ArmName = "full" | "compaction" | "packet" | "bare";
-export const ARMS: ArmName[] = ["full", "compaction", "packet", "bare"];
+export type ArmName = "full" | "compaction" | "compaction-search" | "packet" | "bare";
+export const ARMS: ArmName[] = ["full", "compaction", "compaction-search", "packet", "bare"];
+
+/** Output cap per call. Generous, since a cut-off answer is a measurement error; profile.answerTokens only budgets the window. */
+export const MAX_OUTPUT = 16_000;
 
 /** Everything model-specific comes from the profile: budgets, windows, tools, search size. */
 export interface ArmConfig {
   model: ModelClient;
   reader: string;
   profile: Profile;
+  /** Which repeat this is. Real models vary run to run; the subagent backend keys answers by it. */
+  seed?: number;
 }
 
 export interface Call {
@@ -49,7 +55,7 @@ export const SEARCH_TOOL: Anthropic.Tool = {
 const ask = (q: Question) => `Current date: ${q.date}\n\n${q.question}`;
 
 /** The reader's first message for an arm, exactly as sent. Compaction needs the model, so it isn't here. */
-export function firstMessages(arm: Exclude<ArmName, "compaction">, q: Question, profile: Profile): { messages: Anthropic.MessageParam[]; contextTokens: number } {
+export function firstMessages(arm: Exclude<ArmName, "compaction" | "compaction-search">, q: Question, profile: Profile): { messages: Anthropic.MessageParam[]; contextTokens: number } {
   switch (arm) {
     case "full": {
       const context = renderChats(q.sessions);
@@ -70,22 +76,28 @@ export function firstMessages(arm: Exclude<ArmName, "compaction">, q: Question, 
 
 export async function runArm(arm: ArmName, q: Question, cfg: ArmConfig): Promise<ArmResult> {
   const calls: Call[] = [];
-  if (arm === "compaction") {
-    const context = await compact(q.sessions, cfg, calls);
-    return readerLoop(cfg, calls, [{ role: "user", content: `${context}\n\n${ask(q)}` }], estimateTokens(context), q);
+  try {
+    if (arm === "compaction" || arm === "compaction-search") {
+      const context = await compact(q.sessions, cfg, calls);
+      const reader = arm === "compaction" ? { ...cfg, profile: { ...cfg.profile, maxToolRounds: 0 } } : cfg;
+      return await readerLoop(reader, calls, [{ role: "user", content: `${context}\n\n${ask(q)}` }], estimateTokens(context), q);
+    }
+    const { messages, contextTokens } = firstMessages(arm, q, cfg.profile);
+    return await readerLoop(cfg, calls, messages, contextTokens, q);
+  } catch (err) {
+    // Calls made before the failure were still paid for, so they go with the error.
+    throw Object.assign(err instanceof Error ? err : new Error(String(err)), { calls });
   }
-  const { messages, contextTokens } = firstMessages(arm, q, cfg.profile);
-  return readerLoop(cfg, calls, messages, contextTokens, q);
 }
 
 async function readerLoop(cfg: ArmConfig, calls: Call[], messages: Anthropic.MessageParam[], contextTokens: number, q: Question): Promise<ArmResult> {
-  const { maxToolRounds, answerTokens } = cfg.profile;
+  const { maxToolRounds } = cfg.profile;
   let toolCalls = 0;
   for (let round = 0; ; round++) {
     const canSearch = round < maxToolRounds;
     // Once searches run out the tool stays defined, since earlier turns use it, but the model can only answer.
     const tools = maxToolRounds > 0 ? { tools: [SEARCH_TOOL], toolChoice: canSearch ? ("auto" as const) : ("none" as const) } : {};
-    const res = await call(cfg, calls, { model: cfg.reader, system: SYSTEM, messages, maxTokens: answerTokens, purpose: "reader", ...tools });
+    const res = await call(cfg, calls, { model: cfg.reader, system: SYSTEM, messages, maxTokens: MAX_OUTPUT, purpose: "reader", ...tools });
     if (!res.toolCalls.length || !canSearch) return { answer: res.text, calls, contextTokens, toolCalls };
     toolCalls += res.toolCalls.length;
     messages = [
@@ -104,7 +116,7 @@ async function readerLoop(cfg: ArmConfig, calls: Call[], messages: Anthropic.Mes
 }
 
 async function call(cfg: ArmConfig, calls: Call[], req: ModelRequest) {
-  const res = await cfg.model.complete(req);
+  const res = await cfg.model.complete({ ...req, seed: cfg.seed });
   calls.push({ purpose: req.purpose, model: req.model, ...res.usage, cost: costOf(req.model, res.usage), latencyMs: res.latencyMs });
   return res;
 }
@@ -124,7 +136,7 @@ async function compact(sessions: Session[], cfg: ArmConfig, calls: Call[]): Prom
             content: `${summary ? `Summary so far:\n${summary}\n\n` : ""}New chats:\n\n${pending}\n\nWrite the updated summary. Keep facts about the user, what they asked for, decisions, preferences, names, numbers and dates. Drop small talk.`,
           },
         ],
-        maxTokens: cfg.profile.answerTokens,
+        maxTokens: MAX_OUTPUT,
         purpose: "summarizer",
       });
       summary = res.text;

@@ -1,0 +1,13 @@
+[system]
+You grade answers. Reply with yes or no only.
+
+[user]
+I will give you a question, a correct answer, and a response from a model. Please answer yes if the response contains the correct answer. Otherwise, answer no. If the response contains some previous information along with an updated answer, the response should be considered as correct as long as the updated answer is the required answer.
+
+Question: What brand of BBQ sauce am I currently obsessed with?
+
+Correct Answer: Kansas City Masterpiece
+
+Model Response: Kansas City Masterpiece BBQ sauce. You said on 2023/06/30 that you were "currently obsessed with Kansas City Masterpiece BBQ sauce on my ribs," and you repeated that it is your current favourite when you asked about sauces for pulled pork.
+
+Is the model response correct? Answer yes or no only.

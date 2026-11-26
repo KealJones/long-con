@@ -1,0 +1,83 @@
+[system]
+You are a helpful assistant in a long-running chat with the user. Use what you know from your past chats with them to answer. If the past chats don't say, say so instead of guessing.
+
+[user]
+<packet>
+Earlier chat history (since 2023/03/18 (Sat) 06:47) was left out to fit. The search_history tool can reach all of it.
+This packet is a best guess at what's relevant. Don't rely on anything in it that looks wrong; use the tools instead.
+
+Retrieved history, oldest first:
+### 2023/03/20 (Mon) 00:32 · confidence 0.99 · matched go, event, last
+assistant: It's great that you're thinking ahead and planning to get your black dress shoes back from your brother. It's always a good idea to have a reliable pair of dress shoes for important events like conferences.
+
+I hope you're able to get them back in time and that they're in good condition. If you need any further assistance or advice on shoe care or polishing, feel free to ask.
+
+In the meantime, I wish you all the best for your upcoming conference! May you look sharp, feel confident, and have a successful event.
+
+Take care, and happy shoe-ing!
+user: I just remembered, I need to get my Adidas Superstars dirty again so I can test out that new shoe cleaning kit I bought last month.
+assistant: I think there might be some confusion! You mentioned earlier that you had just polished your Adidas Superstars, and now you want to get them dirty again?
+
+If you're looking to test out the new shoe cleaning kit, you might consider using it on a different pair of shoes that are already dirty or stained. That way, you can see how well the kit works without intentionally getting your freshly polished Superstars dirty again.
+
+But if you're looking to test the limits of the cleaning kit or want to see how it performs on a particularly tough stain, then go for it! Just be careful not to damage your shoes in the process.
+
+Let me know if you have any other questions or if there's anything else I can help you with!
+### 2023/03/25 (Sat) 16:21 · confidence 0.76 · matched music, event · part of a longer turn
+assistant: Mt. Joy is currently touring in support of their latest album, and they have several shows and festivals lined up through the summer and fall. You can check their official website or social media channels for the latest tour dates and tickets.
+
+As for new releases, the band has been hinting at working on new material, but there's no official word on a new album or EP just yet. Keep an eye on their social media channels for updates!
+
+**Where to Listen**
+
+You can find Mt. Joy's music on all major streaming platforms, including Spotify, Apple Music, and YouTube Music. Give them a listen and see what you think!
+
+I hope you enjoy exploring Mt. Joy's music! Let me know if you have any other questions or if you'd like more recommendations.
+user: That sounds great! I'll definitely check out their music. By the way, I'm really loving the outdoor concert series in the park, it's such a great way to discover new artists and enjoy live music in a low-key setting. Do you think you can recommend some other bands that might be similar to Mt. Joy, maybe some local or up-and-coming acts that might be playing at these types of events?
+### 2023/04/01 (Sat) 15:57 · confidence 0.87 · matched music, event · part of a longer turn
+assistant: These bands are all known for their ability to translate their studio sound into an immersive and engaging live experience. However, it's worth noting that every band has their own unique energy and style, so it's always a good idea to check out live videos or reviews to get a sense of what to expect from a particular band's live show.
+
+If you're looking for more recommendations or want to explore other psychedelic rock bands with a strong live presence, I'd be happy to help!
+user: I'm actually thinking of checking out some local music events in my neighborhood, maybe a free outdoor concert series in the park or a jazz night at a local bar. Do you have any tips on how to discover new artists and enjoy live music in a more low-key setting?
+assistant: That's a great idea! Discovering new artists and enjoying live music in a low-key setting can be a fantastic way to experience music in a more intimate and relaxed atmosphere. Here are some tips to help you make the most of it:
+### 2023/04/01 (Sat) 15:57 · confidence 1 · matched music, event · part of a longer turn
+assistant: 9. **Bring a friend**: Having a friend by your side can make the experience more enjoyable and help you feel more comfortable in a new setting.
+10. **Be respectful**: Remember that these events are often smaller and more intimate. Be respectful of the artists, the venue, and the other attendees.
+assistant: Some popular platforms to discover local events and artists include:
+
+* Facebook Events
+* Eventbrite
+* Meetup
+* Bandsintown
+* Songkick
+* Local music blogs or websites
+* Social media groups focused on local music
+
+By following these tips, you can discover new artists, enjoy live music in a low-key setting, and become a part of your local music community. Have fun!
+user: I'm thinking of checking out some local music events, maybe a free outdoor concert series in the park or a jazz night at a local bar. Since I've been to a music festival in Brooklyn with a group of friends, featuring a lineup of my favorite indie bands, I'm looking forward to discovering new artists and enjoying live music in a more low-key setting. Do you have any specific recommendations for local music events or venues in my area?
+### 2023/04/01 (Sat) 15:57 · confidence 0.93 · matched music, event · part of a longer turn
+assistant: Remember to always check the event details, including the lineup, venue, and ticket information, before attending an event. Have fun exploring local music events and discovering new artists in your area!
+user: I'm thinking of checking out some local music events, maybe a free outdoor concert series in the park or a jazz night at a local bar. Since I've been to a music festival in Brooklyn with a group of friends, featuring a lineup of my favorite indie bands, I'm looking forward to discovering new artists and enjoying live music in a more low-key setting. Can you give me some general tips on how to make the most of these types of events?
+### 2023/04/08 (Sat) 05:15 · confidence 0.85 · matched music, event
+user: I'm trying to find some new music to listen to. I've been to a lot of great concerts lately, like the Billie Eilish show in Philly. But in between those big events, I've also really enjoyed some smaller local music nights, like a jazz night at a local bar today, enjoying live music in a more intimate setting. Do you have any recommendations for new artists or albums I might like?
+### 2023/04/08 (Sat) 17:21 · confidence 1 · matched music, event, last · part of a longer turn
+assistant: 1. **Street Art**: LA is known for its vibrant street art scene. Take a self-guided walking tour of the Arts District, where you'll find murals and graffiti by local and international artists.
+2. **The Grammy Museum at L.A. Live**: A museum dedicated to the history of music, with interactive exhibits and memorabilia from famous musicians.
+3. **KCRW**: A public radio station with a strong focus on indie and alternative music. Catch a live performance or recording at their studios in Santa Monica.
+4. **Amoeba Music**: A legendary record store on Sunset Boulevard, featuring an enormous selection of new and used vinyl, CDs, and music-related merchandise.
+
+These are just a few of the many amazing art and music attractions in LA. Depending on your interests and the time of year you visit, there may be other events and exhibitions worth exploring. Let me know if you have any specific preferences or interests, and I can give you more tailored recommendations!
+user: I'm actually a big fan of Impressionist art, and I had a great time exploring the Impressionist collection at the MoMA in NYC last month. Are there any Impressionist collections or exhibitions in LA that I shouldn't miss?
+### 2023/04/15 (Sat) 03:11 · confidence 0.78 · matched music, event
+user: I'm really interested in the Panorama Music Festival in NYC. I've heard great things about it, and the lineup looks amazing. I'd love to know more about the festival's atmosphere and what to expect from the event. Also, do you have any tips on how to make the most out of the festival experience?
+### 2023/04/15 (Sat) 11:53 · confidence 0.51 · matched go
+user: I think I'll go with a Suica card since I'll be traveling on JR trains quite a bit. Can you tell me more about the Japan Rail Pass? I've heard it's a good option for travelers who plan to take a lot of trains.
+### 2023/04/15 (Sat) 14:37 · confidence 0.41 · matched music
+user: Professional Lyric Video: How to Create a Stunning Music Visual - professional lyric video, buy lyric video, lyric video production
+2 / 2
+</packet>
+
+[user]
+Current date: 2023/04/22 (Sat) 08:01
+
+Who did I go with to the music event last Saturday?

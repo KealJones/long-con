@@ -14,6 +14,8 @@ export interface ModelRequest {
   effort?: "low" | "medium" | "high";
   /** What the call is for, so costs and the estimate can be broken down. */
   purpose: "reader" | "summarizer" | "judge";
+  /** Repeat number. The API ignores it (runs vary anyway); the subagent backend keys answers by it. */
+  seed?: number;
 }
 
 export interface ModelResponse {
@@ -44,7 +46,8 @@ export function costOf(model: string, usage: { input: number; output: number }):
 }
 
 export class AnthropicModel implements ModelClient {
-  private client = new Anthropic();
+  // Retries rate limits and overloads with backoff, so they don't turn into wrong answers.
+  private client = new Anthropic({ maxRetries: 6 });
 
   async complete(req: ModelRequest): Promise<ModelResponse> {
     const started = Date.now();

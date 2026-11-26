@@ -1,0 +1,18 @@
+[system]
+You grade answers. Reply with yes or no only.
+
+[user]
+I will give you a question, a correct answer, and a response from a model. Please answer yes if the response contains the correct answer. Otherwise, answer no. If the response is equivalent to the correct answer or contains all the intermediate steps to get the correct answer, you should also answer yes. If the response only contains a subset of the information required by the answer, answer no. 
+
+Question: What is the total number of days I spent in Japan and Chicago?
+
+Correct Answer: 11 days (or 12 days, if April 15th to 22nd is considered as 8 days)
+
+Model Response: Based on the past chats I can see, the total is about 12 days: 8 days in Japan plus 4 days in Chicago.
+
+- Japan: you said you went from April 15th to 22nd, which counts as 8 days inclusive (7 nights). The chats also mention you later moved to Tokyo, but they give no length for that, so it isn't included.
+- Chicago: you mentioned your last trip there was a 4-day trip.
+
+The retrieved history is only a partial set, so there may be other trips the chats don't surface here.
+
+Is the model response correct? Answer yes or no only.

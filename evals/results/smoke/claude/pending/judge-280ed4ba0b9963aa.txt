@@ -1,0 +1,19 @@
+[system]
+You grade answers. Reply with yes or no only.
+
+[user]
+I will give you a question, a correct answer, and a response from a model. Please answer yes if the response contains the correct answer. Otherwise, answer no. If the response is equivalent to the correct answer or contains all the intermediate steps to get the correct answer, you should also answer yes. If the response only contains a subset of the information required by the answer, answer no. In addition, do not penalize off-by-one errors for the number of days. If the question asks for the number of days/weeks/months, etc., and the model makes off-by-one errors (e.g., predicting 19 days when the answer is 18), the model's response is still correct. 
+
+Question: Who did I go with to the music event last Saturday?
+
+Correct Answer: my parents
+
+Model Response: I can't find anything in our past chats that says who you went with to a music event last Saturday (April 15). The chat from that day only mentions that you were interested in the Panorama Music Festival in NYC. It doesn't say you attended it or who you'd go with.
+
+Two other music events came up:
+- Brooklyn music festival (around April 1): you said you went with "a group of friends". You didn't name them, and this was the week before last, not last Saturday.
+- Jazz night at a local bar (April 8): you mentioned it, but not who was with you.
+
+If you tell me which event you mean, I can go from there. I'd rather not guess at a name.
+
+Is the model response correct? Answer yes or no only.

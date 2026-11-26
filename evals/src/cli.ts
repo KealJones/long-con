@@ -3,11 +3,11 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
-import { buildPacket, estimateTokens, PROFILES, profileByName, type Profile } from "@long-con/core";
+import { Bm25, buildPacket, contentWords, estimateTokens, PROFILES, profileByName, splitIntoSegments, type Packet, type Profile, type Segment } from "@long-con/core";
 import { ARMS, firstMessages, SEARCH_TOOL, searchHistory, SYSTEM, type ArmName } from "./arms.ts";
 import { recallChart, type Series } from "./chart.ts";
 import { EstimatingModel } from "./estimate.ts";
-import { loadLongMemEval, stratifiedSlice, type Question } from "./longmemeval.ts";
+import { heldOutSplit, loadLongMemEval, stratifiedSlice, type Question } from "./longmemeval.ts";
 import { AnthropicModel } from "./model.ts";
 import { packetRecall } from "./recall.ts";
 import { runEval, summarize, summaryTable, writeSummary, type RunOptions } from "./run.ts";
@@ -18,6 +18,7 @@ const DATA = join(ROOT, "evals/data/longmemeval/longmemeval_s_cleaned.json");
 const SLICE = join(ROOT, "evals/slices/longmemeval-s-dev50.json");
 const RESULTS = join(ROOT, "evals/results");
 const PROFILE_NAMES = Object.values(PROFILES).map((p) => p.name);
+const COST_CAVEATS = "Cost caveats: Haiku 5.5 bills prompts over 100K tokens at 5x, which every full-history call crosses; prompt caching isn't modeled, though in a long chat a cached history costs about a tenth; each question pays for its own compaction summaries, which a real chat spreads over many turns.";
 const SWEEP = [1000, 1500, 2000, 2500, 3000, 4000, 6000, 8000];
 
 const usage = `Usage: long-con eval <command> [options]
@@ -36,6 +37,7 @@ Options:
   --judge <model>      Judge model (default claude-opus-5-5)
   --split <name>       dev (default, the 50 tuning questions) or held-out (the other 450, for headline numbers)
   --limit <n>          A smaller stratified pick of the split
+  --repeats <n>        Run every question n times; intervals then cover run-to-run noise (default 1)
   --backend <name>     subagent (default) or api
   --no-tools           No search tool for any arm (the subagent backend needs this)
   --out <dir>          Where a run writes its prompts, answers and summary
@@ -53,6 +55,7 @@ export async function main(argv: string[]): Promise<number> {
       judge: { type: "string", default: "claude-opus-5-5" },
       split: { type: "string", default: "dev" },
       limit: { type: "string" },
+      repeats: { type: "string", default: "1" },
       backend: { type: "string", default: "subagent" },
       "no-tools": { type: "boolean", default: false },
       out: { type: "string" },
@@ -84,10 +87,22 @@ export async function main(argv: string[]): Promise<number> {
     return 1;
   }
   const all = loadLongMemEval(values.data);
-  const devIds = new Set(devSlice(all).map((q) => q.id));
-  let dev = values.split === "dev" ? devSlice(all) : all.filter((q) => !devIds.has(q.id));
+  let dev = devSlice(all);
+  if (values.split === "held-out") {
+    // Held-out shares no evidence with dev (siblings and identical chats are grouped), so tuning on dev can't leak into it.
+    const { heldOut, excluded } = heldOutSplit(all, dev);
+    console.error(`Held-out: ${heldOut.length} questions; ${excluded} more share evidence with dev and are left out.`);
+    dev = heldOut;
+  }
   // A stratified pick, so a short run isn't all one easy question type.
-  if (values.limit) dev = stratifiedSlice(dev, Number(values.limit), 1).dev;
+  if (values.limit) {
+    const limit = Number(values.limit);
+    if (!Number.isInteger(limit) || limit < 1) {
+      console.error("--limit must be a whole number of 1 or more.");
+      return 1;
+    }
+    dev = stratifiedSlice(dev, limit, 1).dev;
+  }
 
   if (command === "recall") {
     const profiles = picked ? [picked] : Object.values(PROFILES);
@@ -104,10 +119,16 @@ export async function main(argv: string[]): Promise<number> {
   const profile: Profile = values["no-tools"] ? { ...chosen, maxToolRounds: 0 } : chosen;
   const tools = profile.maxToolRounds ? `up to ${profile.maxToolRounds} searches per arm` : "no tools for any arm";
   const arms = values.arms.split(",") as ArmName[];
-  const base = { arms, reader: values.reader, judgeModel: values.judge, profile, concurrency: 4 };
+  const repeats = Number(values.repeats);
+  const unknown = arms.filter((a) => !ARMS.includes(a));
+  if (unknown.length || !Number.isInteger(repeats) || repeats < 1) {
+    console.error(unknown.length ? `Unknown arm ${unknown.join(", ")}: use ${ARMS.join(", ")}.` : `--repeats must be a whole number of 1 or more.`);
+    return 1;
+  }
+  const base = { arms, reader: values.reader, judgeModel: values.judge, profile, concurrency: 4, repeats };
   const estimate = summarize(await runEval(dev, { ...base, model: new EstimatingModel() }), arms);
   const estimatedTotal = estimate.reduce((a, r) => a + r.totalCost, 0);
-  const estimateHeader = `# Cost estimate: ${dev.length} LongMemEval_S ${values.split} questions, ${profile.name} profile\n\nReader ${values.reader}, judge ${values.judge}. Token counts are estimates (about 3.5 characters per token), every arm may search, and each is assumed to search once. Estimated total: **$${estimatedTotal.toFixed(2)}**.`;
+  const estimateHeader = `# Cost estimate: ${dev.length} LongMemEval_S ${values.split} questions, ${profile.name} profile\n\nReader ${values.reader}, judge ${values.judge}. Token counts are estimates (about 3.5 characters per token), and every arm that can search is assumed to use every search it's allowed, so this is a ceiling. ${COST_CAVEATS} Estimated total: **$${estimatedTotal.toFixed(2)}**.`;
 
   if (command === "estimate") {
     writeFileSync(join(RESULTS, `longmemeval-s-dev50-estimate-${profile.name}.md`), `${estimateHeader}\n\n${summaryTable(estimate, false)}\n`);
@@ -130,6 +151,8 @@ export async function main(argv: string[]): Promise<number> {
       outDir,
       rows,
       `# Smoke run: ${dev.length} LongMemEval_S ${values.split} questions, ${profile.name} profile\n\nBackend: subagents on a Claude plan, reader ${values.reader}, judge ${values.judge}, ${tools}. Token counts are estimates of the prompt alone. Cost and latency are not comparable with API runs, and this sample is small.`,
+      true,
+      answers,
     );
     console.log(summaryTable(rows));
     return 0;
@@ -149,8 +172,15 @@ export async function main(argv: string[]): Promise<number> {
   }
   const outDir = values.out ?? join(ROOT, "evals/runs", new Date().toISOString().replace(/[:.]/g, "-"));
   const opts: RunOptions = { ...base, model: new AnthropicModel(), outDir };
-  const rows = summarize(await runEval(dev, opts), arms);
-  writeSummary(outDir, rows, `# LongMemEval_S ${values.split} run: ${dev.length} questions, ${profile.name} profile\n\nBackend: Anthropic API. Reader ${values.reader}, judge ${values.judge} reading LongMemEval's own judge prompts, ${tools}.`);
+  const answers = await runEval(dev, opts);
+  const rows = summarize(answers, arms);
+  writeSummary(
+    outDir,
+    rows,
+    `# LongMemEval_S ${values.split} run: ${dev.length} questions × ${values.repeats} run(s), ${profile.name} profile\n\nBackend: Anthropic API. Reader ${values.reader}, judge ${values.judge} reading LongMemEval's own judge prompts, ${tools}. ${COST_CAVEATS}`,
+    true,
+    answers,
+  );
   console.log(summaryTable(rows));
   console.error(`Answers and summary in ${outDir}`);
   return 0;
@@ -185,6 +215,26 @@ function recallRuns(questions: Question[], profile: Profile): RecallRun[] {
   });
 }
 
+/**
+ * The plain-retrieval baseline: BM25 over all words, the same units, top hits until the same ceiling.
+ * No user-word ranking, cutoff, dedupe, registers or notices. Tokens count the unit text alone, which flatters it slightly.
+ */
+function bm25Runs(questions: Question[], profile: Profile): RecallRun[] {
+  return questions.map((q) => {
+    const index = new Bm25<Segment>();
+    for (const s of q.sessions) for (const seg of splitIntoSegments(s, profile.segmentTokens)) index.add(seg, contentWords(seg.turns.map((t) => t.content).join("\n")));
+    const picked: Segment[] = [];
+    let tokens = 0;
+    for (const { item } of index.search(contentWords(q.question), 1000)) {
+      const cost = estimateTokens(item.turns.map((t) => `${t.role}: ${t.content}`).join("\n"));
+      if (tokens + cost > profile.packetTokens) continue;
+      picked.push(item);
+      tokens += cost;
+    }
+    return { q, tokens, ...packetRecall(q, { segments: picked } as unknown as Packet) };
+  });
+}
+
 /** The reader's real input: system prompt, tool definition, packet and question, plus one search if it runs one. */
 function readerInput(q: Question, profile: Profile): { first: number; withSearch: number } {
   const { messages } = firstMessages("packet", q, profile);
@@ -211,6 +261,13 @@ function recallReport(dev: Question[], profiles: Profile[]): { report: string; c
     const tokens = mean(runs.map((r) => r.tokens));
     main.push(
       `| ${profile.name} | ${fmt(profile.packetTokens)} | ${pct(mean(runs.map((r) => r.sessionRecall)))} | ${pct(mean(runs.map((r) => r.turnRecall)))} | ${pct(complete)} | ${fmt(tokens)} | ${fmt(Math.max(...runs.map((r) => r.tokens)))} | ${((complete * 100) / (tokens / 1000)).toFixed(1)} |`,
+    );
+
+    const base = bm25Runs(answerable, profile);
+    const baseComplete = mean(base.map((r) => (r.complete ? 1 : 0)));
+    const baseTokens = mean(base.map((r) => r.tokens));
+    main.push(
+      `| ${profile.name}: plain BM25 top-k | ${fmt(profile.packetTokens)} | ${pct(mean(base.map((r) => r.sessionRecall)))} | ${pct(mean(base.map((r) => r.turnRecall)))} | ${pct(baseComplete)} | ${fmt(baseTokens)} | ${fmt(Math.max(...base.map((r) => r.tokens)))} | ${((baseComplete * 100) / (baseTokens / 1000)).toFixed(1)} |`,
     );
 
     const inputs = dev.map((q) => readerInput(q, profile));
@@ -280,6 +337,8 @@ function recallReport(dev: Question[], profiles: Profile[]): { report: string; c
     "| Profile | Budget ceiling | Evidence chats found | Evidence turns found | All evidence in packet | Mean packet tokens | Largest packet | All-evidence points per 1K packet tokens |",
     "| --- | --- | --- | --- | --- | --- | --- | --- |",
     ...main,
+    "",
+    "Plain BM25 top-k is the baseline: the same units ranked by BM25 over all words and filled to the same ceiling, with nothing else. It also shows what ranking by the user's words adds, which suits LongMemEval, where 94% of evidence turns are user turns, and may not carry over to real chats.",
     "",
     "## What the reader takes in per question",
     "",

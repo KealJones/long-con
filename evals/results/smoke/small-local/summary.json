@@ -1,0 +1,94 @@
+[
+  {
+    "arm": "packet",
+    "questions": 12,
+    "accuracy": 0.5833333333333334,
+    "ci": [
+      0.3333333333333333,
+      0.8333333333333334
+    ],
+    "byType": {
+      "knowledge-update": {
+        "n": 2,
+        "accuracy": 0.5
+      },
+      "multi-session": {
+        "n": 3,
+        "accuracy": 0.6666666666666666
+      },
+      "single-session-assistant": {
+        "n": 1,
+        "accuracy": 1
+      },
+      "single-session-preference": {
+        "n": 1,
+        "accuracy": 1
+      },
+      "single-session-user": {
+        "n": 1,
+        "accuracy": 1
+      },
+      "abstention": {
+        "n": 1,
+        "accuracy": 1
+      },
+      "temporal-reasoning": {
+        "n": 3,
+        "accuracy": 0
+      }
+    },
+    "readerInputTokens": 2470.9166666666665,
+    "contextTokens": 2376.3333333333335,
+    "costPerQuestion": 0.0016114250000000003,
+    "totalCost": 0.019337100000000003,
+    "readerLatencyMs": 0,
+    "toolCallsPerQuestion": 0,
+    "errors": 0
+  },
+  {
+    "arm": "bare",
+    "questions": 12,
+    "accuracy": 0.08333333333333333,
+    "ci": [
+      0,
+      0.25
+    ],
+    "byType": {
+      "knowledge-update": {
+        "n": 2,
+        "accuracy": 0
+      },
+      "multi-session": {
+        "n": 3,
+        "accuracy": 0
+      },
+      "single-session-assistant": {
+        "n": 1,
+        "accuracy": 0
+      },
+      "single-session-preference": {
+        "n": 1,
+        "accuracy": 0
+      },
+      "single-session-user": {
+        "n": 1,
+        "accuracy": 0
+      },
+      "abstention": {
+        "n": 1,
+        "accuracy": 1
+      },
+      "temporal-reasoning": {
+        "n": 3,
+        "accuracy": 0
+      }
+    },
+    "readerInputTokens": 120.83333333333333,
+    "contextTokens": 34,
+    "costPerQuestion": 0.0012387083333333332,
+    "totalCost": 0.014864499999999998,
+    "readerLatencyMs": 0,
+    "toolCallsPerQuestion": 0,
+    "errors": 0
+  }
+]

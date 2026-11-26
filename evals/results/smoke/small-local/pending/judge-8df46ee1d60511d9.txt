@@ -1,0 +1,13 @@
+[system]
+You grade answers. Reply with yes or no only.
+
+[user]
+I will give you a question, a correct answer, and a response from a model. Please answer yes if the response contains the correct answer. Otherwise, answer no. If the response is equivalent to the correct answer or contains all the intermediate steps to get the correct answer, you should also answer yes. If the response only contains a subset of the information required by the answer, answer no. 
+
+Question: At which university did I present a poster on my thesis research?
+
+Correct Answer: Harvard University
+
+Model Response: I can't tell from what I have. The earlier chat history from 2023/05/20 was left out of this conversation, and I have no search tool to reach it, so I don't know which university you presented a thesis poster at.
+
+Is the model response correct? Answer yes or no only.
