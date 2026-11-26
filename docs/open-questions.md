@@ -21,6 +21,10 @@ Lean: on the device. Pending a pick. Background in [research/history-storage.md]
 
 The last few turns now always ride along raw, with the count set per model profile (it can be zero). Still open: whether a wider topic window adds anything on top of that. Lean: eval both, per model.
 
+## Sticky packets
+
+Could the packet itself be mostly cacheable? Items retrieved on earlier turns keep their place, in time order, across turns. New items are appended at the end, and items drop only when the topic changes. Then most of the packet is an unchanged prefix, which saves cost on Claude and prefill time on local models. The tradeoffs: stale items ride along longer, and the budget fills faster. Not decided; worth testing once the basic packet works.
+
 ## Voice in v1
 
 Read-aloud and dictation, with live status (heard, thinking, working). Lean: no, add it later.

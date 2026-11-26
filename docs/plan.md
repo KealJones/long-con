@@ -28,9 +28,11 @@ Hand-built packets with a frontier model passed 12/12 recall tests at about 7% o
 - **Whole units in the packet:** retrieved history comes in as whole segments, and code as whole functions or blocks, never trimmed snippets. A quoted file line needs proof: a path:line you typed or an exact symbol match, re-read fresh from disk every turn.
 - **The model's own recent answers go in the registers,** so it doesn't contradict what it said a few turns ago.
 - **The resolver can say "unsure"** instead of guessing, and a tiny trained resolver gets tested behind the rules, since rules alone miss about a third of follow-ups.
+- **Every packet says it's a best guess.** One fixed line says the packet is the builder's best guess and not to rely on anything that looks wrong, but to use the tools instead. Each item carries a confidence score, its source, its date and why it was pulled in. The line is tested on and off per model, since it could also make a model ignore good context.
+- **A trick eval set,** built to fool the packet: sloppy and paraphrased wording, exact wording that still pulls the wrong thing, stale or superseded facts, near-duplicate or misnamed names, questions with no answer anywhere, and distractor segments. Scored on both large and small models.
 - **Evals get a no-packet arm** (only the message and the tools), plus a harm rate and a wasted-lookup count next to recall. Raw-turn window and switch threshold are swept per model.
 
-The full log, with dates and what each decision replaced, is in [decisions.md](decisions.md). The evidence behind the last eight is in [research/prefetch.md](research/prefetch.md).
+The full log, with dates and what each decision replaced, is in [decisions.md](decisions.md). The evidence behind the packet-shape decisions is in [research/prefetch.md](research/prefetch.md).
 
 ## Build order
 

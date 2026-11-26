@@ -69,7 +69,7 @@ Where the log lives and syncs is still open: see [research/history-storage.md](r
 Built fresh every turn. The prompt order is fixed so the cached prefix never breaks:
 
 1. **System prompt and tools.** Stable.
-2. **Pinned rules,** word for word, and the history notice. Stable, cached across turns.
+2. **Pinned rules,** word for word, the history notice and the trust note. Stable, cached across turns.
 3. **The packet:** thread state for the threads this message touches (every claim cites a pointer to raw spans), registers including the model's own recent answers, and raw spans pulled in by retrieval and by pointers.
 4. **Recent turns,** raw, as many as the profile's window says, so follow-ups never depend on retrieval.
 5. **The new message.**
@@ -116,6 +116,15 @@ The packet is a head start, never the only path. Anything the builder can look u
 Which of these tools a model gets is set in its profile, since a small model can drown in a long tool list.
 
 Every packet carries a short fixed notice, one or two lines, saying that earlier chat history exists but was left out to fit the context, how far back it goes (since the log's first turn, so the line stays cacheable), and that the search tools can reach it.
+
+### Trust note and item labels
+
+Wrong context hurts more than none, especially for small models, so the packet says plainly what it is:
+
+- **A trust note,** one fixed line: the packet is the builder's best guess at what's relevant, so don't rely on anything in it that looks wrong, and use the tools instead.
+- **Labels on every item:** a confidence score, where it came from, its date, and why it was pulled in (for example "matched 'the deploy script'" or "open loop from Tuesday").
+
+A blanket "don't trust this" could also make a model ignore good context, so the note is tested on and off per model, and stays in a profile only where it helps.
 
 A tool call right after the packet marks a packet miss. Those calls are logged, so the evals can see what the packet should have held.
 

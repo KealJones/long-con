@@ -13,6 +13,8 @@ Newest first. Each entry says what was decided and, where it matters, what it re
 - **The model's own recent answers join the registers.**
 - **The resolver can say "unsure",** with a tiny trained resolver tested behind the rules.
 - **Evals:** a fourth arm with no packet, a harm rate and wasted-lookup count, and per-model sweeps of the raw-turn window and switch threshold.
+- **Trust note in every packet:** one fixed line saying the packet is the builder's best guess and not to rely on anything that looks wrong, plus a confidence score, source, date and retrieval reason on every item. Tested on and off per model.
+- **A trick eval set** built to fool the packet: sloppy and paraphrased wording, exact wording that pulls the wrong thing, stale facts, near-duplicate or misnamed names, no-answer questions and distractors, scored on large and small models.
 
 Evidence in [research/prefetch.md](research/prefetch.md).
 

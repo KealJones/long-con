@@ -32,6 +32,8 @@ The benchmark is **Long Con versus compaction**, not versus a huge context windo
 | Tokens per turn | Cost, and fit inside ~3K tokens for small models |
 | Cost per turn with caching | Real cost with prompt caching on, since cached history is cheap and a packet only wins past a certain length |
 | Time to first token | For local models, where caching is about speed |
+| Wrong-item acceptance | How often the model uses a packet item that's wrong |
+| Right-item rejection | How often the model ignores or overrides a packet item that's right. Watched closely with the trust note on |
 | Sorter split/merge | Over-splitting and over-merging reported separately (overlapping B-cubed precision and recall), scored at decision time |
 
 ## Test sets
@@ -41,6 +43,15 @@ The benchmark is **Long Con versus compaction**, not versus a huge context windo
 3. **Canaries.** Known facts planted in real conversations on purpose. See [canaries/](canaries).
 4. **Real labels.** After a week of real use, hand-label about 200 Long Con turns at span level.
 5. **Public benchmarks.** LongMemEval, BEAM and LoCoMo, run as packet plus one message. See [memory-benchmarks.md](../docs/research/memory-benchmarks.md).
+6. **Trick set.** Cases built to fool the packet, since wrong context hurts more than none:
+   - **Sloppy wording:** paraphrases, typos, slang and half-sentences for something that was said precisely.
+   - **Lexical traps:** exact, precise wording that matches the wrong thing better than the right one.
+   - **Stale facts:** something said, then changed or rejected later. Only the newest version is right.
+   - **Look-alike names:** near-duplicates, misspellings and misheard names ("Mackie" written "Macie").
+   - **No answer:** nothing relevant exists, so the right answer is "we never talked about that".
+   - **Distractors:** segments planted to look relevant but answer a different question.
+
+   Every case runs on both large and small readers, with the trust note on and off.
 
 ## Reader ladder
 
