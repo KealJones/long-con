@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Long Con</title>
+    <script type="module" crossorigin src="./assets/index-CDnrrAHj.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-DgQyDlXB.css">
+  </head>
+  <body>
+    <header>
+      <h1>Long Con</h1>
+      <details id="settings">
+        <summary>Settings</summary>
+        <label>Anthropic API key <input id="key" type="password" autocomplete="off" placeholder="sk-ant-..." /></label>
+        <label>Model <select id="model"></select></label>
+        <p class="note">The key stays in this browser and goes only to api.anthropic.com.</p>
+        <button id="clear" type="button">Clear chat</button>
+      </details>
+    </header>
+    <main id="log" aria-live="polite"></main>
+    <form id="form">
+      <p id="status" role="status"></p>
+      <div class="row">
+        <textarea id="input" rows="2" placeholder="Message" aria-label="Message"></textarea>
+        <button id="send" type="submit">Send</button>
+      </div>
+    </form>
+  </body>
+</html>
