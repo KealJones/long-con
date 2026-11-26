@@ -2,10 +2,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { canonicalLines, canonicalText } from "../loop/canonical-text.ts";
+import { readPage } from "@long-con/core";
 import {
   asksExact,
   bm25Windows,
   goldRanges,
+  landmarkSections,
   loadPages,
   loadPrompts,
   pageHtml,
@@ -14,6 +16,7 @@ import {
   score,
   SECTION_HIT_TOKENS,
   sharesRareWord,
+  toCanonical,
   wholePage,
   type Candidate,
 } from "../loop/url-pages.ts";
@@ -88,4 +91,20 @@ test("scorer: the whole page covers every gold range and never abstains; BM25 wi
   assert.equal(bm25Windows()(pageHtml("node-blog-v22"), "and the of it"), null);
   const hit = bm25Windows()(pageHtml("node-blog-v22"), "Maglev compiler short-lived CLI programs");
   assert.ok(hit && hit.lineStart <= 25 && hit.lineEnd >= 26);
+});
+
+test("P12: every extracted line of every page maps, in order, onto the canonical rendering", () => {
+  assert.deepEqual(toCanonical(["b", "x", "d"], ["a", "b", "c", "d"]), [2, -1, 4]);
+  for (const page of loadPages()) {
+    const map = toCanonical(readPage(pageHtml(page.id)).lines.map((l) => l.text), canonicalLines(pageHtml(page.id)));
+    assert.ok(map.every((n) => n > 0), page.id);
+  }
+});
+
+test("P12: dev failure pages abstain, and a range comes back in canonical line numbers", () => {
+  const pages = new Map(loadPages().map((p) => [p.id, p]));
+  const dev = pageSplits(loadPages());
+  for (const p of loadPrompts().filter((x) => x.kind === "abstain-failure" && dev.get(x.page) === "dev")) assert.equal(landmarkSections()(pageHtml(p.page), p.prompt, pages.get(p.page)!.status), null, p.id);
+  const got = landmarkSections()(pageHtml("node-blog-v22"), "Maglev compiler short-lived CLI programs", 200);
+  assert.ok(got && got.lineStart <= 25 && got.lineEnd >= 26);
 });

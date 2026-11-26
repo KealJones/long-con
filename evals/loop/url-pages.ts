@@ -7,17 +7,19 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
-import { Bm25, contentWords, estimateTokens } from "@long-con/core";
+import { Bm25, contentWords, estimateTokens, pickRange, readPage, type PickOptions } from "@long-con/core";
 import { canonicalLines } from "./canonical-text.ts";
 import { fnv1a } from "./split.ts";
 
 export type Range = { lineStart: number; lineEnd: number };
-export type Candidate = (pageHtml: string, prompt: string) => Range | null;
+/** status is the HTTP status the page came back with, which any real fetch knows; the scorer passes the manifest's. */
+export type Candidate = (pageHtml: string, prompt: string, status?: number) => Range | null;
 type Span = [number, number];
 
 export interface Page {
   id: string;
   url: string;
+  status: number;
   failure: boolean;
 }
 export interface Prompt {
@@ -93,10 +95,11 @@ export interface Score {
 export function score(candidate: Candidate, prompts: Prompt[], verbose = false): Score {
   const s: Score = { answerable: 0, sectionHits: 0, iouSum: 0, covered: 0, answerableEmpty: 0, hard: 0, hardHits: 0, hardIouSum: 0, abstain: { "abstain-topic": { n: 0, right: 0 }, "abstain-off": { n: 0, right: 0 }, "abstain-failure": { n: 0, right: 0 } }, returned: 0, tokens: 0, prompts: prompts.length };
   const html = new Map<string, string>();
+  const status = new Map(loadPages().map((p) => [p.id, p.status]));
   for (const p of prompts) {
     if (!html.has(p.page)) html.set(p.page, pageHtml(p.page));
     const lines = pageRendering(p.page).split("\n").slice(0, -1);
-    const got = candidate(html.get(p.page)!, p.prompt);
+    const got = candidate(html.get(p.page)!, p.prompt, status.get(p.page)!);
     let span: Span | null = null;
     let tokens = 0;
     if (got) {
@@ -145,6 +148,30 @@ export function bm25Windows(size = 15, bar = 0.5): Candidate {
   };
 }
 
+/** Each extracted line's 1-based canonical line number (the next one in order with the same text), or -1. */
+export function toCanonical(extracted: string[], canon: string[]): number[] {
+  let j = 0;
+  return extracted.map((text) => {
+    let k = j;
+    while (k < canon.length && canon[k] !== text) k++;
+    return k < canon.length ? (j = k + 1) : -1;
+  });
+}
+
+/**
+ * P12: core's readPage and pickRange. The extractor's lines are a subsequence of the canonical rendering (same line
+ * rules, chrome removed), so each one maps to the next canonical line with the same text; the range maps through that.
+ */
+export function landmarkSections(opts: PickOptions = {}, useStatus = true): Candidate {
+  return (html, prompt, status) => {
+    const page = readPage(html, useStatus ? status : 200);
+    const got = pickRange(page, prompt, opts);
+    if (!got) return null;
+    const inRange = toCanonical(page.lines.map((l) => l.text), canonicalLines(html)).slice(got.start - 1, got.end).filter((n) => n > 0);
+    return inRange.length ? { lineStart: inRange[0]!, lineEnd: inRange.at(-1)! } : null;
+  };
+}
+
 const pct = (a: number, b: number) => (b ? `${((100 * a) / b).toFixed(0)}%` : "-");
 export function report(name: string, s: Score): string {
   const ab = Object.values(s.abstain).reduce((t, x) => ({ n: t.n + x.n, right: t.right + x.right }), { n: 0, right: 0 });
@@ -168,8 +195,9 @@ export function main(argv: string[]): number {
   const prompts = loadPrompts().filter((p) => values.split === "all" || splits.get(p.page) === values.split);
   const pages = new Set(prompts.map((p) => p.page));
   const answerable = prompts.filter((p) => p.gold);
-  const hard = (maxLines: number) =>
-    answerable.filter((p) => !sharesRareWord(p.prompt, pageRendering(p.page).split("\n").slice(0, -1), goldRanges(p.gold!).map((g) => g.lines), maxLines)).length;
+  const hardSet = (maxLines: number) =>
+    answerable.filter((p) => !sharesRareWord(p.prompt, pageRendering(p.page).split("\n").slice(0, -1), goldRanges(p.gold!).map((g) => g.lines), maxLines));
+  const hard = (maxLines: number) => hardSet(maxLines).length;
   console.log(`url-pages / ${values.split}: ${pages.size} pages, ${prompts.length} prompts (${answerable.length} answerable)`);
   console.log(
     `hard answerable (no rare word shared with gold): ${hard(3)} at a 3-line cutoff (the stored flag), ${hard(5)} at 5; ` +
@@ -177,10 +205,21 @@ export function main(argv: string[]): number {
   );
   console.log("| candidate | section hit@1 | line IoU | gold covered | answerable empty | hard: hit / IoU | abstain right | tokens per non-empty | tokens per prompt |");
   console.log("| --- | --- | --- | --- | --- | --- | --- | --- | --- |");
-  for (const [name, c] of [["whole canonical page", wholePage], ["BM25 15-line windows, bar 0.5", bm25Windows()]] as const) {
+  const candidates: [string, Candidate][] = [
+    ["whole canonical page", wholePage],
+    ["BM25 15-line windows, bar 0.5", bm25Windows()],
+    ["P12 landmarks + section BM25, 16-line window, bar 0.35", landmarkSections()],
+    ["P12, HTTP status ignored", landmarkSections({}, false)],
+  ];
+  const hard5 = hardSet(5);
+  const extra: string[] = [];
+  for (const [name, c] of candidates) {
     if (values.verbose) console.log(`${name}:`);
     console.log(report(name, score(c, prompts, values.verbose)));
+    const h = score(c, hard5);
+    extra.push(`- ${name}: hard at 5 lines ${pct(h.sectionHits, h.answerable)} hit / ${(h.iouSum / (h.answerable || 1)).toFixed(2)} IoU (n=${h.answerable})`);
   }
+  console.log("\n" + extra.join("\n"));
   return 0;
 }
 

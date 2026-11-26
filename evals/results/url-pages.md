@@ -32,3 +32,18 @@ Neither baseline was tuned: 15 lines and a 0.5 coverage bar (share of the prompt
 - **No recent topic:** prompts carry no conversation history.
 - **Two failure pages carry no open license:** the 3 KB challenge page and the 79-byte NOT_FOUND are kept as failure fixtures only.
 - **The converter is dumb on purpose:** a code comment like `# .env file` renders as a heading-looking line, and a `>` inside an attribute leaks attribute text. Labels account for both; changing the converter means relabeling.
+
+## P12 retry: landmarks plus section BM25 (`packages/core/src/urlpage.ts`)
+
+`readPage` takes `<main>`/`role=main` (or a lone `<article>`) as the content root and drops nav, aside, top-level header and footer, chrome ARIA roles, hidden nodes and link-only lists, all by tag, role or structure, never by class name. It marks a failure on HTTP status 400 or more, under 200 readable characters, or a `<noscript>` page with under 500 characters outside it. `pickRange` scores heading sections with BM25 (title and heading path as prefix), slides a 16-line window inside the best one, requires the section's rarest query word (the anchor) and 0.35 of the message's IDF weight, then trims to the matched lines, at least 8. The scorer maps its lines back to canonical lines by in-order exact match (every page maps fully; a test checks it). Candidates now get the page's HTTP status.
+
+Dev (settings picked on dev only):
+
+| candidate | section hit@1 | line IoU | gold covered | answerable empty | hard@3: hit / IoU | hard@5: hit / IoU | abstain right | wrong ranges | tokens per non-empty |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| BM25 15-line windows, bar 0.5 | 33% | 0.10 | 36% | 46% | 29% / 0.08 | 21% / 0.07 | 13/15 (topic 8/9, off 2/2, failure 3/4) | 10 of 23 | 200 |
+| P12, window 16, bar 0.35 | 49% | 0.14 | 31% | 41% | 43% / 0.14 | 29% / 0.12 | 14/15 (topic 8/9, off 2/2, failure 4/4) | 5 of 24 | 152 |
+
+Dev sweep: bar 0.3 gives 54% / 0.18 / 13 of 15 / 7 wrong; bar 0.4 gives 38% / 0.11 / 15 of 15 / 4 wrong; window 12 or 20 and Porter stemming move hit@1 by one or two prompts. Ignoring HTTP status changes nothing on dev (the 404 page also misses the bar). Two gem-rails golds sit in an `<aside>` outside `<main>`, so landmark extraction drops them.
+
+Held-out, run once after freezing: P12 12% hit@1, IoU 0.08, abstain 10/11 (failure 4/4), 3 wrong of 5 returned, 76% of answerable empty; BM25 windows 12%, 0.06, 10/11, 5 wrong of 7. The dev hit@1 gain does not replicate on held-out (17 answerable, so one prompt is 6 points). Not wired into `buildPacket`.
