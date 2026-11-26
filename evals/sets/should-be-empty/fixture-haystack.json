@@ -1,0 +1,146 @@
+[
+  {
+    "question_id": "fx-trip",
+    "question_type": "single-session-user",
+    "question": "Which city did I say I'm flying to in October?",
+    "question_date": "2024/03/01 (Fri) 09:00",
+    "answer": "Lisbon",
+    "answer_session_ids": ["fx_trip"],
+    "haystack_dates": ["2024/01/05 (Fri) 10:00", "2024/01/12 (Fri) 18:30", "2024/01/20 (Sat) 11:15", "2024/02/02 (Fri) 08:45"],
+    "haystack_session_ids": ["fx_trip", "fx_bread", "fx_dog", "fx_garden"],
+    "haystack_sessions": [
+      [
+        { "role": "user", "content": "I booked flights to Lisbon for the second week of October. Can you help me plan three days there?", "has_answer": true },
+        { "role": "assistant", "content": "Sure. Day one could be Alfama and the castle, day two Belem, and day three a day trip to Sintra." },
+        { "role": "user", "content": "Sintra sounds great. Is the train easy from the city centre?" },
+        { "role": "assistant", "content": "Yes, trains leave Rossio station about every twenty minutes and take forty minutes." }
+      ],
+      [
+        { "role": "user", "content": "My sourdough keeps coming out flat. I feed the starter once a day." },
+        { "role": "assistant", "content": "Try feeding it twice a day for a week and use it at its peak, when it has doubled." },
+        { "role": "user", "content": "Should I also proof the dough in the fridge overnight?" },
+        { "role": "assistant", "content": "A cold overnight proof helps flavour and makes shaping easier." }
+      ],
+      [
+        { "role": "user", "content": "My sister's dog Biscuit has been limping since Tuesday." },
+        { "role": "assistant", "content": "If it lasts more than a couple of days, a vet visit is worth it to rule out a sprain." },
+        { "role": "user", "content": "She took him in and the vet said it's a mild sprain, rest for two weeks." },
+        { "role": "assistant", "content": "Good news. Short leash walks only until he heals." }
+      ],
+      [
+        { "role": "user", "content": "I'm starting tomatoes from seed this year. When should I sow them indoors?" },
+        { "role": "assistant", "content": "About six to eight weeks before your last frost date." },
+        { "role": "user", "content": "Our last frost is usually mid April." },
+        { "role": "assistant", "content": "Then sow them in late February or early March." }
+      ]
+    ]
+  },
+  {
+    "question_id": "fx-dog",
+    "question_type": "single-session-user",
+    "question": "What's the name of my sister's dog?",
+    "question_date": "2024/03/02 (Sat) 10:00",
+    "answer": "Biscuit",
+    "answer_session_ids": ["fx_dog"],
+    "haystack_dates": ["2024/01/05 (Fri) 10:00", "2024/01/09 (Tue) 21:00", "2024/01/20 (Sat) 11:15", "2024/02/10 (Sat) 14:00"],
+    "haystack_session_ids": ["fx_trip", "fx_code", "fx_dog", "fx_job"],
+    "haystack_sessions": [
+      [
+        { "role": "user", "content": "I booked flights to Lisbon for the second week of October. Can you help me plan three days there?" },
+        { "role": "assistant", "content": "Sure. Day one could be Alfama and the castle, day two Belem, and day three a day trip to Sintra." },
+        { "role": "user", "content": "Sintra sounds great. Is the train easy from the city centre?" },
+        { "role": "assistant", "content": "Yes, trains leave Rossio station about every twenty minutes and take forty minutes." }
+      ],
+      [
+        { "role": "user", "content": "I wrote a script to rename my holiday photos by the date they were taken, but it crashes on files without EXIF data." },
+        { "role": "assistant", "content": "Wrap the EXIF read in a try block and fall back to the file's modified time." },
+        { "role": "user", "content": "That worked. Can it also skip files that already have a date prefix?" },
+        { "role": "assistant", "content": "Check the name against a pattern like four digits, dash, two digits before renaming." }
+      ],
+      [
+        { "role": "user", "content": "My sister's dog Biscuit has been limping since Tuesday.", "has_answer": true },
+        { "role": "assistant", "content": "If it lasts more than a couple of days, a vet visit is worth it to rule out a sprain." },
+        { "role": "user", "content": "She took him in and the vet said it's a mild sprain, rest for two weeks." },
+        { "role": "assistant", "content": "Good news. Short leash walks only until he heals." }
+      ],
+      [
+        { "role": "user", "content": "I accepted the offer from the design studio. I start on March 18." },
+        { "role": "assistant", "content": "Congratulations! Do you want help planning your first week?" },
+        { "role": "user", "content": "Maybe later. For now I need to give notice at my current job." },
+        { "role": "assistant", "content": "Two weeks is standard; a short, polite letter is enough." }
+      ]
+    ]
+  },
+  {
+    "question_id": "fx-job",
+    "question_type": "single-session-user",
+    "question": "What date do I start at the design studio?",
+    "question_date": "2024/03/03 (Sun) 12:00",
+    "answer": "March 18",
+    "answer_session_ids": ["fx_job"],
+    "haystack_dates": ["2024/01/09 (Tue) 21:00", "2024/01/12 (Fri) 18:30", "2024/02/02 (Fri) 08:45", "2024/02/10 (Sat) 14:00"],
+    "haystack_session_ids": ["fx_code", "fx_bread", "fx_garden", "fx_job"],
+    "haystack_sessions": [
+      [
+        { "role": "user", "content": "I wrote a script to rename my holiday photos by the date they were taken, but it crashes on files without EXIF data." },
+        { "role": "assistant", "content": "Wrap the EXIF read in a try block and fall back to the file's modified time." },
+        { "role": "user", "content": "That worked. Can it also skip files that already have a date prefix?" },
+        { "role": "assistant", "content": "Check the name against a pattern like four digits, dash, two digits before renaming." }
+      ],
+      [
+        { "role": "user", "content": "My sourdough keeps coming out flat. I feed the starter once a day." },
+        { "role": "assistant", "content": "Try feeding it twice a day for a week and use it at its peak, when it has doubled." },
+        { "role": "user", "content": "Should I also proof the dough in the fridge overnight?" },
+        { "role": "assistant", "content": "A cold overnight proof helps flavour and makes shaping easier." }
+      ],
+      [
+        { "role": "user", "content": "I'm starting tomatoes from seed this year. When should I sow them indoors?" },
+        { "role": "assistant", "content": "About six to eight weeks before your last frost date." },
+        { "role": "user", "content": "Our last frost is usually mid April." },
+        { "role": "assistant", "content": "Then sow them in late February or early March." }
+      ],
+      [
+        { "role": "user", "content": "I accepted the offer from the design studio. I start on March 18.", "has_answer": true },
+        { "role": "assistant", "content": "Congratulations! Do you want help planning your first week?" },
+        { "role": "user", "content": "Maybe later. For now I need to give notice at my current job." },
+        { "role": "assistant", "content": "Two weeks is standard; a short, polite letter is enough." }
+      ]
+    ]
+  },
+  {
+    "question_id": "fx-dog_abs",
+    "question_type": "single-session-user",
+    "question": "What's the name of my brother's cat?",
+    "question_date": "2024/03/02 (Sat) 10:05",
+    "answer": "The information provided is not enough. You mentioned your sister's dog but not your brother's cat.",
+    "answer_session_ids": ["fx_dog"],
+    "haystack_dates": ["2024/01/05 (Fri) 10:00", "2024/01/09 (Tue) 21:00", "2024/01/20 (Sat) 11:15", "2024/02/10 (Sat) 14:00"],
+    "haystack_session_ids": ["fx_trip", "fx_code", "fx_dog", "fx_job"],
+    "haystack_sessions": [
+      [
+        { "role": "user", "content": "I booked flights to Lisbon for the second week of October. Can you help me plan three days there?" },
+        { "role": "assistant", "content": "Sure. Day one could be Alfama and the castle, day two Belem, and day three a day trip to Sintra." },
+        { "role": "user", "content": "Sintra sounds great. Is the train easy from the city centre?" },
+        { "role": "assistant", "content": "Yes, trains leave Rossio station about every twenty minutes and take forty minutes." }
+      ],
+      [
+        { "role": "user", "content": "I wrote a script to rename my holiday photos by the date they were taken, but it crashes on files without EXIF data." },
+        { "role": "assistant", "content": "Wrap the EXIF read in a try block and fall back to the file's modified time." },
+        { "role": "user", "content": "That worked. Can it also skip files that already have a date prefix?" },
+        { "role": "assistant", "content": "Check the name against a pattern like four digits, dash, two digits before renaming." }
+      ],
+      [
+        { "role": "user", "content": "My sister's dog Biscuit has been limping since Tuesday." },
+        { "role": "assistant", "content": "If it lasts more than a couple of days, a vet visit is worth it to rule out a sprain." },
+        { "role": "user", "content": "She took him in and the vet said it's a mild sprain, rest for two weeks." },
+        { "role": "assistant", "content": "Good news. Short leash walks only until he heals." }
+      ],
+      [
+        { "role": "user", "content": "I accepted the offer from the design studio. I start on March 18." },
+        { "role": "assistant", "content": "Congratulations! Do you want help planning your first week?" },
+        { "role": "user", "content": "Maybe later. For now I need to give notice at my current job." },
+        { "role": "assistant", "content": "Two weeks is standard; a short, polite letter is enough." }
+      ]
+    ]
+  }
+]
