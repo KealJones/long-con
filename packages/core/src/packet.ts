@@ -12,6 +12,7 @@ import { isTallyQuestion, SEG_GATE, tallySearch } from "./tally.ts";
 import { unitProbability } from "./gate.ts";
 import { contentWords, estimateTokens, type Stemmer } from "./text.ts";
 import { lookupSymbols, type SymbolIndex, type SymbolItem } from "./symbols.ts";
+import { workingSet } from "./workingset.ts";
 
 export interface BuildPacketInput {
   history: Session[];
@@ -24,6 +25,11 @@ export interface BuildPacketInput {
    * gets its path:line and signature, two or three get pointers, anything else gets no Code section.
    */
   code?: SymbolIndex;
+  /**
+   * The workspace's file paths, relative to its root, when the caller has them. Files the message and the current
+   * session's latest turns name, paste or edit get a short tree of their folders; paths not in the list get nothing.
+   */
+  workspace?: string[];
 }
 
 /** One retrieved unit of history in the packet, with the labels the model sees. */
@@ -56,6 +62,8 @@ export interface Packet {
   notes: Note[];
   /** Definitions in the Code section: a signature for a single match, pointers otherwise. */
   code: SymbolItem[];
+  /** Workspace paths the working-set section is built around, newest first; empty without a workspace. */
+  workingSet: string[];
 }
 
 /** Mentions the search tool only when the model has one, so no arm is told about a tool it can't use. */
@@ -64,7 +72,7 @@ export const HISTORY_NOTICE = (since: string, canSearch = true) =>
 export const TRUST_NOTE = (canSearch = true) =>
   `This packet is a best guess at what's relevant. Don't rely on anything in it that looks wrong${canSearch ? "; use the tools instead" : ""}.`;
 
-export function buildPacket({ history, message, profile, currentSessionId, code }: BuildPacketInput): Packet {
+export function buildPacket({ history, message, profile, currentSessionId, code, workspace }: BuildPacketInput): Packet {
   const current = history.find((s) => s.id === currentSessionId);
   const recentStart = current ? Math.max(0, current.turns.length - profile.rawTurns) : 0;
   const recentTurns = current ? current.turns.slice(recentStart) : [];
@@ -99,6 +107,11 @@ export function buildPacket({ history, message, profile, currentSessionId, code 
   const symbols = code ? lookupSymbols(message, code, { blockTokens: 0, packetTokens: budget - estimateTokens(`\n\n${CODE}\n`), shape: "signature" }) : undefined;
   const codeLines = symbols?.text ? ["", CODE, symbols.text] : [];
   budget -= estimateTokens(codeLines.join("\n"));
+  // The working set reads the chat itself, not search results, so it too sits behind no history bar.
+  const recentTexts = [message, ...(current?.turns.slice(-profile.workingSetTurns).reverse().map((t) => t.content) ?? [])];
+  const files = workspace ? workingSet(recentTexts, workspace, Math.min(profile.workingSetTokens, budget - 1)) : undefined;
+  const fileLines = files?.text ? ["", files.text] : [];
+  budget -= estimateTokens(fileLines.join("\n"));
   const chosen: { segment: Segment; hit: Hit<Segment>; confidence: number; medium: boolean }[] = [];
   const pointed: { segment: Segment; hit: Hit<Segment>; confidence: number; query: string; line: string }[] = [];
   // A pointer is only worth its line when the reader can open it.
@@ -185,6 +198,7 @@ export function buildPacket({ history, message, profile, currentSessionId, code 
   const text = [
     ...head,
     ...codeLines,
+    ...fileLines,
     ...(noteLines.length ? ["", NOTES, ...noteLines] : []),
     ...(body.length ? ["", RETRIEVED, ...body] : []),
     ...(pointed.length ? ["", POINTERS, ...pointed.map((p) => p.line)] : []),
@@ -208,6 +222,7 @@ export function buildPacket({ history, message, profile, currentSessionId, code 
     pointers: pointed.map((p) => ({ ...shown(p), query: p.query })),
     notes: shownNotes,
     code: symbols?.items ?? [],
+    workingSet: files?.text ? files.items : [],
   };
 }
 
