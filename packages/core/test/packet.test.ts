@@ -229,3 +229,25 @@ test("the packet fits its ceiling when many short matches of mixed strength comp
     assert.ok(p.tokens <= ceiling, `packet was ${p.tokens} tokens at a ${ceiling} ceiling`);
   }
 });
+
+test("a question history never touched comes back empty even when some words match, and one it did still finds its fact", () => {
+  const loose = { ...profile, minScore: 0 };
+  const history = [
+    ...filler,
+    chat({
+      id: "dog",
+      date: "2026/03/12 (Thu) 09:00",
+      turns: [
+        { role: "user", content: "took biscuit to the vet today, she needs her rabies shot next month" },
+        { role: "assistant", content: "Good call. Put the rabies booster on the calendar so it doesn't slip." },
+      ],
+    }),
+  ];
+  // Shares "flying" with the flights chat, and nothing else.
+  const message = "is flying to lisbon in may worth it or is the weather bad then";
+  assert.ok(buildPacket({ history, message, profile: loose }).segments.length > 0, "without the absolute bar the best weak match gets in");
+  assert.equal(buildPacket({ history, message, profile }).segments.length, 0, "with it, nothing does");
+  const on = buildPacket({ history, message: "when is biscuit due for the rabies shot", profile });
+  assert.match(on.text, /rabies shot next month/);
+});
+

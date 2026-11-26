@@ -22,6 +22,18 @@ export class Bm25<T> {
     this.totalLength += words.length;
   }
 
+  /** Rarity of a word in this index. A word in no unit gets the highest value. */
+  idf(term: string): number {
+    const n = this.docs.length;
+    const df = this.df.get(term) ?? 0;
+    return Math.log(1 + (n - df + 0.5) / (df + 0.5));
+  }
+
+  /** The most any unit could score on these words (every word matched, at saturation), so score ÷ ceiling is absolute. */
+  ceiling(query: string[]): number {
+    return [...new Set(query)].reduce((sum, t) => sum + this.idf(t) * (this.k1 + 1), 0);
+  }
+
   search(query: string[], limit = Infinity): Hit<T>[] {
     const n = this.docs.length;
     if (n === 0) return [];
@@ -34,9 +46,7 @@ export class Bm25<T> {
       for (const t of terms) {
         const f = doc.tf.get(t);
         if (!f) continue;
-        const df = this.df.get(t)!;
-        const idf = Math.log(1 + (n - df + 0.5) / (df + 0.5));
-        score += (idf * f * (this.k1 + 1)) / (f + this.k1 * (1 - this.b + (this.b * doc.length) / avg));
+        score += (this.idf(t) * f * (this.k1 + 1)) / (f + this.k1 * (1 - this.b + (this.b * doc.length) / avg));
         matched.push(t);
       }
       if (score > 0) hits.push({ item: doc.item, score, matched });

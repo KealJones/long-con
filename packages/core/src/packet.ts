@@ -7,6 +7,7 @@ import { buildRegisters, refKey } from "./registers.ts";
 import { resolve, type Resolution } from "./resolver.ts";
 import { splitIntoSegments, type Segment } from "./segments.ts";
 import type { Profile } from "./profiles.ts";
+import { isTallyQuestion, tallySearch } from "./tally.ts";
 import { contentWords, estimateTokens } from "./text.ts";
 
 export interface BuildPacketInput {
@@ -79,7 +80,14 @@ export function buildPacket({ history, message, profile, currentSessionId }: Bui
 
   if (gateOpen) {
     const seen = new Set<string>();
-    for (const { hit, confidence } of search(history, resolution.query, profile.segmentTokens, current?.id, recentStart)) {
+    const hits = search(history, resolution.query, profile.segmentTokens, current?.id, recentStart);
+    // The absolute bar asks whether history holds anything strong enough to answer at all. It judges the best unit
+    // only: per unit, it cut the weaker second piece multi-session questions need (P02 dev sweep).
+    const found = hits.some((h) => h.score >= profile.minScore);
+    // Counting questions take one small piece per matching user turn instead of whole segments (see tally.ts).
+    const tally = found && profile.tallyPieces > 0 && isTallyQuestion(message);
+    const ranked = !found ? [] : tally ? tallySearch(history, resolution.query, current?.id, recentStart).slice(0, profile.tallyPieces) : hits;
+    for (const { hit, confidence } of ranked) {
       // The budget is a ceiling, not a target: weak matches stay out even when there's room.
       if (confidence < profile.minConfidence) continue;
       // The same exchange saved twice only needs to come in once.
@@ -118,7 +126,8 @@ export function buildPacket({ history, message, profile, currentSessionId }: Bui
 
 /**
  * Units ranked by fusing two BM25 rankings. Confidence is the unit's best score as a share of the top score
- * in either ranking, so it says how close a unit comes to the best match.
+ * in either ranking, so it says how close a unit comes to the best match. Score is its best score as a share of
+ * the most any unit could score on the query: absolute, so a weak best match shows as weak.
  */
 function search(history: Session[], query: string, segmentTokens: number, currentId: string | undefined, recentStart: number) {
   // Each unit is indexed two ways, all its words and the user's words alone, then the rankings are fused.
@@ -134,9 +143,16 @@ function search(history: Session[], query: string, segmentTokens: number, curren
   }
   const words = contentWords(query);
   const lists = [all.search(words), user.search(words)];
+  const ceilings = [all.ceiling(words), user.ceiling(words)];
   const share = new Map<Segment, number>();
-  for (const list of lists) for (const h of list) share.set(h.item, Math.max(share.get(h.item) ?? 0, h.score / list[0]!.score));
-  return fuse(...lists).map((hit) => ({ hit, confidence: share.get(hit.item)! }));
+  const absolute = new Map<Segment, number>();
+  lists.forEach((list, i) => {
+    for (const h of list) {
+      share.set(h.item, Math.max(share.get(h.item) ?? 0, h.score / list[0]!.score));
+      absolute.set(h.item, Math.max(absolute.get(h.item) ?? 0, h.score / ceilings[i]!));
+    }
+  });
+  return fuse(...lists).map((hit) => ({ hit, confidence: share.get(hit.item)!, score: absolute.get(hit.item)! }));
 }
 
 /** Reciprocal-rank fusion, keeping the matched words from both lists. */
