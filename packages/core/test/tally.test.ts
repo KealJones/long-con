@@ -1,8 +1,8 @@
 // Tally mode: counting questions get one small piece from each chat instead of a few whole segments.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildPacket, PROFILES, type Session } from "../src/index.ts";
-import { isTallyQuestion } from "../src/tally.ts";
+import { buildPacket, PROFILES, searchUnits, type Session } from "../src/index.ts";
+import { isTallyQuestion, TALLY_FEATURES, tallySearch } from "../src/tally.ts";
 import { filler } from "./fixtures.ts";
 
 test("counting and aggregation questions are told apart from spans, ages and plain lookups", () => {
@@ -47,4 +47,22 @@ test("a message that isn't a count builds the same packet as before", () => {
   const history = [...filler, chatAbout("a", "1/10 (Sat)", "I went to my cousin's wedding at a vineyard.")];
   const packet = buildPacket({ history, message: "where was my cousin's wedding?", profile: PROFILES.claude });
   assert.match(packet.text, /long answer about wedding venues/, "whole segments, answers included");
+});
+
+test("the tally gate keeps pieces under its threshold out, and each piece knows how its segment did", () => {
+  const history = [
+    chatAbout("a", "1/10 (Sat)", "I went to my cousin's concert at a vineyard last weekend, it was lovely."),
+    ...filler,
+    chatAbout("b", "2/14 (Sat)", "Just got back from Emily and Sarah's concert at the beach."),
+  ];
+  const message = "how many concerts have I been to this year?";
+  const pieces = tallySearch(history, message, undefined, 0, searchUnits(history, message, 400).hits);
+  assert.equal(pieces.length, 2);
+  for (const p of pieces) {
+    assert.equal(p.features.length, TALLY_FEATURES.length);
+    assert.ok(p.features[TALLY_FEATURES.indexOf("segRank")]! > 0, "the turn's segment matched too");
+  }
+  const profile = { ...PROFILES.claude, tallyGate: 0.5 };
+  assert.equal(buildPacket({ history, message, profile: { ...profile, tallyWeights: [-50, ...TALLY_FEATURES.map(() => 0)] } }).segments.length, 0);
+  assert.equal(buildPacket({ history, message, profile: { ...profile, tallyWeights: [50, ...TALLY_FEATURES.map(() => 0)] } }).segments.length, 2);
 });

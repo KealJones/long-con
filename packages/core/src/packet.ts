@@ -8,7 +8,7 @@ import { resolve, type Resolution } from "./resolver.ts";
 import { splitIntoSegments, type Segment } from "./segments.ts";
 import { extractNotes, groupNotes, groupWords, renderGroup, type Note } from "./notes.ts";
 import type { Profile } from "./profiles.ts";
-import { isTallyQuestion, tallySearch } from "./tally.ts";
+import { isTallyQuestion, SEG_GATE, tallySearch } from "./tally.ts";
 import { unitProbability } from "./gate.ts";
 import { contentWords, estimateTokens } from "./text.ts";
 
@@ -117,13 +117,16 @@ export function buildPacket({ history, message, profile, currentSessionId }: Bui
     const ranked: { hit: Hit<Segment>; confidence: number; features?: number[] }[] = !found
       ? []
       : tally
-        ? tallySearch(history, resolution.query, current?.id, recentStart).slice(0, profile.tallyPieces)
+        ? tallySearch(history, resolution.query, current?.id, recentStart, hits, profile.unitWeights).slice(0, profile.tallyPieces)
         : hits;
+    // A tally piece is judged by the best unit-gate probability of a segment holding its turn (or by an eval's logistic).
+    const gate = tally ? profile.tallyGate : profile.unitGate;
+    const probability = (f: number[]) =>
+      !tally ? unitProbability(f, profile.unitWeights) : profile.tallyWeights ? unitProbability(f, profile.tallyWeights) : f[SEG_GATE]!;
     for (const { hit, confidence, features } of ranked) {
       // The budget is a ceiling, not a target: weak matches stay out even when there's room.
       if (confidence < profile.minConfidence) continue;
-      // shortcut: tally pieces have no two-ranking features, so they skip the unit gate; fit a tally gate if their FI matters.
-      if (features && profile.unitGate > 0 && unitProbability(features, profile.unitWeights) < profile.unitGate) continue;
+      if (features && gate > 0 && probability(features) < gate) continue;
       // The same exchange saved twice only needs to come in once.
       const text = hit.item.turns.map((t) => t.content).join("\n");
       if (seen.has(text)) continue;

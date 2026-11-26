@@ -9,3 +9,4 @@ export { contentWords, estimateTokens } from "./text.ts";
 export type { Resolution } from "./resolver.ts";
 export { SymbolIndex, indexSource, identifiersIn, lookupSymbols, type SymbolDef, type SymbolKind, type SymbolLookup, type SymbolBudget, type SourceFile } from "./symbols.ts";
 export { UNIT_FEATURES, UNIT_WEIGHTS, unitProbability } from "./gate.ts";
+export { isTallyQuestion, tallySearch, TALLY_FEATURES } from "./tally.ts";

@@ -29,6 +29,13 @@ export interface Profile {
   /** Most pieces a counting question brings in (tally mode, see tally.ts). 0 turns tally mode off. */
   tallyPieces: number;
   /**
+   * Tally gate: a piece comes in only when some segment holding its turn reaches this unit-gate probability (gate.ts),
+   * so counting questions face the same bar as whole segments. 0 turns it off.
+   */
+  tallyGate: number;
+  /** Evals only: judge pieces by a logistic over all of TALLY_FEATURES with these weights instead (fit-tally-gate.ts). */
+  tallyWeights?: readonly number[];
+  /**
    * Interest notes (notes.ts) come in when they cover at least this share of the message's IDF weight, and only
    * when the absolute bar already let history in. 0 turns notes off.
    */
@@ -69,6 +76,8 @@ export const PROFILES = {
     // question and answer together; smaller still scored a little higher on a benchmark whose facts sit in user turns.
     segmentTokens: 400,
     tallyPieces: Infinity,
+    // The unit gate's own threshold, so no new tuned number (fit-tally-gate.ts sweep: any higher bar loses a multi-session question).
+    tallyGate: 0.002,
     noteCoverage: 0.5,
     recentAnswers: 2,
     gate: true,
@@ -92,8 +101,10 @@ export const PROFILES = {
     unitGate: 0.01,
     rawTurns: 2,
     segmentTokens: 400,
-    // Off: on the dev slice every cap that kept its recall gain added wrong pieces on evidence-ablated histories (P06).
-    tallyPieces: 0,
+    // Ungated, every cap that kept its recall gain added wrong pieces (P06). Behind the tally gate it holds recall with
+    // fewer tokens and fewer false inclusions (fit-tally-gate.ts sweep).
+    tallyPieces: Infinity,
+    tallyGate: 0.01,
     noteCoverage: 0.5,
     recentAnswers: 1,
     gate: true,

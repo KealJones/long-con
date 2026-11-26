@@ -5,6 +5,7 @@
 import type { Session } from "./chat.ts";
 import { Bm25, type Hit } from "./bm25.ts";
 import type { Segment } from "./segments.ts";
+import { unitProbability } from "./gate.ts";
 import { contentWords, estimateTokens } from "./text.ts";
 
 // shortcut: English-only phrase rules on the message alone; swap for a learned intent check if false triggers show up in real use.
@@ -24,11 +25,35 @@ const MIN_SHARE = 0.4;
 
 const sentences = (text: string) => text.split(/(?<=[.!?])\s+|\n+/).filter((s) => s.trim());
 
+/** Features of a tally piece, from the history and the message alone. The shipped gate uses segGate; evals fit the rest. */
+export const TALLY_FEATURES = [
+  "absolute", // the piece's BM25 score over the most any sentence could score on the query
+  "topAbsolute", // the best piece's absolute score
+  "relative", // the piece's score as a share of the top piece
+  "rank", // 1 / (1 + rank) among pieces
+  "idfCoverage", // IDF of the matched query words over IDF of all query words
+  "matchedShare", // matched query words over query words
+  "logLength", // log of the piece's indexed word count
+  "logPieces", // log of 1 + how many turns matched above the share cut
+  "segAbsolute", // absolute score of the best segment holding the piece's turn (segment search)
+  "segRank", // 1 / (1 + that segment's place in the fused segment ranking), 0 when no segment matched
+  "segTopAbsolute", // the best segment's absolute score (P02's bar)
+  "segGate", // the highest unit-gate probability (gate.ts) of a segment holding the turn, 0 when none matched
+] as const;
+export const SEG_GATE = TALLY_FEATURES.indexOf("segGate");
+
 /**
  * The best sentence of each matching user turn, ranked by BM25 over user sentences. Confidence is the share of the top
  * score, as in the segment search. One unit per turn, not per chat: a chat can hold more than one of the things counted.
  */
-export function tallySearch(history: Session[], query: string, currentId: string | undefined, recentStart: number) {
+export function tallySearch(
+  history: Session[],
+  query: string,
+  currentId: string | undefined,
+  recentStart: number,
+  units: readonly { hit: Hit<Segment>; score: number; features: number[] }[] = [],
+  unitWeights?: readonly number[],
+) {
   const index = new Bm25<{ session: Session; turn: number; at: number; all: string[] }>();
   for (const session of history) {
     session.turns.forEach((turn, i) => {
@@ -38,12 +63,29 @@ export function tallySearch(history: Session[], query: string, currentId: string
       all.forEach((s, at) => index.add({ session, turn: i, at, all }, contentWords(s)));
     });
   }
-  const hits = index.search(contentWords(query));
+  const words = contentWords(query);
+  const terms = [...new Set(words)];
+  const hits = index.search(words);
   const top = hits[0]?.score ?? 1;
+  const ceiling = index.ceiling(words) || 1;
+  const idfAll = terms.reduce((a, t) => a + index.idf(t), 0) || 1;
+  // The best segment (first in fused order) holding each turn, so a piece can be checked against the segment search.
+  const unitOf = new Map<string, { score: number; rank: number; gate: number }>();
+  units.forEach(({ hit, score, features }, rank) => {
+    const gate = unitProbability(features, unitWeights);
+    for (let t = hit.item.start; t <= hit.item.end; t++) {
+      const key = `${hit.item.sessionId}#${t}`;
+      const prev = unitOf.get(key);
+      if (!prev) unitOf.set(key, { score, rank, gate });
+      else prev.gate = Math.max(prev.gate, gate);
+    }
+  });
+  const segTop = Math.max(0, ...units.map((u) => u.score));
+  const pieces = hits.filter((h) => h.score / top >= MIN_SHARE);
+  const turns = new Set(pieces.map((h) => `${h.item.session.id}#${h.item.turn}`)).size;
   const seen = new Set<string>();
-  const out: { hit: Hit<Segment>; confidence: number }[] = [];
-  for (const h of hits) {
-    if (h.score / top < MIN_SHARE) break;
+  const out: { hit: Hit<Segment>; confidence: number; features: number[] }[] = [];
+  for (const h of pieces) {
     const { session, turn, at, all } = h.item;
     const key = `${session.id}#${turn}`;
     if (seen.has(key)) continue;
@@ -51,7 +93,22 @@ export function tallySearch(history: Session[], query: string, currentId: string
     const whole = session.turns[turn]!.content;
     const content = estimateTokens(whole) <= WHOLE_TURN_TOKENS ? whole : all.slice(Math.max(0, at - 1), at + 2).join(" ");
     const unit: Segment = { sessionId: session.id, date: session.date, start: turn, end: turn, turns: [{ role: "user", content }], ...(content !== whole ? { partial: true } : {}) };
-    out.push({ hit: { item: unit, score: h.score, matched: h.matched }, confidence: h.score / top });
+    const seg = unitOf.get(key);
+    const features = [
+      h.score / ceiling,
+      top / ceiling,
+      h.score / top,
+      1 / (1 + out.length),
+      h.matched.reduce((a, t) => a + index.idf(t), 0) / idfAll,
+      h.matched.length / (terms.length || 1),
+      Math.log(1 + contentWords(all[at]!).length),
+      Math.log(1 + turns),
+      seg?.score ?? 0,
+      seg ? 1 / (1 + seg.rank) : 0,
+      segTop,
+      seg?.gate ?? 0,
+    ];
+    out.push({ hit: { item: unit, score: h.score, matched: h.matched }, confidence: h.score / top, features });
   }
   return out;
 }
