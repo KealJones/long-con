@@ -89,8 +89,8 @@ export function buildPacket({ history, message, profile, currentSessionId, now }
 
   if (gateOpen) {
     const seen = new Set<string>();
-    const today = profile.timeBoost > 0 ? dayOf(now) : undefined;
-    const time = today === undefined ? undefined : { ranges: timeRanges(message, today), boost: profile.timeBoost, keepWords: profile.timeKeepWords };
+    const today = profile.timeBoost > 0 || profile.timeStripOnly ? dayOf(now) : undefined;
+    const time = today === undefined ? undefined : { ranges: timeRanges(message, today), boost: profile.timeStripOnly ? 0 : profile.timeBoost, keepWords: profile.timeKeepWords };
     const { hits, idf } = searchUnits(history, resolution.query, profile.segmentTokens, current?.id, recentStart, time);
     // The absolute bar asks whether history holds anything strong enough to answer at all. It judges the best unit
     // only: per unit, it cut the weaker second piece multi-session questions need (P02 dev sweep).
@@ -230,7 +230,7 @@ export function searchUnits(
     ];
     return { hit, confidence: share.get(hit.item)!, score: absolute.get(hit.item)!, features };
   });
-  if (ranges.length) boostInRange(hits, ranges, time!.boost);
+  if (ranges.length && time!.boost > 0) boostInRange(hits, ranges, time!.boost);
   return { hits, idf: (w: string) => all.idf(w) };
 }
 
@@ -255,10 +255,11 @@ export function searchHistory(history: Session[], query: string, profile: Profil
 
 /**
  * Units dated inside a range the message names, by their session's date or by an event a user turn dates ("yesterday"),
- * get their confidence raised and a third reciprocal-rank list, so they rank and clear the cutoff sooner. Only units the
- * keyword search already found are touched: a date alone never brings a unit in.
+ * get their confidence raised and a third reciprocal-rank list, so they rank and clear the relative cutoff sooner. The
+ * absolute bar and the unit gate still judge each unit on its own word matches: on off-history prompts that name a time,
+ * letting the boost reach them raised false inclusions by half (tier 1t).
  */
-function boostInRange(hits: { hit: Hit<Segment>; confidence: number; score: number; features: number[] }[], ranges: DayRange[], boost: number): void {
+function boostInRange(hits: { hit: Hit<Segment>; confidence: number }[], ranges: DayRange[], boost: number): void {
   const inRange = (seg: Segment) => {
     const day = dayOf(seg.date);
     if (day === undefined) return false;
@@ -270,11 +271,7 @@ function boostInRange(hits: { hit: Hit<Segment>; confidence: number; score: numb
   for (const h of hits) {
     if (!inRange(h.hit.item)) continue;
     h.hit.score += 1 / (60 + rank++);
-    // Scored as if it matched 1 + boost times better: the cutoff, the absolute bar and the unit gate all see it.
     h.confidence = Math.min(1, h.confidence * (1 + boost));
-    h.score = Math.min(1, h.score * (1 + boost));
-    h.features[0] = h.score;
-    h.features[2] = h.confidence;
   }
   hits.sort((a, b) => b.hit.score - a.hit.score);
 }

@@ -18,8 +18,9 @@ const probes = buildProbes(dev, [], { timePrompts: loadTier1(TIER1_TIME) }).filt
 const answerable = dev.filter((q) => !q.abstention);
 const pct = (x: number) => (x * 100).toFixed(1);
 
-const ARMS: { label: string; boost: number; keepWords?: boolean }[] = [
+const ARMS: { label: string; boost: number; keepWords?: boolean; stripOnly?: boolean }[] = [
   { label: "off (main)", boost: 0 },
+  { label: "stripping only, no boost", boost: 0, stripOnly: true },
   ...[0.25, 0.5, 0.75, 1, 2].map((boost) => ({ label: `${boost}, stripped`, boost })),
   ...[1, 2].map((boost) => ({ label: `${boost}, words kept`, boost, keepWords: true })),
 ];
@@ -31,7 +32,7 @@ for (const base of [PROFILES.claude, PROFILES.smallLocal] as Profile[]) {
   console.log("| Boost | All-evidence | Turns | Mean tokens | Temporal all-evidence | t1t empty | t1t FI (retr tok) | t2 empty | t2 FI (retr tok) | t3 empty | t3 FI (retr tok) | Precision |");
   console.log("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |");
   for (const arm of ARMS) {
-    const profile = { ...base, timeBoost: arm.boost, timeKeepWords: arm.keepWords };
+    const profile = { ...base, timeBoost: arm.boost, timeKeepWords: arm.keepWords, timeStripOnly: arm.stripOnly };
     const runs = answerable.map((q) => {
       const p = buildPacket({ history: q.sessions, message: q.question, profile, now: q.date });
       return { q, tokens: p.tokens, ...packetRecall(q, p, profile.segmentTokens) };
@@ -48,4 +49,4 @@ for (const base of [PROFILES.claude, PROFILES.smallLocal] as Profile[]) {
   }
   console.log("");
 }
-console.log("FI is false inclusions per prompt; retr tok is mean retrieved tokens. Stripped: the time phrase leaves the keyword query (shipped). Words kept: the control arm.");
+console.log("FI is false inclusions per prompt; retr tok is mean retrieved tokens. Stripped: the time phrase leaves the keyword query (shipped). Words kept and stripping only: control arms. The boost lifts confidence and rank only; the absolute bar and the unit gate see unboosted scores. Rows from the earlier boost, which also lifted those, are in this file at commit a19371c.");

@@ -51,6 +51,8 @@ export interface Profile {
   timeBoost: number;
   /** Keeps the time phrase's words in the keyword query when boosting. Off unless set; the P07 sweep's control arm. */
   timeKeepWords?: boolean;
+  /** Strips the time phrase from the keyword query but boosts nothing. Off unless set; the P07 sweep's other control arm. */
+  timeStripOnly?: boolean;
   /** The fixed "this is a best guess" line. Tested on and off per model. */
   trustNote: boolean;
   /** The standing-rules register in the packet's head. On unless set false; the eval's packet-norules arm turns it off. */
@@ -86,9 +88,9 @@ export const PROFILES = {
     // The unit gate's own threshold, so no new tuned number (fit-tally-gate.ts sweep: any higher bar loses a multi-session question).
     tallyGate: 0.002,
     noteCoverage: 0.5,
-    // P07 sweep: 0.5 brought one more temporal question in at fewer tokens and fewer false inclusions; 1 and 2 kept the
-    // question but let more in on tier 3.
-    timeBoost: 0.5,
+    // Off: kept out of the absolute bar and the unit gate, no boost from 0.25 to 2 found a question, and stripping the
+    // time words raised false inclusions on off-history time prompts (tier 1t). See evals/results/p07-time-boost-sweep.md.
+    timeBoost: 0,
     recentAnswers: 2,
     gate: true,
     trustNote: true,
@@ -116,8 +118,7 @@ export const PROFILES = {
     tallyPieces: Infinity,
     tallyGate: 0.01,
     noteCoverage: 0.5,
-    // Off: no boost from 0.25 to 2 found another question here; with the time words stripped each lost an evidence turn,
-    // and with them kept each added false inclusions on tier 3 (P07 sweep).
+    // Off: no boost from 0.25 to 2 found a question here, and stripping the time words lost an evidence turn (P07 sweep).
     timeBoost: 0,
     recentAnswers: 1,
     gate: true,
