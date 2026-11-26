@@ -2,6 +2,41 @@
 
 One entry per idea tried by the hourly packet R&D loop. Newest run first. Numbers are dev unless marked held-out. Backlog: [prefetch-ideas-ranked.md](prefetch-ideas-ranked.md).
 
+## Run 5: 2026-11-26, 1:17 PM Arizona
+
+Baseline is main at 4467724 (end of run 4). Every number is dev and tuning-grade; one question is 2.1 points. FI is false inclusions per prompt, with retrieved tokens in brackets. Nothing was kept this run, so main is unchanged. Each tried idea sits on its own branch on GitHub for inspection.
+
+### Tally expansion (category words for counting questions): dropped
+
+- **Sources:** [Voorhees, query expansion with WordNet](https://trec.nist.gov/pubs/trec2/papers/txt/21.txt), [Improving Query Expansion Using WordNet](https://arxiv.org/pdf/1309.4938.pdf).
+- **Tried:** a hand-written table of about 60 category nouns and their members (siblings: brother, sister; pets: dog, cat). In tally mode only, a member stands in for a missing query word at a lower weight; the bar stays on the original words. WordNet (one hop of hyponyms) was also measured.
+- **Numbers:** claude unchanged (its best weight found the siblings question but added tier-3 FI). small-local 66.0 → 68.1% at 1,432 tokens, tier-3 FI 1.06 → 1.04.
+- **Review (Opus 5.5):** valid numbers, but the one gained question was won only by "vinyl" under "album", the exact word in that question's evidence, and the loop already knew the question. Without it there is no gain. WordNet found nothing and added FI on both profiles.
+- **Branch:** `loop/tally-expansion`. **Next:** drop filler words ("total", "number") from tally scoring, which is what blocks the siblings question.
+
+### P26. Key denoising: not kept (near miss on claude)
+
+- **Sources:** [SeCom](https://arxiv.org/abs/2502.05589).
+- **Tried:** the all-words index reads a denoised key per unit; the rendered text is unchanged. Modes: drop stock assistant sentences ("Certainly", "I hope this helps"), keep the first N words of each assistant turn, or keep only assistant sentences sharing a word with the user turn before them.
+- **Numbers (claude, boilerplate mode):** recall held at 80.9%; tokens 4,499 → 4,516; FI 10.86 / 12.18 / 10.15 → 10.53 / 12.10 / 9.00 (tier-2 retrieved tokens 3,280 → 3,290, tier-2 empty rate 44 → 42%). On small-local boilerplate removal lost a question and raised tier-2 FI. Truncating assistant turns cut FI but lost 1-5 questions on both.
+- **Why not kept:** the packet grew slightly and tier 2 got one more non-empty prompt, so it fails the keep rule's letter despite the tier-3 drop. No gate refit was needed (CV AUROC 0.946 vs 0.943).
+- **Branch:** `loop/p26-key-denoise`. **Next:** denoise only the gate's score features, keeping ranking on full text.
+
+### Filler words out of the relevance bar: dropped
+
+- **Sources:** [Cummins et al., query performance prediction](https://www.dcs.gla.ac.uk/~ronanc/papers/cumminsSIGIR11.pdf), [Lucene coordination factor](https://www.elastic.co/guide/en/elasticsearch/guide/current/practical-scoring-function.html).
+- **Tried:** time and filler words ("year", "ago", "total", "ever") out of the bar's score and ceiling, so a never-matching word stops emptying short questions. Variants: out of the ceiling only; words with no match in the history out; and the filler bar only on counting and "how long ago" questions. Tier 1t (12 time-phrase off-history prompts from the P07 branch) was added to the scorer on the branch.
+- **Numbers (small-local; claude unchanged in every variant that could keep its trips question):**
+  - Filler bar at 0.27: recall held at 66.0%, tokens 1,425 → 1,359, tier-1 FI 1.43 → 0.97, but tier 2 1.18 → 1.20 (309 → 326).
+  - Ceiling only: tier-1t FI 0.21 → 0.75. No-match words out: tier-1 empty rate 73.6 → 35.5%.
+  - Counting and "ago" questions only: at 0.25-0.26 +1 question but tier-2 FI up to 1.40-1.64; at 0.27 recall even and tier 2 still one unit up.
+- **Why dropped:** every setting adds tier-2 FI, which comes from counting questions run against other histories.
+- **Branch:** `loop/filler-ceiling`. **Next:** weight filler words down instead of dropping them; merge tier 1t into main's scorer on its own.
+
+### Next ideas
+
+Tier 1t into main's scorer as a measurement change, filler words down-weighted in tally scoring (helps the siblings question), P26 on gate features only, P18 date labels, P04 rerank once a model can be downloaded here (huggingface.co still refuses), held-out check of the dev-tuned bars at a milestone.
+
 ## Run 4: 2026-11-26, 12:17 PM Arizona
 
 Baseline is main at ba8e40b (end of run 3). Every number is dev and tuning-grade; one question is 2.1 points and the 95% interval is about ±12. FI is false inclusions per prompt on the should-be-empty tiers, with retrieved tokens where units change size. No paid runs this time.

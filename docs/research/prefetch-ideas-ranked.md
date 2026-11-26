@@ -46,7 +46,7 @@ Score = expected gain × confidence ÷ cost, roughly. Measurement and safety ite
 | 23 | P23 | Ratcheted raw window plus sticky tier | claude (cost) | Low | open |
 | 24 | P24 | Subject index and person cards | Both | Medium | open |
 | 25 | P25 | Open-loop speculation between turns | Both | Medium | open |
-| 26 | P26 | Key denoising (SeCom) | Both | Low | open |
+| 26 | P26 | Key denoising (SeCom) | Both | Low | not kept (run 5; near miss on claude) |
 | 27 | P27 | Conformal τ | Both | Low | blocked (needs ~100 empty prompts) |
 | 28 | P28 | Phrase graph plus PageRank, gated | claude | Medium | open |
 | 29 | P29 | Source gate trained on packet misses | Both | Medium | blocked (needs real use) |
