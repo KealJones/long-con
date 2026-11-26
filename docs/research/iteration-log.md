@@ -2,6 +2,78 @@
 
 One entry per idea tried by the hourly packet R&D loop. Newest run first. Numbers are dev unless marked held-out. Backlog: [prefetch-ideas-ranked.md](prefetch-ideas-ranked.md).
 
+## Run 7: 2026-11-26, 3:17 PM Arizona
+
+Baseline is main at 58113b9. Dev numbers only, tuning-grade. No paid runs. The pointer tier (P15) was still running when this entry was written and gets its own entry when it lands.
+
+### P21. URL eval set from real pages: kept (measurement)
+
+- **Sources:** run 1's P12 entry (why the synthetic set was circular); prefetch-evals.md URL set spec.
+- **Built:** `evals/sets/url-pages/`, 18 real pages fetched as raw HTML on 2026-11-26 (nodejs.org, pkg.go.dev, pypi.org, rubygems.org, plus 4 failure pages: a 404 with site chrome, a bare NOT_FOUND, a JS-only shell, a bot-challenge page). The proxy refused Wikipedia, MDN and other docs hosts, so 9 of 18 pages are from nodejs.org. A frozen tag-stripping converter (`evals/loop/canonical-text.ts`) was committed before any page was fetched. 82 prompts: 56 answerable with gold line ranges (alternates where the page answers twice), 26 should-abstain. Split by page, stratified content vs failure, by FNV-1a (now shared in `evals/loop/split.ts`; code-pathline's split is unchanged). License texts in `NOTICE`.
+- **Dev baselines (untuned):** whole page: section hit 3% (a span over 1,500 tokens gets no section hit), 0/15 abstain right, 7,225 tokens. BM25 over 15-line windows with a 0.5 bar: hit 33%, IoU 0.10, 13/15 abstain right, 200 tokens per non-empty. Hard subset (no rare word shared with the gold): 21 dev prompts at the 3-line cutoff, 14 at 5 lines.
+- **Review (Opus 5.5):** valid with fixes; commit order verified, all 56 labels checked. Fixes made: alternate gold ranges for four prompts, one-entry sections for the rack version page, the token cap on section hits, a second rare-word cutoff and an exact-number flag, NOTICE, stored gold-line text, pinned held-out pages.
+- **Limits:** one labeler; prompts share at least one content word with the gold in 51 of 56; held-out not run.
+- **Pushed:** 1f13420. **Next:** retry P12 (landmark extraction plus section scoring) against this set.
+
+### P20. Working set plus depth-2 tree: not kept
+
+- **Sources:** [Agentless](https://arxiv.org/html/2407.01489v2), [LocAgent](https://arxiv.org/pdf/2503.09089).
+- **Tried:** `workingset.ts` finds paths named in the message and last N turns, keeps only those in a caller-passed workspace file list, and renders a depth-2 tree under a token cap (claude 300, small-local 150). Optional input, so memory packets stay byte-identical. Eval: 60 hand-written coding chats about this repo.
+- **Numbers (dev):** files named earlier 7/7, nearby files 13/13 (small-local 12/13), should-be-empty 10/10, under the cap.
+- **Review 1 (Opus 5.5):** valid with fixes. The nearby-file group is a mechanics check (sibling is defined as the tree's reach; the repo has 235 files). A held-out output was read and a rule tightened afterward, which lowered held-out (claude 9/9 → 8/9, small-local 8/9 → 7/9); that split is spent. Blocking: 9 of 13 natural mentions of another project's files (style.css, cli.ts, plan.md) listed this repo's file.
+- **Fix tried:** a bare name counts only when the chat also writes a whole path in this workspace. Collision chats 10/10 empty, named-earlier 7/7 → 5/7.
+- **Review 2 (Opus 5.5):** the collision chats split perfectly on that rule by construction. Whole-path collisions (`docs/plan.md`, `.github/workflows/ci.yml`, `./package.json`, a root-file diff, absolute paths into another checkout) and mixed-project windows still leak, and Long Con is one endless chat across projects.
+- **Why not kept:** the should-be-empty check doesn't hold on realistic collisions. Branch `loop/p20-working-set` (d16751c).
+- **Next:** a current-project signal (the caller names the active workspace, or paths count only after the chat names that workspace), plus a wrong-items metric and multi-turn mixed-project chats.
+
+## Run 6: 2026-11-26, 2:18 PM Arizona
+
+Baseline is main at 004acd7 (end of run 5). Dev numbers only, tuning-grade; one question is 2.1 points. FI is false inclusions per prompt, retrieved tokens in brackets. No paid runs.
+
+**Net for the run, before → after (claude; small-local changed only on tier 3):**
+
+| | claude | small-local |
+| --- | --- | --- |
+| All evidence | 80.9 → 80.9% | 66.0 → 66.0% |
+| Mean packet tokens | 4,499 → 4,472 | 1,425 → 1,425 |
+| Tier 1 / 1t / 2 / 3 FI | 10.86 / 7.04 / 12.18 / 10.15 → 10.52 / 6.73 / 12.06 / 9.28 | 1.43 / 0.21 / 1.18 / 1.06 → 1.43 / 0.21 / 1.18 / 1.00 |
+| Tier 1 / 1t / 2 / 3 retrieved tokens | 3,258 / 2,031 / 3,280 / 2,663 → 3,167 / 1,938 / 3,272 / 2,366 | 392 / 55 / 309 / 267 → 392 / 55 / 309 / 263 |
+| Answerable precision | 10.3 → 10.5% | 24.8 → 24.9% |
+
+### Tier 1t in the main scorer: kept (measurement)
+
+- **Changed:** the 12 dev-only off-history prompts that name a time ("last Saturday", "in March"), from the P07 branch, are now a tier in `empty-rate.ts`. Tiers 1-4 unchanged.
+- **Baseline:** claude 71.7% empty, FI 7.04 (2,031); small-local 96.0%, 0.21 (55).
+- **Pushed:** 7c48039.
+
+### Counting words out of tally piece ranking: kept
+
+- **Sources:** [Bendersky and Croft, key concepts in verbose queries](https://maroo.cs.umass.edu/pub/web/getpdf.php?id=810), [Lo, He and Ounis, automatic stopword lists](https://eprints.gla.ac.uk/14094).
+- **Changed:** tally piece ranking drops the counting-question grammar words ("total", "altogether", "combined", "list", "every", "different", "number", "count"), taken from the tally regex, not from dev evidence. The bar and segment search still see the whole question.
+- **Numbers:** recall unchanged on both; claude 4,499 → 4,486 tokens, tier 2 12.18 → 12.10, tier 3 10.15 → 9.94; small-local tier 3 1.06 → 1.00. Weight 0.3 instead of dropping was slightly worse; a document-frequency weighting lost 1-3 claude questions.
+- **Review (Opus 5.5):** valid; all numbers reproduce, no leak. Only 4 counting questions move. Most of the FI drop is "total number of siblings", whose packet now comes back empty (it had no evidence found before either; answerable-empty goes 0 → 2.1% on claude, 14.9 → 17.0% on small-local). The road-trips question got worse on claude (3 → 8 units). The 1,000-token budget row went 48.9 → 51.1%. A packet-level test was added.
+- **Also learned:** the siblings question can't be won this way; "sibling" never appears in that history's user turns.
+- **Pushed:** 6356f27.
+
+### P13. Code `path:line` wired into the packet: kept
+
+- **Changed:** `buildPacket` takes an optional symbol index and adds a short Code section: `path:line` plus signature for one definition, pointers for two or three, nothing for more. Five resolver fixes from dev misses (top-level statements only, `require` bindings aren't definitions, bare calls don't match methods, kind words must match, backticked all-caps names count). 148 new prompts about this repo and picomatch, gold from the TypeScript syntax tree.
+- **Numbers:** this repo dev 50/50 signature hits, picomatch 8/8, wrong lines 0, should-be-empty 29/29. Held-out (run once after the fixes): 24/24, 4/6, 0 wrong, 19/19. Memory packets byte-identical with no code source.
+- **Review (Opus 5.5):** valid with fixes; all 111 gold spans match the syntax tree. Held-out exercises only one of the five fixes, and two fixes trade recall for no wrong lines on phrasings the set never asks ("lookup() returns duplicates", "the Segment class" on an interface). Fixes made: a signature hit must match the gold's first source line, a test for backticked all-caps names, and the caveats in `code-pathline.md`. The code set's held-out is spent.
+- **Pushed:** 58113b9.
+
+### P26 on the gate only: kept (claude)
+
+- **Sources:** [SeCom](https://arxiv.org/abs/2502.05589), [Cummins et al., query performance prediction](https://www.dcs.gla.ac.uk/~ronanc/papers/cumminsSIGIR11.pdf).
+- **Changed:** on claude, a third BM25 index over boilerplate-free text, scored at the full text's length, feeds the bar, the absolute and matched-share unit-gate features and the tally gate. Ranking stays on full text. small-local stays off (at its bar it added tier-3 FI or lost a question).
+- **Numbers:** claude recall held, tokens 4,486 → 4,472, FI t1 10.86 → 10.52, t1t 7.04 → 6.73, t2 12.10 → 12.06, t3 9.94 → 9.28. Shipped unit-weight AUROC 0.9496 → 0.9492, no refit.
+- **Review (Opus 5.5):** valid; numbers reproduce, small-local byte-identical, no leak (the phrase list drops the same share of sentences on dev and the rest of the dataset). The gain is mostly the bar flipping whole packets to empty, both ways (tier 1: 15 closed, 5 opened); tier 2 is negligible and tier 3 is about one question net; four tier-1t probes went from empty to about 30 units. The search tool's found flag also uses the key. Dev has only 4 assistant-turn evidence turns, so recall on single-session-assistant questions is untested.
+- **Pushed:** e6d89cd (re-measured on main after the merge, same numbers).
+
+### Next ideas
+
+P12 retry against the real-page URL set; a current-project signal for P20; P26's key on the tally piece index; the counting-word drop applied to the gate's features in tally mode; P18 date labels with tier 1t as the check; P04 rerank once a model can be downloaded here.
+
 ## Run 5: 2026-11-26, 1:17 PM Arizona
 
 Baseline is main at 4467724 (end of run 4). Every number is dev and tuning-grade; one question is 2.1 points. FI is false inclusions per prompt, with retrieved tokens in brackets. Nothing was kept this run, so main is unchanged. Each tried idea sits on its own branch on GitHub for inspection.

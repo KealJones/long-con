@@ -33,20 +33,20 @@ Score = expected gain × confidence ÷ cost, roughly. Measurement and safety ite
 | 10 | P10 | Message-level dense channel with its own floor | Both | Medium | open |
 | 11 | P11 | Static embedder for small-local | small-local | Low | open |
 | 12 | P12 | URL to file with a line range | Both | Medium | dropped (retry with real pages) |
-| 13 | P13 | Identifier-exact `path:line` from a symbol index | Both | Medium | kept (not wired) |
+| 13 | P13 | Identifier-exact `path:line` from a symbol index | Both | Medium | kept, wired as an optional source (run 6) |
 | 14 | P14 | Work-saved paired eval | Both (measurement) | Medium | open |
-| 15 | P15 | Pointer tier for medium confidence | small-local | Low | open |
+| 15 | P15 | Pointer tier for medium confidence | small-local | Low | running (run 7) |
 | 16 | P16 | Fact keys and predicted questions at write time | small-local | Medium | open |
 | 17 | P17 | Fusion hygiene: RRF k, weights, BM25F, stemming | Both | Low | Porter kept for small-local (run 4); BM25F open |
 | 18 | P18 | Prefetched date arithmetic labels | small-local | Low | open |
 | 19 | P19 | "Searched, found nothing" line | Both | Low | open |
-| 20 | P20 | Working set plus depth-2 tree | Both | Low | open |
-| 21 | P21 | Code, non-memory and URL eval sets | Both (measurement) | Medium | open |
+| 20 | P20 | Working set plus depth-2 tree | Both | Low | not kept (run 7; needs a current-project signal) |
+| 21 | P21 | Code, non-memory and URL eval sets | Both (measurement) | Medium | code set grown (run 6), URL set kept (run 7) |
 | 22 | P22 | Novelty-gated web search | small-local | Medium | open |
 | 23 | P23 | Ratcheted raw window plus sticky tier | claude (cost) | Low | open |
 | 24 | P24 | Subject index and person cards | Both | Medium | open |
 | 25 | P25 | Open-loop speculation between turns | Both | Medium | open |
-| 26 | P26 | Key denoising (SeCom) | Both | Low | not kept (run 5; near miss on claude) |
+| 26 | P26 | Key denoising (SeCom) | Both | Low | kept on the gate only, claude (run 6) |
 | 27 | P27 | Conformal τ | Both | Low | blocked (needs ~100 empty prompts) |
 | 28 | P28 | Phrase graph plus PageRank, gated | claude | Medium | open |
 | 29 | P29 | Source gate trained on packet misses | Both | Medium | blocked (needs real use) |
