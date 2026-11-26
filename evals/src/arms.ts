@@ -3,12 +3,15 @@
 // tool, so `compaction` stays the classic approach and `compaction-search` is the fair comparison.
 
 import type Anthropic from "@anthropic-ai/sdk";
-import { assemblePrompt, Bm25, buildPacket, contentWords, estimateTokens, HISTORY_NOTICE, splitIntoSegments, type Profile, type Segment, type Session } from "@long-con/core";
+import { assemblePrompt, Bm25, buildPacket, contentWords, estimateTokens, HISTORY_NOTICE, splitIntoSegments, type Packet, type Profile, type Segment, type Session } from "@long-con/core";
 import type { Question } from "./longmemeval.ts";
 import { BilledError, costOf, type ModelClient, type ModelRequest } from "./model.ts";
 
-export type ArmName = "full" | "compaction" | "compaction-search" | "packet" | "bare";
-export const ARMS: ArmName[] = ["full", "compaction", "compaction-search", "packet", "bare"];
+export type ArmName = "full" | "compaction" | "compaction-search" | "packet" | "packet-tools" | "packet-notrust" | "packet-norules" | "bare";
+/** The five main arms, run when --arms isn't given. */
+export const DEFAULT_ARMS: ArmName[] = ["full", "compaction", "compaction-search", "packet", "bare"];
+/** Every arm: the main five plus packet variants that each change one thing. */
+export const ARMS: ArmName[] = [...DEFAULT_ARMS, "packet-tools", "packet-notrust", "packet-norules"];
 
 /** Output cap per call. Generous, since a cut-off answer is a measurement error; profile.answerTokens only budgets the window. */
 export const MAX_OUTPUT = 16_000;
@@ -78,11 +81,56 @@ export function firstMessages(arm: Exclude<ArmName, "compaction" | "compaction-s
       const packet = buildPacket({ history: q.sessions, message: q.question, profile });
       return { messages: assemblePrompt({ system: SYSTEM, packet: packet.text, recentTurns: packet.recentTurns, message: ask(q) }).messages, contextTokens: packet.tokens };
     }
+    // Ablations: the same packet with one part of its head left out. The builder drops it, so the freed tokens go back to the budget.
+    case "packet-notrust":
+      return firstMessages("packet", q, { ...profile, trustNote: false });
+    case "packet-norules":
+      return firstMessages("packet", q, { ...profile, standingRules: false });
+    case "packet-tools": {
+      if (estimateTokens(renderChats(q.sessions)) <= profile.switchAt) return firstMessages("full", q, profile);
+      const packet = buildPacket({ history: q.sessions, message: q.question, profile });
+      return { messages: packetAsToolCall(packet, ask(q)), contextTokens: packet.tokens };
+    }
     case "bare": {
       const notice = HISTORY_NOTICE(q.sessions.map((s) => s.date ?? "").filter(Boolean).sort()[0] ?? "", profile.maxToolRounds > 0);
       return { messages: [{ role: "user", content: `${notice}\n\n${ask(q)}` }], contextTokens: estimateTokens(notice) };
     }
   }
+}
+
+const RETRIEVED_AT = "\n\nRetrieved history, oldest first:\n";
+export const PACKET_TOOL_ID = "toolu_packet_1";
+
+/**
+ * The packet's retrieved units delivered as if the model had searched for them itself: an assistant search_history
+ * call with the builder's query, then its result. The head (left-out notice, trust note, registers) stays a short
+ * packet block ahead of it, since it's about the context, not a search hit, and the user's rules shouldn't read as
+ * tool output. Order, content and token count otherwise match `packet`. No search ran when the gate closed, so no call is shown.
+ */
+export function packetAsToolCall(packet: Packet, message: string): Anthropic.MessageParam[] {
+  const cut = packet.text.indexOf(RETRIEVED_AT);
+  const head = cut < 0 ? packet.text : packet.text.slice(0, cut);
+  const [first, ...rest] = assemblePrompt({ system: SYSTEM, packet: head, recentTurns: packet.recentTurns, message }).messages;
+  if (!packet.retrieved) return [first!, ...rest];
+  return alternate([
+    first!,
+    { role: "assistant", content: [{ type: "tool_use", id: PACKET_TOOL_ID, name: SEARCH_TOOL.name, input: { query: packet.resolution.query } }] },
+    // An open gate that kept nothing reads as the search tool's own empty result.
+    { role: "user", content: [{ type: "tool_result", tool_use_id: PACKET_TOOL_ID, content: cut < 0 ? "No matches." : packet.text.slice(cut + 2) }] },
+    ...rest,
+  ]);
+}
+
+/** Joins back-to-back turns from one role into one, so a tool_result and the text after it share a user turn, as the API requires. */
+export function alternate(messages: Anthropic.MessageParam[]): Anthropic.MessageParam[] {
+  const blocks = (c: Anthropic.MessageParam["content"]) => (typeof c === "string" ? [{ type: "text" as const, text: c }] : c);
+  const out: Anthropic.MessageParam[] = [];
+  for (const m of messages) {
+    const last = out.at(-1);
+    if (last?.role === m.role) out[out.length - 1] = { role: m.role, content: [...blocks(last.content), ...blocks(m.content)] } as Anthropic.MessageParam;
+    else out.push(m);
+  }
+  return out;
 }
 
 export async function runArm(arm: ArmName, q: Question, cfg: ArmConfig): Promise<ArmResult> {
@@ -139,7 +187,9 @@ async function readerLoop(cfg: ArmConfig, calls: Call[], messages: Anthropic.Mes
   for (let round = 0; ; round++) {
     const canSearch = round < maxToolRounds;
     // Once searches run out the tool stays defined, since earlier turns use it, but the model can only answer.
-    const tools = maxToolRounds > 0 ? { tools: [SEARCH_TOOL], toolChoice: canSearch ? ("auto" as const) : ("none" as const) } : {};
+    // A tool_use already in the messages (packet-tools) needs the tool defined even with no searches left.
+    const defined = maxToolRounds > 0 || messages.some((m) => typeof m.content !== "string" && m.content.some((b) => b.type === "tool_use"));
+    const tools = defined ? { tools: [SEARCH_TOOL], toolChoice: canSearch ? ("auto" as const) : ("none" as const) } : {};
     const res = await call(cfg, calls, { model: cfg.reader, system: SYSTEM, messages, maxTokens: MAX_OUTPUT, purpose: "reader", ...tools });
     if (!res.toolCalls.length || !canSearch) return { answer: res.text, calls, contextTokens, toolCalls };
     toolCalls += res.toolCalls.length;

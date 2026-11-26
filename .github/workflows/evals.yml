@@ -11,7 +11,7 @@ on:
         options: [claude, small-local]
         default: claude
       arms:
-        description: Arms, comma separated (full, compaction, compaction-search, packet, bare)
+        description: Arms, comma separated (full, compaction, compaction-search, packet, bare; packet variants packet-tools, packet-notrust, packet-norules)
         type: string
         default: packet,bare
       limit:

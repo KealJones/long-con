@@ -31,7 +31,7 @@ export class EstimatingModel implements ModelClient {
 
 /** The question, which ends the last plain user message in every arm, so every search has a real query and bills real results. */
 function lastUserText(req: ModelRequest): string {
-  const last = req.messages.findLast((m) => m.role === "user" && typeof m.content === "string");
-  const text = typeof last?.content === "string" ? last.content : "";
-  return text.slice(-500);
+  // packet-tools puts the question in a text block after a tool_result, so block contents count too.
+  const texts = req.messages.filter((m) => m.role === "user").flatMap((m) => (typeof m.content === "string" ? [m.content] : m.content.flatMap((b) => (b.type === "text" ? [b.text] : []))));
+  return (texts.at(-1) ?? "").slice(-500);
 }

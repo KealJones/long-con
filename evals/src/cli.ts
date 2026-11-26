@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { Bm25, buildPacket, contentWords, estimateTokens, PROFILES, profileByName, splitIntoSegments, type Profile, type Segment } from "@long-con/core";
-import { ARMS, firstMessages, SEARCH_TOOL, searchHistory, SYSTEM, type ArmName } from "./arms.ts";
+import { ARMS, DEFAULT_ARMS, firstMessages, SEARCH_TOOL, searchHistory, SYSTEM, type ArmName } from "./arms.ts";
 import { recallChart, type Series } from "./chart.ts";
 import { EstimatingModel } from "./estimate.ts";
 import { heldOutSplit, loadLongMemEval, stratifiedSlice, type Question } from "./longmemeval.ts";
@@ -32,7 +32,7 @@ Commands:
 Options:
   --profile <name>     Model profile: ${PROFILE_NAMES.join(", ")} (recall runs all of them by default; others default to claude)
   --data <path>        LongMemEval_S file (default evals/data/longmemeval/longmemeval_s_cleaned.json)
-  --arms <list>        Arms for estimate/run (default ${ARMS.join(",")})
+  --arms <list>        Arms for estimate/run (default ${DEFAULT_ARMS.join(",")}; also ${ARMS.filter((a) => !DEFAULT_ARMS.includes(a)).join(",")})
   --reader <model>     Reader model (default claude-haiku-5-5)
   --judge <model>      Judge model (default claude-opus-5-5)
   --split <name>       dev (default, the 50 tuning questions) or held-out (the rest minus any that share evidence with dev: 437, for headline numbers)
@@ -50,7 +50,7 @@ export async function main(argv: string[]): Promise<number> {
     options: {
       profile: { type: "string" },
       data: { type: "string", default: DATA },
-      arms: { type: "string", default: ARMS.join(",") },
+      arms: { type: "string", default: DEFAULT_ARMS.join(",") },
       reader: { type: "string", default: "claude-haiku-5-5" },
       judge: { type: "string", default: "claude-opus-5-5" },
       split: { type: "string", default: "dev" },

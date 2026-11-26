@@ -30,6 +30,8 @@ export interface Profile {
   gate: boolean;
   /** The fixed "this is a best guess" line. Tested on and off per model. */
   trustNote: boolean;
+  /** The standing-rules register in the packet's head. On unless set false; the eval's packet-norules arm turns it off. */
+  standingRules?: boolean;
   /** Searches the model may run per turn. 0 gives it no search tool. */
   maxToolRounds: number;
   /** Units one search returns. */

@@ -60,7 +60,7 @@ export function buildPacket({ history, message, profile, currentSessionId }: Bui
   const canSearch = profile.maxToolRounds > 0;
   const head: string[] = [HISTORY_NOTICE(earliestDate(history), canSearch)];
   if (profile.trustNote) head.push(TRUST_NOTE(canSearch));
-  if (registers.rules.length) {
+  if (profile.standingRules !== false && registers.rules.length) {
     head.push("", "Standing rules from the user, word for word:");
     for (const r of registers.rules) head.push(`- "${r.text}" (${label(history, r.from)})`);
   }

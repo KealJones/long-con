@@ -42,6 +42,14 @@ export class SubagentModel implements ModelClient {
 
 /** The request as one plain document a subagent reads: the system prompt, then each message in order. */
 function render(req: ModelRequest): string {
-  const body = req.messages.map((m) => `[${m.role}]\n${typeof m.content === "string" ? m.content : JSON.stringify(m.content)}`).join("\n\n");
+  const body = req.messages.map((m) => `[${m.role}]\n${typeof m.content === "string" ? m.content : m.content.map(block).join("\n\n")}`).join("\n\n");
   return `[system]\n${req.system}\n\n${body}\n`;
+}
+
+/** Tool calls as plain lines (packet-tools sends one with --no-tools), so a subagent reads them as a transcript, not JSON. */
+function block(b: Exclude<ModelRequest["messages"][number]["content"], string>[number]): string {
+  if (b.type === "text") return b.text;
+  if (b.type === "tool_use") return `(called ${b.name} with ${JSON.stringify(b.input)})`;
+  if (b.type === "tool_result") return `(tool result)\n${typeof b.content === "string" ? b.content : JSON.stringify(b.content)}`;
+  return JSON.stringify(b);
 }
