@@ -4,7 +4,7 @@
 // Only explicit wording counts (docs/research/people.md, takeaway 4); everything else stays findable in the log.
 
 import type { Session, TurnRef } from "./chat.ts";
-import { contentWords } from "./text.ts";
+import { contentWords, type Stemmer } from "./text.ts";
 
 export interface Note {
   topic: string;
@@ -108,7 +108,7 @@ export function groupNotes(notes: Note[]): NoteGroup[] {
 }
 
 /** The words a message can match a group on: its topic, every value, and the cue ("obsessed", "favorite"). */
-export const groupWords = (g: NoteGroup): Set<string> => new Set(g.notes.flatMap((n) => contentWords(`${g.topic} ${n.value} ${n.cue}`)));
+export const groupWords = (g: NoteGroup, stemmer: Stemmer = "suffix"): Set<string> => new Set(g.notes.flatMap((n) => contentWords(`${g.topic} ${n.value} ${n.cue}`, stemmer)));
 
 /** One line per group: the newest value with its date, then up to two earlier values marked as earlier. */
 export function renderGroup(g: NoteGroup): string {

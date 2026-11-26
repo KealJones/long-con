@@ -1,5 +1,7 @@
 // Per-model settings. Defaults are starting points; the evals sweep them per model.
 
+import type { Stemmer } from "./text.ts";
+
 export interface Profile {
   name: string;
   /** The model's whole context window in tokens: prompt, packet, recent turns, tool results and answer. */
@@ -22,6 +24,8 @@ export interface Profile {
   unitGate: number;
   /** Gate weights; the shipped UNIT_WEIGHTS when absent. Evals pass cross-validated folds here. */
   unitWeights?: readonly number[];
+  /** How search stems words (see text.ts). minScore depends on it: a stemmer that matches more words lifts every score. */
+  stemmer: Stemmer;
   /** Recent turns of the current session that ride along raw, outside the packet. */
   rawTurns: number;
   /** Hard cap on one retrieved unit. A longer turn is split at paragraph breaks. */
@@ -71,6 +75,8 @@ export const PROFILES = {
     minScore: 0.17,
     // Highest unit-gate threshold with no all-evidence loss in leave-one-type-out CV; 0.004 loses one question for half the FI (P03 sweep).
     unitGate: 0.002,
+    // Porter matched more wrong units at every bar that kept recall (P17 sweep), so claude keeps the suffix stripper.
+    stemmer: "suffix",
     rawTurns: 6,
     // Small units beat whole exchanges at every budget on the dev slice (evals/results). 400 keeps a short
     // question and answer together; smaller still scored a little higher on a benchmark whose facts sit in user turns.
@@ -95,10 +101,14 @@ export const PROFILES = {
     switchAt: 2500,
     packetTokens: 2500,
     minConfidence: 0.3,
-    // Small models are misled by any context: this trades one dev question for two thirds fewer false inclusions.
-    minScore: 0.2,
     // CV sweep: one question for about half the false inclusions; 0.013 loses three. Keeps minScore, which the gate doesn't replace.
     unitGate: 0.01,
+    // P17 sweep, with the tally and unit gates on: Porter stemming finds two more dev questions at bars 0.20 to 0.24 and
+    // the bar cuts false inclusions; only 0.25 adds none on any tier (+1 question, 6% fewer tokens). 0.25 is the cliff
+    // (0.26 untested, 0.24 keeps a second question but adds tier-3 FI), and 7 of 47 answerable packets come back empty.
+    // Two-word queries where one word never matches ("concerts ... this year") come back empty at this bar.
+    minScore: 0.25,
+    stemmer: "porter",
     rawTurns: 2,
     segmentTokens: 400,
     // Ungated, every cap that kept its recall gain added wrong pieces (P06). Behind the tally gate it holds recall with

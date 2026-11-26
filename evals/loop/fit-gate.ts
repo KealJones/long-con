@@ -112,7 +112,7 @@ function probeQuestion(p: Probe): string {
 }
 
 export function candidates(p: Probe, profile: Profile) {
-  return searchUnits(p.history, p.message, profile.segmentTokens)
+  return searchUnits(p.history, p.message, profile.segmentTokens, undefined, 0, profile.stemmer)
     .hits.filter((c) => c.confidence >= profile.minConfidence)
     .slice(0, MAX_CANDIDATES);
 }

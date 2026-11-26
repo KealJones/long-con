@@ -10,7 +10,7 @@ import { extractNotes, groupNotes, groupWords, renderGroup, type Note } from "./
 import type { Profile } from "./profiles.ts";
 import { isTallyQuestion, SEG_GATE, tallySearch } from "./tally.ts";
 import { unitProbability } from "./gate.ts";
-import { contentWords, estimateTokens } from "./text.ts";
+import { contentWords, estimateTokens, type Stemmer } from "./text.ts";
 
 export interface BuildPacketInput {
   history: Session[];
@@ -86,17 +86,17 @@ export function buildPacket({ history, message, profile, currentSessionId }: Bui
 
   if (gateOpen) {
     const seen = new Set<string>();
-    const { hits, idf } = searchUnits(history, resolution.query, profile.segmentTokens, current?.id, recentStart);
+    const { hits, idf } = searchUnits(history, resolution.query, profile.segmentTokens, current?.id, recentStart, profile.stemmer);
     // The absolute bar asks whether history holds anything strong enough to answer at all. It judges the best unit
     // only: per unit, it cut the weaker second piece multi-session questions need (P02 dev sweep).
     const found = hits.some((h) => h.score >= profile.minScore);
     // Interest notes come in only behind the same bar, and only when they cover enough of the message's weight,
     // so a note can never turn a should-be-empty packet into a non-empty one on its own.
     if (found && profile.noteCoverage > 0) {
-      const words = [...new Set(contentWords(resolution.query))];
+      const words = [...new Set(contentWords(resolution.query, profile.stemmer))];
       const total = words.reduce((a, w) => a + idf(w), 0);
       const groups = groupNotes(extractNotes(history, isRecent))
-        .map((g) => ({ g, hit: words.filter((w) => groupWords(g).has(w)) }))
+        .map((g) => ({ g, hit: words.filter((w) => groupWords(g, profile.stemmer).has(w)) }))
         // One shared word is chance ("good morning!" fully covered by "morning walks in the park"), so it takes two.
         .filter(({ hit }) => hit.length >= MIN_NOTE_WORDS)
         .map(({ g, hit }) => ({ g, cover: hit.reduce((a, w) => a + idf(w), 0) / total }))
@@ -117,7 +117,7 @@ export function buildPacket({ history, message, profile, currentSessionId }: Bui
     const ranked: { hit: Hit<Segment>; confidence: number; features?: number[] }[] = !found
       ? []
       : tally
-        ? tallySearch(history, resolution.query, current?.id, recentStart, hits, profile.unitWeights).slice(0, profile.tallyPieces)
+        ? tallySearch(history, resolution.query, current?.id, recentStart, hits, profile.unitWeights, profile.stemmer).slice(0, profile.tallyPieces)
         : hits;
     // A tally piece is judged by the best unit-gate probability of a segment holding its turn (or by an eval's logistic).
     const gate = tally ? profile.tallyGate : profile.unitGate;
@@ -167,7 +167,7 @@ export function buildPacket({ history, message, profile, currentSessionId }: Bui
  * in either ranking, so it says how close a unit comes to the best match. Score is its best score as a share of
  * the most any unit could score on the query: absolute, so a weak best match shows as weak. Features feed the unit gate (gate.ts).
  */
-export function searchUnits(history: Session[], query: string, segmentTokens: number, currentId?: string, recentStart = 0) {
+export function searchUnits(history: Session[], query: string, segmentTokens: number, currentId?: string, recentStart = 0, stemmer: Stemmer = "suffix") {
   // Each unit is indexed two ways, all its words and the user's words alone, then the rankings are fused.
   const all = new Bm25<Segment>();
   const user = new Bm25<Segment>();
@@ -176,13 +176,13 @@ export function searchUnits(history: Session[], query: string, segmentTokens: nu
     for (const seg of splitIntoSegments(session, segmentTokens)) {
       // Turns already riding along raw don't need retrieving.
       if (session.id === currentId && seg.end >= recentStart) continue;
-      const words = contentWords(seg.turns.map((t) => t.content).join("\n"));
+      const words = contentWords(seg.turns.map((t) => t.content).join("\n"), stemmer);
       length.set(seg, words.length);
       all.add(seg, words);
-      user.add(seg, contentWords(seg.turns.filter((t) => t.role === "user").map((t) => t.content).join("\n")));
+      user.add(seg, contentWords(seg.turns.filter((t) => t.role === "user").map((t) => t.content).join("\n"), stemmer));
     }
   }
-  const words = contentWords(query);
+  const words = contentWords(query, stemmer);
   const terms = [...new Set(words)];
   const lists = [all.search(words), user.search(words)];
   const ceilings = [all.ceiling(words), user.ceiling(words)];
@@ -223,7 +223,7 @@ export function searchUnits(history: Session[], query: string, segmentTokens: nu
  * abstains, the tool still answers: a unit the packet would leave out comes back marked low confidence.
  */
 export function searchHistory(history: Session[], query: string, profile: Profile): string {
-  const { hits } = searchUnits(history, query, profile.segmentTokens);
+  const { hits } = searchUnits(history, query, profile.segmentTokens, undefined, 0, profile.stemmer);
   if (!hits.length) return "No matches.";
   const found = hits.some((h) => h.score >= profile.minScore);
   const rejected = buildRegisters(history, profile.recentAnswers).rejected;

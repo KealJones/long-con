@@ -253,16 +253,16 @@ function recallRuns(questions: Question[], profile: Profile): RecallRun[] {
 
 /**
  * The plain-retrieval baseline: BM25 over all words, the same units, top hits until the same ceiling.
- * No user-word ranking, cutoff, dedupe, registers or notices. Tokens count the unit text alone, which flatters it slightly.
+ * Same stemmer as the profile, so the comparison isolates the builder. No user-word ranking, cutoff, dedupe, registers or notices. Tokens count the unit text alone, which flatters it slightly.
  */
 function bm25Runs(questions: Question[], profile: Profile): RecallRun[] {
   return questions.map((q) => {
     const index = new Bm25<Segment>();
-    for (const s of q.sessions) for (const seg of splitIntoSegments(s, profile.segmentTokens)) index.add(seg, contentWords(seg.turns.map((t) => t.content).join("\n")));
+    for (const s of q.sessions) for (const seg of splitIntoSegments(s, profile.segmentTokens)) index.add(seg, contentWords(seg.turns.map((t) => t.content).join("\n"), profile.stemmer));
     const picked: Segment[] = [];
     const texts: string[] = [];
     let tokens = 0;
-    for (const { item } of index.search(contentWords(q.question), 1000)) {
+    for (const { item } of index.search(contentWords(q.question, profile.stemmer), 1000)) {
       const text = item.turns.map((t) => `${t.role}: ${t.content}`).join("\n");
       const cost = estimateTokens(text);
       if (tokens + cost > profile.packetTokens) continue;

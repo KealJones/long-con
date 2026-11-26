@@ -29,7 +29,7 @@ test("a counting question brings one piece from every turn that holds one, dated
     chatAbout("b", "2/14 (Sat)", "Just got back from Emily and Sarah's concert at the beach."),
     chatAbout("c", "3/21 (Sat)", "My college roommate's concert was yesterday, we danced all night."),
   ];
-  const packet = buildPacket({ history, message: "how many concerts have I been to this year?", profile: PROFILES.smallLocal });
+  const packet = buildPacket({ history, message: "how many concerts have I been to this year?", profile: PROFILES.claude });
   for (const s of ["cousin's concert at a vineyard", "Emily and Sarah's concert", "roommate's concert was yesterday", "2026/01/10", "2026/03/21"]) assert.ok(packet.text.includes(s), s);
   assert.doesNotMatch(packet.text, /long answer about wedding venues/);
   assert.equal(new Set(packet.segments.map((s) => s.sessionId)).size, packet.segments.length, "one piece per turn");
@@ -65,4 +65,15 @@ test("the tally gate keeps pieces under its threshold out, and each piece knows 
   const profile = { ...PROFILES.claude, tallyGate: 0.5 };
   assert.equal(buildPacket({ history, message, profile: { ...profile, tallyWeights: [-50, ...TALLY_FEATURES.map(() => 0)] } }).segments.length, 0);
   assert.equal(buildPacket({ history, message, profile: { ...profile, tallyWeights: [50, ...TALLY_FEATURES.map(() => 0)] } }).segments.length, 2);
+});
+
+test("small-local's stricter bar leaves a two-word count empty when one word never matches", () => {
+  const history = [
+    chatAbout("a", "1/10 (Sat)", "I went to my cousin's concert at a vineyard last weekend, it was lovely."),
+    chatAbout("b", "2/14 (Sat)", "Just got back from Emily and Sarah's concert at the beach."),
+    chatAbout("c", "3/21 (Sat)", "My college roommate's concert was yesterday, we danced all night."),
+  ];
+  // "year" matches nothing, so the best unit scores about half the query's ceiling, under the bar (P17 review).
+  const packet = buildPacket({ history: [...filler, ...history], message: "how many concerts have I been to this year?", profile: PROFILES.smallLocal });
+  assert.ok(!packet.text.includes("Emily and Sarah's concert"));
 });

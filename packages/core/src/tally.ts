@@ -6,7 +6,7 @@ import type { Session } from "./chat.ts";
 import { Bm25, type Hit } from "./bm25.ts";
 import type { Segment } from "./segments.ts";
 import { unitProbability } from "./gate.ts";
-import { contentWords, estimateTokens } from "./text.ts";
+import { contentWords, estimateTokens, type Stemmer } from "./text.ts";
 
 // shortcut: English-only phrase rules on the message alone; swap for a learned intent check if false triggers show up in real use.
 // "how many days/years..." asks for a span or an age, not a count, so time units don't trigger it.
@@ -53,6 +53,7 @@ export function tallySearch(
   recentStart: number,
   units: readonly { hit: Hit<Segment>; score: number; features: number[] }[] = [],
   unitWeights?: readonly number[],
+  stemmer: Stemmer = "suffix",
 ) {
   const index = new Bm25<{ session: Session; turn: number; at: number; all: string[] }>();
   for (const session of history) {
@@ -60,10 +61,10 @@ export function tallySearch(
       // Turns already riding along raw don't need retrieving.
       if (turn.role !== "user" || (session.id === currentId && i >= recentStart)) return;
       const all = sentences(turn.content);
-      all.forEach((s, at) => index.add({ session, turn: i, at, all }, contentWords(s)));
+      all.forEach((s, at) => index.add({ session, turn: i, at, all }, contentWords(s, stemmer)));
     });
   }
-  const words = contentWords(query);
+  const words = contentWords(query, stemmer);
   const terms = [...new Set(words)];
   const hits = index.search(words);
   const top = hits[0]?.score ?? 1;

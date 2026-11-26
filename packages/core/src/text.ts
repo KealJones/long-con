@@ -1,5 +1,7 @@
 // Text helpers shared by search, the resolver and token budgeting.
 
+import { stemmer as porter } from "stemmer";
+
 const STOPWORDS = new Set(
   `a an the and or but if then so of to in on at by for with from up down out over under about into onto
   is are was were be been being am do does did doing have has had having can could should would will shall may might must
@@ -11,8 +13,9 @@ const STOPWORDS = new Set(
     .filter(Boolean),
 );
 
-// shortcut: crude suffix stripping, swap for a real stemmer if recall shows it matters.
-function stem(word: string): string {
+// Crude suffix stripping. It misses some pairs ("wedding" -> "wedd" but "weddings" -> "wedding"), yet on the claude profile
+// it beat Porter and an inflection-only Porter2 at every gate bar on the dev slice: fuller conflation let in more wrong units (P17).
+function suffix(word: string): string {
   if (word.length > 5 && word.endsWith("ies")) return word.slice(0, -3) + "y";
   if (word.length > 5 && word.endsWith("ing")) return word.slice(0, -3);
   if (word.length > 4 && word.endsWith("ed")) return word.slice(0, -2);
@@ -20,12 +23,16 @@ function stem(word: string): string {
   return word;
 }
 
+/** How content words are stemmed: "suffix" strips a few endings, "porter" is the Porter (1980) stemmer. Set per profile. */
+export type Stemmer = "suffix" | "porter";
+const STEM: Record<Stemmer, (word: string) => string> = { suffix, porter };
+
 /** Lowercased, stemmed content words. Numbers are kept, since "4096" is often the thing being asked about. */
-export function contentWords(text: string): string[] {
+export function contentWords(text: string, stemmer: Stemmer = "suffix"): string[] {
   const out: string[] = [];
   for (const raw of text.toLowerCase().split(/[^a-z0-9]+/)) {
     if (!raw || STOPWORDS.has(raw)) continue;
-    out.push(stem(raw));
+    out.push(STEM[stemmer](raw));
   }
   return out;
 }
