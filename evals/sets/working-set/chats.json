@@ -1,0 +1,465 @@
+{
+  "note": "Multi-turn coding chats about this repo at the pinned commit, hand-written before the first scored run. The last turn's message needs the gold path(s). kind: named = the gold file was named, pasted or edited in the turns; sibling = the gold sits in the named file's folder, its parent, or the parent's other subfolders; deep = the gold sits further away; empty-nocode and empty-falsepath should get no section (no paths, or paths that aren't in this workspace). Split by FNV-1a of seed:id, a third held out.",
+  "commit": "58113b9df54b049ad2d9fdeed49cfcd159498381",
+  "seed": 20261126,
+  "chats": [
+    {
+      "id": "named-trust-note",
+      "kind": "named",
+      "turns": [
+        ["user", "the trust note line in packages/core/src/packet.ts reads weird to me, can you look"],
+        ["assistant", "TRUST_NOTE sits near the top of packet.ts. It reads: \"This packet is a best guess at what's relevant. Don't rely on anything in it that looks wrong; use the tools instead.\""]
+      ],
+      "message": "ok reword it so its shorter, keep the tools bit",
+      "gold": ["packages/core/src/packet.ts"]
+    },
+    {
+      "id": "named-diff-segments",
+      "kind": "named",
+      "turns": [
+        ["user", "long turns get split weird, paragraphs end up mid-sentence"],
+        ["assistant", "Here's the fix:\n\n```diff\n--- a/packages/core/src/segments.ts\n+++ b/packages/core/src/segments.ts\n@@ -40,7 +40,7 @@\n-  const parts = turn.content.split(/\\n/);\n+  const parts = turn.content.split(/\\n\\s*\\n/);\n```"],
+        ["user", "nice that looks right"],
+        ["assistant", "Applied. Splits now fall on blank lines only."]
+      ],
+      "message": "hmm actually revert that last change, the old split was fine",
+      "gold": ["packages/core/src/segments.ts"]
+    },
+    {
+      "id": "named-fence-title",
+      "kind": "named",
+      "turns": [
+        ["user", "paste me the gate weights file"],
+        ["assistant", "```ts title=packages/core/src/gate.ts\nexport const UNIT_WEIGHTS = [ /* ... */ ];\nexport function unitProbability(f: number[], w = UNIT_WEIGHTS) { /* ... */ }\n```"]
+      ],
+      "message": "add a comment above the weights saying where they were fit",
+      "gold": ["packages/core/src/gate.ts"]
+    },
+    {
+      "id": "named-absolute-path",
+      "kind": "named",
+      "turns": [
+        ["user", "getting this when I run the cli:\nTypeError: Cannot read properties of undefined (reading 'turns')\n    at buildPacket (/home/keal/code/long-con/packages/core/src/packet.ts:61:30)\n    at main (/home/keal/code/long-con/apps/cli/src/main.ts:88:17)"],
+        ["assistant", "The CLI passed a currentSessionId that isn't in the history, so `current` is undefined further down."]
+      ],
+      "message": "fix it on the cli side, dont touch the builder",
+      "gold": ["apps/cli/src/main.ts"]
+    },
+    {
+      "id": "named-basename-only",
+      "kind": "named",
+      "turns": [
+        ["user", "why does bm25.ts use k1 1.2"],
+        ["assistant", "It's the common default from the Robertson papers; the P17 run tried 0.9 and it moved nothing."]
+      ],
+      "message": "ok leave a note in that file about the P17 run",
+      "gold": ["packages/core/src/bm25.ts"]
+    },
+    {
+      "id": "named-older-of-two",
+      "kind": "named",
+      "turns": [
+        ["user", "look at evals/src/judge.ts and evals/src/recall.ts, which one computes evidence turns"],
+        ["assistant", "recall.ts. judge.ts only grades answers against the reference."],
+        ["user", "ok"],
+        ["assistant", "Anything to change in it?"]
+      ],
+      "message": "yeah, the grader prompt in the other one says 'correct' twice, clean that up",
+      "gold": ["evals/src/judge.ts"]
+    },
+    {
+      "id": "named-folder-mention",
+      "kind": "named",
+      "turns": [
+        ["user", "what's in evals/loop/ these days"],
+        ["assistant", "Five scripts: code-pathline, empty-rate, fit-gate, fit-tally-gate and interest-notes."]
+      ],
+      "message": "open the one for the tally gate fit",
+      "gold": ["evals/loop/fit-tally-gate.ts"]
+    },
+    {
+      "id": "named-backtick-partial",
+      "kind": "named",
+      "turns": [
+        ["user", "is the resolver in `core/src/resolver.ts` still doing the pronoun thing"],
+        ["assistant", "Yes, `resolve()` checks the recent turns for a single result when the message says \"it\" or \"that one\"."]
+      ],
+      "message": "make it also handle 'the second one'",
+      "gold": ["packages/core/src/resolver.ts"]
+    },
+    {
+      "id": "sib-packet-test",
+      "kind": "sibling",
+      "turns": [
+        ["user", "the notes section can push the packet over its ceiling, look at packages/core/src/packet.ts"],
+        ["assistant", "Right, the note cost didn't count the section line. I've changed it so the first note pays for the \"Notes on what the user said\" line too."]
+      ],
+      "message": "cool now add a test for that",
+      "gold": ["packages/core/test/packet.test.ts"]
+    },
+    {
+      "id": "sib-tally-test",
+      "kind": "sibling",
+      "turns": [
+        ["user", "the counting word list in tally.ts has 'total' twice"],
+        ["assistant", "Edited `packages/core/src/tally.ts`: removed the duplicate."]
+      ],
+      "message": "is there a test that would have caught that? run it",
+      "gold": ["packages/core/test/tally.test.ts"]
+    },
+    {
+      "id": "sib-stemmer-home",
+      "kind": "sibling",
+      "turns": [
+        ["user", "packages/core/src/bm25.ts tokenizes on its own right?"],
+        ["assistant", "No, it takes words already split; the caller passes contentWords output."]
+      ],
+      "message": "so where does contentWords live, I want to check the stopword list",
+      "gold": ["packages/core/src/text.ts"]
+    },
+    {
+      "id": "sib-core-package-json",
+      "kind": "sibling",
+      "turns": [
+        ["user", "I added a new export to packages/core/src/index.ts"],
+        ["assistant", "Exported `workingSet` next to the tally exports."]
+      ],
+      "message": "does the core package's manifest need an exports entry for it too",
+      "gold": ["packages/core/package.json"]
+    },
+    {
+      "id": "sib-symbols-test",
+      "kind": "sibling",
+      "turns": [
+        ["user", "signature() cuts at 4 lines, see packages/core/src/symbols.ts"],
+        ["assistant", "SIGNATURE_LINES = 4. A longer signature is cut and the path:line points at the rest."]
+      ],
+      "message": "add a case for a 6 line signature to the symbols tests",
+      "gold": ["packages/core/test/symbols.test.ts"]
+    },
+    {
+      "id": "sib-fit-gate-from-empty-rate",
+      "kind": "sibling",
+      "turns": [
+        ["user", "evals/loop/empty-rate.ts tier 1t numbers look off for small-local"],
+        ["assistant", "96% empty with 0.21 false inclusions per prompt; that's the Porter bar at 0.25 doing its job."]
+      ],
+      "message": "which script fit the unit gate weights again? I want to rerun it with the new probes",
+      "gold": ["evals/loop/fit-gate.ts"]
+    },
+    {
+      "id": "sib-longmemeval-loader",
+      "kind": "sibling",
+      "turns": [
+        ["user", "evals/src/cli.ts eval recall is slow to start"],
+        ["assistant", "Most of the start is JSON.parse on the 264 MB dataset."]
+      ],
+      "message": "where's the loader, maybe we can stream it",
+      "gold": ["evals/src/longmemeval.ts"]
+    },
+    {
+      "id": "sib-recall-test",
+      "kind": "sibling",
+      "turns": [
+        ["user", "change evals/src/recall.ts so a partial segment still counts its turns"],
+        ["assistant", "Done: packetRecall now credits each evidence turn inside a partial segment."]
+      ],
+      "message": "update the recall tests to match",
+      "gold": ["evals/test/recall.test.ts"]
+    },
+    {
+      "id": "sib-web-chat-test",
+      "kind": "sibling",
+      "turns": [
+        ["user", "apps/web/src/chat.ts forgets the session id after a reload"],
+        ["assistant", "It keys the session by today's date, so a reload the same day should keep it. Is it a different day?"],
+        ["user", "no same day, it's the turn counter that resets"]
+      ],
+      "message": "write a failing test for it first",
+      "gold": ["apps/web/test/chat.test.ts"]
+    },
+    {
+      "id": "sib-vite-config",
+      "kind": "sibling",
+      "turns": [
+        ["user", "apps/web/src/main.ts can't import from @long-con/core in dev"],
+        ["assistant", "The workspace link is fine for Node; Vite needs to be told to resolve it from source."]
+      ],
+      "message": "ok add the alias wherever vite is configured",
+      "gold": ["apps/web/vite.config.ts"]
+    },
+    {
+      "id": "sib-web-styles",
+      "kind": "sibling",
+      "turns": [
+        ["user", "in apps/web/src/main.ts the packet panel toggles fine"],
+        ["assistant", "Good. The toggle just flips a class on the panel."]
+      ],
+      "message": "make the panel scroll instead of growing, where's the css",
+      "gold": ["apps/web/src/style.css"]
+    },
+    {
+      "id": "sib-tier1-prompts",
+      "kind": "sibling",
+      "turns": [
+        ["user", "evals/loop/empty-rate.ts loads tier 1 from a json somewhere"],
+        ["assistant", "loadTier1() reads evals/sets/should-be-empty/tier1.json by default."]
+      ],
+      "message": "add three more off-history prompts to the time-phrase one",
+      "gold": ["evals/sets/should-be-empty/tier1-time.json"]
+    },
+    {
+      "id": "sib-code-prompts",
+      "kind": "deep",
+      "turns": [
+        ["user", "evals/loop/code-pathline.ts --packet prints the v2 groups"],
+        ["assistant", "Three groups: this repo, picomatch, and should-be-empty coding prompts."]
+      ],
+      "message": "add a should-be-empty prompt about a Set's add() to its prompt file",
+      "gold": ["evals/sets/code-pathline/prompts.json"]
+    },
+    {
+      "id": "sib-ranked-to-survey",
+      "kind": "deep",
+      "turns": [
+        ["user", "mark P20 as in progress in docs/research/prefetch-ideas-ranked.md"],
+        ["assistant", "Changed its status cell from open to in progress."]
+      ],
+      "message": "the survey appendix about code and working sets should point at it too",
+      "gold": ["docs/research/prefetch-survey/beyond-chat.md"]
+    },
+    {
+      "id": "sib-iteration-log",
+      "kind": "sibling",
+      "turns": [
+        ["user", "docs/research/prefetch-ideas-ranked.md has run 7 results now"],
+        ["assistant", "P13 is marked kept and wired."]
+      ],
+      "message": "add the run 7 entry to the iteration log too",
+      "gold": ["docs/research/iteration-log.md"]
+    },
+    {
+      "id": "sib-profiles-from-packet",
+      "kind": "sibling",
+      "turns": [
+        ["user", "in packages/core/src/packet.ts the minScore bar reads profile.minScore"],
+        ["assistant", "Yes, the absolute bar: no unit under that share of the ceiling counts as found."]
+      ],
+      "message": "drop small-local's bar to 0.24 and see what breaks",
+      "gold": ["packages/core/src/profiles.ts"]
+    },
+    {
+      "id": "sib-notes-test",
+      "kind": "sibling",
+      "turns": [
+        ["user", "notes.ts groups 'I love hiking' and 'hiking is my thing' as two topics"],
+        ["assistant", "groupNotes keys on the stemmed head word, and 'hiking' is the object in one and the subject in the other. I edited packages/core/src/notes.ts to key on any shared content word."]
+      ],
+      "message": "write a test with those two exact sentences",
+      "gold": ["packages/core/test/notes.test.ts"]
+    },
+    {
+      "id": "sib-two-files-test",
+      "kind": "sibling",
+      "turns": [
+        ["user", "searchHistory in packages/core/src/packet.ts should say low confidence for gated units"],
+        ["assistant", "It already does when the unit gate is on. With the gate off, nothing gets marked."],
+        ["user", "fine, and text.ts stopwords should drop 'lol'"],
+        ["assistant", "Added 'lol' to STOPWORDS in packages/core/src/text.ts."]
+      ],
+      "message": "add tests for both: the search history one and the stopword",
+      "gold": ["packages/core/test/search-history.test.ts", "packages/core/test/text.test.ts"]
+    },
+    {
+      "id": "sib-cli-package",
+      "kind": "sibling",
+      "turns": [
+        ["user", "apps/cli/src/main.ts should be runnable as long-con from anywhere"],
+        ["assistant", "That needs a bin entry and a shebang."]
+      ],
+      "message": "add the bin entry",
+      "gold": ["apps/cli/package.json"]
+    },
+    {
+      "id": "sib-ci-workflow",
+      "kind": "deep",
+      "turns": [
+        ["user", "npm test passes locally but the README says CI runs typecheck too, see README.md"],
+        ["assistant", "The README says CI runs tests and tsc on every push."]
+      ],
+      "message": "check the ci workflow actually runs tsc",
+      "gold": [".github/workflows/ci.yml"]
+    },
+    {
+      "id": "sib-root-tsconfig",
+      "kind": "sibling",
+      "turns": [
+        ["user", "package.json at the root has typecheck as plain tsc"],
+        ["assistant", "Yes, `npm run typecheck` runs `tsc` with the root config."]
+      ],
+      "message": "turn on noUncheckedIndexedAccess in the root ts config",
+      "gold": ["tsconfig.json"]
+    },
+    {
+      "id": "sib-arms-test",
+      "kind": "sibling",
+      "turns": [
+        ["user", "evals/src/arms.ts packet-tools arm shows 'No matches.' when the gate is closed"],
+        ["assistant", "That's a bug: a closed gate should show no call at all. Fixed in arms.ts."]
+      ],
+      "message": "add a regression test in the arms tests",
+      "gold": ["evals/test/arms.test.ts"]
+    },
+    {
+      "id": "sib-registers-from-resolver",
+      "kind": "sibling",
+      "turns": [
+        ["user", "packages/core/src/resolver.ts gets results from somewhere"],
+        ["assistant", "From the registers: buildRegisters() collects results, rules and recent answers."]
+      ],
+      "message": "show me where the standing rules get collected",
+      "gold": ["packages/core/src/registers.ts"]
+    },
+    {
+      "id": "sib-estimate-from-run",
+      "kind": "sibling",
+      "turns": [
+        ["user", "evals/src/run.ts prints a cost line at the end"],
+        ["assistant", "It sums tokens per arm and prices them."]
+      ],
+      "message": "where's the price table, Haiku is wrong",
+      "gold": ["evals/src/estimate.ts"]
+    },
+    {
+      "id": "empty-nocode-cooking",
+      "kind": "empty-nocode",
+      "turns": [
+        ["user", "making birria this weekend, how long do I braise the chuck"],
+        ["assistant", "About 3 to 4 hours at a low simmer, until it shreds easily."]
+      ],
+      "message": "and can I do it the day before",
+      "gold": []
+    },
+    {
+      "id": "empty-nocode-generic-js",
+      "kind": "empty-nocode",
+      "turns": [
+        ["user", "how do I debounce a function in js"],
+        ["assistant", "Wrap it: keep a timer, clear it on each call, and call the function after the delay with setTimeout."]
+      ],
+      "message": "now make it a typescript generic",
+      "gold": []
+    },
+    {
+      "id": "empty-nocode-versions",
+      "kind": "empty-nocode",
+      "turns": [
+        ["user", "is node 22.6 enough for --experimental-strip-types"],
+        ["assistant", "Yes, the flag landed in 22.6.0. Node 23.6 turned it on by default."]
+      ],
+      "message": "ok and does it handle enums",
+      "gold": []
+    },
+    {
+      "id": "empty-nocode-design-talk",
+      "kind": "empty-nocode",
+      "turns": [
+        ["user", "should the packet put code before notes or after"],
+        ["assistant", "Before: code is exact and cheap, notes are a guess."],
+        ["user", "makes sense. and the trust note?"]
+      ],
+      "message": "yeah lets keep it, e.g. for small models it matters more",
+      "gold": []
+    },
+    {
+      "id": "empty-nocode-urls",
+      "kind": "empty-nocode",
+      "turns": [
+        ["user", "read https://example.com/blog/post.html for me"],
+        ["assistant", "It's a post about caching headers."]
+      ],
+      "message": "summarize the part about etags",
+      "gold": []
+    },
+    {
+      "id": "empty-nocode-email",
+      "kind": "empty-nocode",
+      "turns": [
+        ["user", "draft a note to my team about the offsite, send replies to team@example.com"],
+        ["assistant", "Here's a draft: \"Offsite is on the 14th...\""]
+      ],
+      "message": "make it shorter",
+      "gold": []
+    },
+    {
+      "id": "empty-false-other-project",
+      "kind": "empty-falsepath",
+      "turns": [
+        ["user", "in my other project, src/components/Button.tsx renders twice"],
+        ["assistant", "Likely StrictMode in dev, which mounts components twice on purpose."]
+      ],
+      "message": "how do I check that in src/index.tsx",
+      "gold": []
+    },
+    {
+      "id": "empty-false-made-up-core",
+      "kind": "empty-falsepath",
+      "turns": [
+        ["user", "move the cache into packages/core/src/cache.ts"],
+        ["assistant", "There's no cache module yet; I'd create packages/core/src/cache.ts with an LRU keyed by message."]
+      ],
+      "message": "hold off on that, just tell me what it would export",
+      "gold": []
+    },
+    {
+      "id": "empty-false-mobile-app",
+      "kind": "empty-falsepath",
+      "turns": [
+        ["user", "we should add apps/mobile/src/main.ts at some point"],
+        ["assistant", "A React Native shell could reuse @long-con/core as is."]
+      ],
+      "message": "what would apps/mobile/package.json need",
+      "gold": []
+    },
+    {
+      "id": "empty-false-python",
+      "kind": "empty-falsepath",
+      "turns": [
+        ["user", "my lib/utils.py has a broken import, from .helpers import parse"],
+        ["assistant", "A relative import needs the file run as part of a package: python -m lib.utils."]
+      ],
+      "message": "and in tests/test_utils.py?",
+      "gold": []
+    },
+    {
+      "id": "empty-false-ambiguous-main",
+      "kind": "empty-falsepath",
+      "turns": [
+        ["user", "main.ts crashes on start"],
+        ["assistant", "Which app, the CLI or the web one?"]
+      ],
+      "message": "not sure, whichever reads the profile flag",
+      "gold": []
+    },
+    {
+      "id": "empty-false-loop-script",
+      "kind": "empty-falsepath",
+      "turns": [
+        ["user", "write evals/loop/sweep-bars.ts to sweep minScore from 0.15 to 0.3"],
+        ["assistant", "Sketch: load the dev slice, for each bar build packets and print recall and FI."]
+      ],
+      "message": "don't write it yet, what would it print",
+      "gold": []
+    },
+    {
+      "id": "empty-false-config-yaml",
+      "kind": "empty-falsepath",
+      "turns": [
+        ["user", "add the profile settings to config/profiles.yaml"],
+        ["assistant", "There's no YAML config here; profiles live in code."]
+      ],
+      "message": "ok then forget the yaml",
+      "gold": []
+    }
+  ]
+}

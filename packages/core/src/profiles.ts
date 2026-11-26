@@ -44,6 +44,10 @@ export interface Profile {
    * when the absolute bar already let history in. 0 turns notes off.
    */
   noteCoverage: number;
+  /** Latest turns of the current session whose named, pasted or edited files make the working set (workingset.ts). */
+  workingSetTurns: number;
+  /** Ceiling on the working-set section, title line included. Spends the packet budget, only when a workspace is passed. */
+  workingSetTokens: number;
   /** How many of the model's own latest answers in this chat go in the registers. */
   recentAnswers: number;
   /** Whether a per-turn gate can skip retrieval for messages that need none, like "thanks". */
@@ -85,6 +89,9 @@ export const PROFILES = {
     // The unit gate's own threshold, so no new tuned number (fit-tally-gate.ts sweep: any higher bar loses a multi-session question).
     tallyGate: 0.002,
     noteCoverage: 0.5,
+    // The survey's cap for a depth-2 tree (prefetch-survey/beyond-chat.md 1.5); not swept.
+    workingSetTurns: 20,
+    workingSetTokens: 300,
     recentAnswers: 2,
     gate: true,
     trustNote: true,
@@ -116,6 +123,9 @@ export const PROFILES = {
     tallyPieces: Infinity,
     tallyGate: 0.01,
     noteCoverage: 0.5,
+    // Half claude's tree: a 2.5K packet can't spend 300 tokens on folders.
+    workingSetTurns: 8,
+    workingSetTokens: 150,
     recentAnswers: 1,
     gate: true,
     trustNote: true,
