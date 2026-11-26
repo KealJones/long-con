@@ -13,6 +13,11 @@ export interface Profile {
    * so the packet is the smallest one that still has what's needed. 0 always fills to the ceiling.
    */
   minConfidence: number;
+  /**
+   * Absolute bar: when no unit's BM25 score reaches this share of the most any unit could score on the query, the
+   * packet retrieves nothing. minConfidence is relative, so without this the best weak match always gets in. 0 turns it off.
+   */
+  minScore: number;
   /** Recent turns of the current session that ride along raw, outside the packet. */
   rawTurns: number;
   /** Hard cap on one retrieved unit. A longer turn is split at paragraph breaks. */
@@ -42,6 +47,8 @@ export const PROFILES = {
     switchAt: 80_000,
     packetTokens: 8000,
     minConfidence: 0.3,
+    // Highest bar with no all-evidence loss on the dev slice; 0.18 drops a question (P02 sweep).
+    minScore: 0.17,
     rawTurns: 6,
     // Small units beat whole exchanges at every budget on the dev slice (evals/results). 400 keeps a short
     // question and answer together; smaller still scored a little higher on a benchmark whose facts sit in user turns.
@@ -62,6 +69,8 @@ export const PROFILES = {
     switchAt: 2500,
     packetTokens: 2500,
     minConfidence: 0.3,
+    // Small models are misled by any context: this trades one dev question for two thirds fewer false inclusions.
+    minScore: 0.2,
     rawTurns: 2,
     segmentTokens: 400,
     recentAnswers: 1,
