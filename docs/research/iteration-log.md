@@ -2,6 +2,50 @@
 
 One entry per idea tried by the hourly packet R&D loop. Newest run first. Numbers are dev unless marked held-out. Backlog: [prefetch-ideas-ranked.md](prefetch-ideas-ranked.md).
 
+## Run 4: 2026-11-26, 12:17 PM Arizona
+
+Baseline is main at ba8e40b (end of run 3). Every number is dev and tuning-grade; one question is 2.1 points and the 95% interval is about ±12. FI is false inclusions per prompt on the should-be-empty tiers, with retrieved tokens where units change size. No paid runs this time.
+
+**Net for the run (free recall), before → after:**
+
+| | claude | small-local |
+| --- | --- | --- |
+| All evidence | 80.9 → 80.9% | 63.8 → 66.0% |
+| Mean packet tokens | 4,499 → 4,499 | 1,831 → 1,425 |
+| Tier 1/2/3 FI | 10.86 / 12.24 / 10.21 → 10.86 / 12.18 / 10.15 | 1.72 / 1.90 / 1.26 → 1.43 / 1.18 / 1.06 |
+| Tier 1/2/3 retrieved tokens | 3,258 / 3,287 / 2,670 → 3,258 / 3,280 / 2,663 | 470 / 526 / 344 → 392 / 309 / 267 |
+| Answerable precision | 10.3 → 10.3% | 21.2 → 24.8% |
+| Answerable packets left empty | 0 → 0% | 4.3 → 14.9% |
+
+### Tally gate: kept
+
+- **Sources:** [Choppy](https://arxiv.org/abs/2004.13012), [Learning to Truncate Ranked Lists](https://arxiv.org/pdf/2102.12793), [Relevance Filtering for Embedding-based Retrieval](https://arxiv.org/pdf/2408.04887).
+- **Changed:** a counting-question piece comes in only when a segment holding its turn passes the profile's own unit gate, so no new number was tuned. With the gate, small-local runs tally mode too. `evals/loop/fit-tally-gate.ts` and `evals/results/tally-gate-sweep.md` hold the sweep.
+- **Numbers:** claude unchanged but for tier 2/3 FI 12.24 / 10.21 → 12.18 / 10.15. small-local recall held at 63.8%, tokens 1,831 → 1,511, multi-session packets 1,590 → 664 tokens, FI 1.72 / 1.86 / 1.17, precision 21.2 → 23.6%.
+- **Review (Opus 5.5):** valid with fixes, numbers reproduced, no leaks, no hidden win-for-loss swaps. On counting questions a unit changes from a segment to a user-turn piece, so small-local's claim rests on retrieved tokens (526 / 344 → 475 / 274); FI counts and precision are secondary. Unit weights saw every dev label: in-sample, CV-checked only for the tally part. The reused 0.01 isn't the best bar (0.005 gives small-local 66.0%). Also: small-local abstention packets drop 1,029 → 417 tokens, 3 of 8 knowledge-update questions now trigger tally mode, and pieces carry user turns only, which no reader eval has checked.
+- **Pushed:** fa93f0c.
+
+### P17. Stemming and fusion hygiene: Porter for small-local kept
+
+- **Sources:** [Snowball English stemmer](https://snowballstem.org/algorithms/english/stemmer.html), [Cormack et al., RRF](https://plg.uwaterloo.ca/~gvcormac/cormacksigir09-rrf.pdf), [Trotman et al., BM25 variants](https://www.cs.otago.ac.nz/homepages/andrew/papers/2014-2.pdf).
+- **Changed:** a per-profile stemmer (`stemmer@2.0.1`, Porter 1980, MIT, no dependencies). small-local uses Porter with minScore 0.25; claude keeps the suffix stripper. Search, notes, tally pieces, the search_history tool and the plain-BM25 baseline all use the profile's stemmer.
+- **Sweeps (on main with the tally gate):** Porter gains two dev questions (68.1%) at every bar from 0.20 to 0.24, but adds tier 2/3 FI at 0.23 and below and tier 3 FI at 0.24 (1.17 → 1.26). Only 0.25 adds no FI anywhere: +1 question, FI 1.43 / 1.18 / 1.06. The suffix stripper's best bar (0.22) holds 63.8% with FI 1.54 / 1.32 / 1.17, so Porter at 0.25 beats it on every count. On claude Porter added FI at every bar that kept recall. RRF k, list weights and BM25 k1/b moved nothing.
+- **Review (Opus 5.5):** valid with fixes. The recall gain comes from Porter and the FI cut from the bar, not both from each. Fixes made: the comment says which does what, the baseline BM25 uses the profile's stemmer, and a test states that a two-word count where one word never matches ("concerts ... this year") comes back empty on small-local.
+- **Caveats:** 0.25 is the cliff edge (0.24 keeps a second question), and 7 of 47 answerable small-local packets now come back empty (was 2). That fits "empty over wrong", but a filler-word fix (year, week, ago never matching) would likely win some back.
+- **Pushed:** b3e8923.
+
+### P07. Event dates and a time-range boost: dropped
+
+- **Sources:** [LongMemEval](https://arxiv.org/abs/2410.10813) (time-aware query expansion), [SmartSearch](https://arxiv.org/pdf/2603.15599).
+- **Tried:** `dates.ts` resolves "last Saturday", "two weeks ago", "in March" and the like to day ranges against the message date and dates events in user turns against their session's date. The phrase leaves the keyword query and in-range units get a boost.
+- **First numbers:** claude +1 question (83.0%) with fewer tokens and FI. The review (valid with fixes) found the gain rests on 3 dev questions with a time phrase and that tier 1 held no time phrase, so it couldn't show the risk.
+- **New probes:** tier 1t, 12 hand-written off-history prompts with time phrases, dev split only. The boost raised claude's tier-1t FI from 7.04 to 10.71. Kept out of the bar and the unit gate it found no question, and stripping the phrase alone raised tier-1t FI to 8.00. The +1 question came from the bar lift, not the dates.
+- **Kept for later:** branch `loop/p07-event-dates` on GitHub (timeBoost 0) holds `dates.ts`, tier 1t and the reproducible sweep (`evals/results/p07-time-boost-sweep.md`). P18 (dates as labels on retrieved units) can start from it.
+
+### Next ideas
+
+Filler time words left out of the bar's ceiling (P17's next idea; it would also cover the empty two-word counts), query expansion inside tally mode for vocabulary misses ("siblings" vs "3 sisters"), P18 date labels with tier 1t as its abstention check, paired repeat of the reader arms (waiting on a decision about the trust line), P04 rerank, held-out check of the dev-tuned bars at a milestone.
+
 ## Run 3: 2026-11-26, 11:17 AM Arizona
 
 Baseline is main at 9635787 (end of run 2). Every number is dev and tuning-grade. This run also took three asks ahead of the backlog: share one search function between the packet and the search_history tool, a reader arm that gets the packet as tool calls, and reader ablations of the trust note and the rules register. Reader runs are paid (Claude Haiku 5.5 reader, Claude Opus 5.5 judge, 50 dev questions, one repeat, $0.32-0.34 each). With 50 questions the 95% interval is about ±12 points, so only differences in searches and tokens are clear; accuracy differences below are noise.

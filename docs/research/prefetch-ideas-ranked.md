@@ -27,7 +27,7 @@ Score = expected gain × confidence ÷ cost, roughly. Measurement and safety ite
 | 4 | P04 | Cross-encoder rerank of top 40-60 | small-local | Medium | open |
 | 5 | P05 | Zero-model contextual prefix in the index | Both | Low | dropped (retry as tie-break) |
 | 6 | P06 | Tally mode for counting questions | Both | Low | kept (claude only) |
-| 7 | P07 | Event-date index and time-range boost | Both | Low | open |
+| 7 | P07 | Event-date index and time-range boost | Both | Low | dropped (run 4) |
 | 8 | P08 | Rule PRF plus entity second hop | Both | Low | dropped |
 | 9 | P09 | Preference spans with category keys | small-local | Low | folded into P31 |
 | 10 | P10 | Message-level dense channel with its own floor | Both | Medium | open |
@@ -37,7 +37,7 @@ Score = expected gain × confidence ÷ cost, roughly. Measurement and safety ite
 | 14 | P14 | Work-saved paired eval | Both (measurement) | Medium | open |
 | 15 | P15 | Pointer tier for medium confidence | small-local | Low | open |
 | 16 | P16 | Fact keys and predicted questions at write time | small-local | Medium | open |
-| 17 | P17 | Fusion hygiene: RRF k, weights, BM25F, stemming | Both | Low | open |
+| 17 | P17 | Fusion hygiene: RRF k, weights, BM25F, stemming | Both | Low | Porter kept for small-local (run 4); BM25F open |
 | 18 | P18 | Prefetched date arithmetic labels | small-local | Low | open |
 | 19 | P19 | "Searched, found nothing" line | Both | Low | open |
 | 20 | P20 | Working set plus depth-2 tree | Both | Low | open |
@@ -110,6 +110,7 @@ Score = expected gain × confidence ÷ cost, roughly. Measurement and safety ite
 - **Hypothesis:** temporal all-evidence 76.9% → 82-85% (claude), 69.2% → 75-78% (small-local), no change elsewhere.
 - **Change:** chrono-node resolves dates in each user sentence against the session time at write time (`said_at`, `about[]`). At query time, parse the question's time phrase against the question date and add a soft score bonus to in-range segments. Split "between A and B" questions into two quotas.
 - **Measure:** temporal recall, other types unchanged, tokens.
+- **Run 4:** dropped. The only gain came from lifting the bar, and taking the time phrase out of the query raised false inclusions on new time-phrase probes (tier 1t). The resolver and tier 1t live on branch `loop/p07-event-dates`.
 - **Cost:** low.
 
 ### P08. Rule PRF plus entity second hop
@@ -179,6 +180,7 @@ Score = expected gain × confidence ÷ cost, roughly. Measurement and safety ite
 
 - **Hypothesis:** 0-2 points total. If none moves, freeze the lexical side.
 - **Change:** one run each: RRF k ∈ {10, 20, 60}; 0.7/0.3 weighted RRF; BM25F with up-weighted user words instead of two rankings; Porter stemming; k1/b at 0.9/0.4. Also each ranking alone versus fused.
+- **Run 4:** Porter kept for small-local at bar 0.25 (+1 question, fewer tokens and false inclusions). RRF k, weights and k1/b moved nothing. BM25F untested.
 - **Measure:** recall, tokens.
 - **Cost:** low.
 
