@@ -39,6 +39,9 @@ The model never sees a running transcript. Every turn the context is rebuilt fro
 - **Pick, don't invent.** The sorter pulls a few candidate threads and must choose one of them, NEW, or the unsorted inbox, quoting its evidence. Unsure beats wrong.
 - **State files and status lines are a cache.** Every claim in them points back at a span, so drift can be caught. Thread state keeps a timeline: what was decided, what got rejected or replaced, and what you changed your mind to, each with a date and a pointer, so it knows where you landed and not just what you once said.
 - **Registers.** Open loops, results, lists and rules are tagged when a turn is written, so "go", "yes" or "now do all that" resolve deterministically.
+- **Multi-label topics.** A message can carry several topic labels, since one message often touches more than one subject.
+- **Negative replies.** "No", "that didn't work" and "not that one" mark the idea or answer they reply to as rejected or superseded. The packet leaves it out, so shot-down ideas don't come back as false memories.
+- **Cheap tagging.** Labels come from the reply call's structured output or a tiny classifier, never a separate model call per message. They stay only if they beat plain retrieval in the evals.
 
 Where the log lives and syncs is still open: see [research/history-storage.md](research/history-storage.md).
 
