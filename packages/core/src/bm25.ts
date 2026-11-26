@@ -34,7 +34,11 @@ export class Bm25<T> {
     return [...new Set(query)].reduce((sum, t) => sum + this.idf(t) * (this.k1 + 1), 0);
   }
 
-  search(query: string[], limit = Infinity): Hit<T>[] {
+  /**
+   * With `alt`, a query word a unit lacks can be stood in for by one of its alternatives (expand.ts), scored at `weight`
+   * with the lower of the two IDFs, so a stand-in never counts for more than the word itself. It is reported as the word.
+   */
+  search(query: string[], limit = Infinity, alt?: { of: Map<string, string[]>; weight: number }): Hit<T>[] {
     const n = this.docs.length;
     if (n === 0) return [];
     const avg = this.totalLength / n || 1;
@@ -44,9 +48,17 @@ export class Bm25<T> {
       let score = 0;
       const matched: string[] = [];
       for (const t of terms) {
-        const f = doc.tf.get(t);
+        const idf = this.idf(t);
+        let f = doc.tf.get(t);
+        let w = idf;
+        if (!f && alt) {
+          for (const m of alt.of.get(t) ?? []) {
+            const g = doc.tf.get(m);
+            if (g && g > (f ?? 0)) [f, w] = [g, alt.weight * Math.min(idf, this.idf(m))];
+          }
+        }
         if (!f) continue;
-        score += (this.idf(t) * f * (this.k1 + 1)) / (f + this.k1 * (1 - this.b + (this.b * doc.length) / avg));
+        score += (w * f * (this.k1 + 1)) / (f + this.k1 * (1 - this.b + (this.b * doc.length) / avg));
         matched.push(t);
       }
       if (score > 0) hits.push({ item: doc.item, score, matched });

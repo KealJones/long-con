@@ -9,6 +9,7 @@ import { splitIntoSegments, type Segment } from "./segments.ts";
 import { extractNotes, groupNotes, groupWords, renderGroup, type Note } from "./notes.ts";
 import type { Profile } from "./profiles.ts";
 import { isTallyQuestion, SEG_GATE, tallySearch } from "./tally.ts";
+import { expandQuery } from "./expand.ts";
 import { unitProbability } from "./gate.ts";
 import { contentWords, estimateTokens, type Stemmer } from "./text.ts";
 
@@ -114,10 +115,15 @@ export function buildPacket({ history, message, profile, currentSessionId }: Bui
     }
     // Counting questions take one small piece per matching user turn instead of whole segments (see tally.ts).
     const tally = found && profile.tallyPieces > 0 && isTallyQuestion(message);
+    // Category words also match their members inside tally mode, at a lower weight (expand.ts). The bar above stays on
+    // the user's own words; the pieces and the segments their gate checks are searched with the members too.
+    const of = tally && profile.tallyExpand > 0 ? expandQuery(resolution.query, profile.stemmer) : undefined;
+    const alt = of?.size ? { of, weight: profile.tallyExpand } : undefined;
+    const units = alt ? searchUnits(history, resolution.query, profile.segmentTokens, current?.id, recentStart, profile.stemmer, alt).hits : hits;
     const ranked: { hit: Hit<Segment>; confidence: number; features?: number[] }[] = !found
       ? []
       : tally
-        ? tallySearch(history, resolution.query, current?.id, recentStart, hits, profile.unitWeights, profile.stemmer).slice(0, profile.tallyPieces)
+        ? tallySearch(history, resolution.query, current?.id, recentStart, units, profile.unitWeights, profile.stemmer, alt).slice(0, profile.tallyPieces)
         : hits;
     // A tally piece is judged by the best unit-gate probability of a segment holding its turn (or by an eval's logistic).
     const gate = tally ? profile.tallyGate : profile.unitGate;
@@ -167,7 +173,15 @@ export function buildPacket({ history, message, profile, currentSessionId }: Bui
  * in either ranking, so it says how close a unit comes to the best match. Score is its best score as a share of
  * the most any unit could score on the query: absolute, so a weak best match shows as weak. Features feed the unit gate (gate.ts).
  */
-export function searchUnits(history: Session[], query: string, segmentTokens: number, currentId?: string, recentStart = 0, stemmer: Stemmer = "suffix") {
+export function searchUnits(
+  history: Session[],
+  query: string,
+  segmentTokens: number,
+  currentId?: string,
+  recentStart = 0,
+  stemmer: Stemmer = "suffix",
+  alt?: { of: Map<string, string[]>; weight: number },
+) {
   // Each unit is indexed two ways, all its words and the user's words alone, then the rankings are fused.
   const all = new Bm25<Segment>();
   const user = new Bm25<Segment>();
@@ -184,7 +198,7 @@ export function searchUnits(history: Session[], query: string, segmentTokens: nu
   }
   const words = contentWords(query, stemmer);
   const terms = [...new Set(words)];
-  const lists = [all.search(words), user.search(words)];
+  const lists = [all.search(words, Infinity, alt), user.search(words, Infinity, alt)];
   const ceilings = [all.ceiling(words), user.ceiling(words)];
   const share = new Map<Segment, number>();
   const absolute = new Map<Segment, number>();

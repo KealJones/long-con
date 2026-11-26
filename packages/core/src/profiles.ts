@@ -37,6 +37,8 @@ export interface Profile {
    * so counting questions face the same bar as whole segments. 0 turns it off.
    */
   tallyGate: number;
+  /** Weight of a category's members (expand.ts) against the category word itself, in tally mode only. 0 turns it off. */
+  tallyExpand: number;
   /** Evals only: judge pieces by a logistic over all of TALLY_FEATURES with these weights instead (fit-tally-gate.ts). */
   tallyWeights?: readonly number[];
   /**
@@ -84,6 +86,8 @@ export const PROFILES = {
     tallyPieces: Infinity,
     // The unit gate's own threshold, so no new tuned number (fit-tally-gate.ts sweep: any higher bar loses a multi-session question).
     tallyGate: 0.002,
+    // Off: every member weight that found the extra dev question (0.9, 1) also added tier-3 false inclusions (tally-expand.ts sweep).
+    tallyExpand: 0,
     noteCoverage: 0.5,
     recentAnswers: 2,
     gate: true,
@@ -115,6 +119,9 @@ export const PROFILES = {
     // fewer tokens and fewer false inclusions (fit-tally-gate.ts sweep).
     tallyPieces: Infinity,
     tallyGate: 0.01,
+    // tally-expand.ts sweep: 0.8 to 1 find one more multi-session question with no added false inclusions; 0.7 and below
+    // find nothing. 0.9 had the fewest tier-3 false inclusions of the three and sits furthest from that edge.
+    tallyExpand: 0.9,
     noteCoverage: 0.5,
     recentAnswers: 1,
     gate: true,

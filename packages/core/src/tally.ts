@@ -54,6 +54,7 @@ export function tallySearch(
   units: readonly { hit: Hit<Segment>; score: number; features: number[] }[] = [],
   unitWeights?: readonly number[],
   stemmer: Stemmer = "suffix",
+  alt?: { of: Map<string, string[]>; weight: number },
 ) {
   const index = new Bm25<{ session: Session; turn: number; at: number; all: string[] }>();
   for (const session of history) {
@@ -66,7 +67,7 @@ export function tallySearch(
   }
   const words = contentWords(query, stemmer);
   const terms = [...new Set(words)];
-  const hits = index.search(words);
+  const hits = index.search(words, Infinity, alt);
   const top = hits[0]?.score ?? 1;
   const ceiling = index.ceiling(words) || 1;
   const idfAll = terms.reduce((a, t) => a + index.idf(t), 0) || 1;
