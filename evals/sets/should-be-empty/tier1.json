@@ -1,0 +1,334 @@
+{
+  "note": "Tier 1 should-be-empty prompts: off-history messages whose right packet is empty on any chat history. Split per kind with a seeded shuffle (seed 20261126): tune on dev, score held-out only at milestones.",
+  "seed": 20261126,
+  "split": {
+    "dev": [
+      "sbe-greeting-02",
+      "sbe-greeting-01",
+      "sbe-small-talk-03",
+      "sbe-small-talk-02",
+      "sbe-small-talk-01",
+      "sbe-general-knowledge-07",
+      "sbe-general-knowledge-01",
+      "sbe-general-knowledge-02",
+      "sbe-general-knowledge-05",
+      "sbe-coding-how-to-02",
+      "sbe-coding-how-to-04",
+      "sbe-coding-how-to-01",
+      "sbe-arithmetic-05",
+      "sbe-arithmetic-03",
+      "sbe-arithmetic-02",
+      "sbe-creative-02",
+      "sbe-creative-03",
+      "sbe-creative-01",
+      "sbe-lexical-overlap-12",
+      "sbe-lexical-overlap-08",
+      "sbe-lexical-overlap-09",
+      "sbe-lexical-overlap-10",
+      "sbe-lexical-overlap-05",
+      "sbe-lexical-overlap-03",
+      "sbe-lexical-overlap-07"
+    ],
+    "heldOut": [
+      "sbe-greeting-03",
+      "sbe-greeting-04",
+      "sbe-small-talk-05",
+      "sbe-small-talk-04",
+      "sbe-general-knowledge-03",
+      "sbe-general-knowledge-06",
+      "sbe-general-knowledge-04",
+      "sbe-coding-how-to-05",
+      "sbe-coding-how-to-06",
+      "sbe-coding-how-to-03",
+      "sbe-arithmetic-04",
+      "sbe-arithmetic-01",
+      "sbe-creative-04",
+      "sbe-creative-05",
+      "sbe-lexical-overlap-04",
+      "sbe-lexical-overlap-14",
+      "sbe-lexical-overlap-02",
+      "sbe-lexical-overlap-13",
+      "sbe-lexical-overlap-11",
+      "sbe-lexical-overlap-01",
+      "sbe-lexical-overlap-06"
+    ]
+  },
+  "prompts": [
+    {
+      "id": "sbe-greeting-01",
+      "kind": "greeting",
+      "prompt": "hi there",
+      "why": "A bare greeting carries no topic; any retrieval is a false inclusion."
+    },
+    {
+      "id": "sbe-greeting-02",
+      "kind": "greeting",
+      "prompt": "good morning!",
+      "why": "Greeting only; nothing to look up."
+    },
+    {
+      "id": "sbe-greeting-03",
+      "kind": "greeting",
+      "prompt": "hey, you around?",
+      "why": "Checks presence, asks for no past content."
+    },
+    {
+      "id": "sbe-greeting-04",
+      "kind": "greeting",
+      "prompt": "Hello again, hope your day is going well.",
+      "why": "Pleasantry; 'day' and 'going' match filler words in any history."
+    },
+    {
+      "id": "sbe-small-talk-01",
+      "kind": "small-talk",
+      "prompt": "thanks, that's all for now",
+      "why": "Closing ack; the gate should skip it."
+    },
+    {
+      "id": "sbe-small-talk-02",
+      "kind": "small-talk",
+      "prompt": "lol ok",
+      "why": "Ack with no content words worth matching."
+    },
+    {
+      "id": "sbe-small-talk-03",
+      "kind": "small-talk",
+      "prompt": "sounds good to me",
+      "why": "Agreement with nothing to retrieve; 'sounds' and 'good' are common words."
+    },
+    {
+      "id": "sbe-small-talk-04",
+      "kind": "small-talk",
+      "prompt": "How are you doing today?",
+      "why": "Asks about the assistant, not the user's past."
+    },
+    {
+      "id": "sbe-small-talk-05",
+      "kind": "small-talk",
+      "prompt": "Do you ever get bored answering questions?",
+      "why": "Question about the assistant; history can't answer it."
+    },
+    {
+      "id": "sbe-general-knowledge-01",
+      "kind": "general-knowledge",
+      "prompt": "What is the boiling point of ethanol at sea level?",
+      "why": "Textbook fact, the same for every user."
+    },
+    {
+      "id": "sbe-general-knowledge-02",
+      "kind": "general-knowledge",
+      "prompt": "Who wrote the novel Middlemarch?",
+      "why": "Literary fact unrelated to anyone's chats."
+    },
+    {
+      "id": "sbe-general-knowledge-03",
+      "kind": "general-knowledge",
+      "prompt": "Why is the sky blue?",
+      "why": "Physics explanation; no personal context changes it."
+    },
+    {
+      "id": "sbe-general-knowledge-04",
+      "kind": "general-knowledge",
+      "prompt": "How many bones are in the adult human body?",
+      "why": "Anatomy fact, self-contained."
+    },
+    {
+      "id": "sbe-general-knowledge-05",
+      "kind": "general-knowledge",
+      "prompt": "What causes the seasons on Earth?",
+      "why": "Astronomy fact; 'seasons' may match sports or TV chats but they don't answer it."
+    },
+    {
+      "id": "sbe-general-knowledge-06",
+      "kind": "general-knowledge",
+      "prompt": "What is the difference between weather and climate?",
+      "why": "Definitional question; 'weather' shows up in trip chats but is irrelevant here."
+    },
+    {
+      "id": "sbe-general-knowledge-07",
+      "kind": "general-knowledge",
+      "prompt": "When did the Berlin Wall fall?",
+      "why": "Historical date, same answer for everyone."
+    },
+    {
+      "id": "sbe-coding-how-to-01",
+      "kind": "coding-how-to",
+      "prompt": "How do I reverse a list in Python?",
+      "why": "Generic coding question naming no project or earlier code."
+    },
+    {
+      "id": "sbe-coding-how-to-02",
+      "kind": "coding-how-to",
+      "prompt": "What's the difference between let and const in JavaScript?",
+      "why": "Language semantics; no project reference."
+    },
+    {
+      "id": "sbe-coding-how-to-03",
+      "kind": "coding-how-to",
+      "prompt": "How do I undo the last git commit but keep my changes?",
+      "why": "Generic git usage; 'commit' and 'changes' are common words."
+    },
+    {
+      "id": "sbe-coding-how-to-04",
+      "kind": "coding-how-to",
+      "prompt": "Write a SQL query that counts rows per day in a table with a created_at column.",
+      "why": "Self-contained schema given in the prompt."
+    },
+    {
+      "id": "sbe-coding-how-to-05",
+      "kind": "coding-how-to",
+      "prompt": "Explain what a race condition is with a short example.",
+      "why": "Concept explanation; nothing from past chats is needed."
+    },
+    {
+      "id": "sbe-coding-how-to-06",
+      "kind": "coding-how-to",
+      "prompt": "How do I center a div with CSS flexbox?",
+      "why": "Generic CSS question."
+    },
+    {
+      "id": "sbe-arithmetic-01",
+      "kind": "arithmetic",
+      "prompt": "What is 17 times 23?",
+      "why": "Pure arithmetic; numbers in history are unrelated."
+    },
+    {
+      "id": "sbe-arithmetic-02",
+      "kind": "arithmetic",
+      "prompt": "Convert 72 degrees Fahrenheit to Celsius.",
+      "why": "Unit conversion with all inputs given."
+    },
+    {
+      "id": "sbe-arithmetic-03",
+      "kind": "arithmetic",
+      "prompt": "What's 15 percent of 240?",
+      "why": "Percent calculation with all inputs given; '240' could match a price in history by chance."
+    },
+    {
+      "id": "sbe-arithmetic-04",
+      "kind": "arithmetic",
+      "prompt": "If a train goes 90 km in 1.5 hours, what is its average speed?",
+      "why": "Word problem with every number in the prompt; 'train' may match travel chats."
+    },
+    {
+      "id": "sbe-arithmetic-05",
+      "kind": "arithmetic",
+      "prompt": "Is 221 a prime number?",
+      "why": "Number fact."
+    },
+    {
+      "id": "sbe-creative-01",
+      "kind": "creative",
+      "prompt": "Write a haiku about autumn rain.",
+      "why": "Fresh creative request; no past preference is invoked."
+    },
+    {
+      "id": "sbe-creative-02",
+      "kind": "creative",
+      "prompt": "Give me a limerick about a cat who learns to code.",
+      "why": "Creative request; 'cat' and 'code' match pet and coding chats but the poem needs neither."
+    },
+    {
+      "id": "sbe-creative-03",
+      "kind": "creative",
+      "prompt": "Write the opening line of a mystery novel set on a lighthouse.",
+      "why": "Creative request with a self-contained setting."
+    },
+    {
+      "id": "sbe-creative-04",
+      "kind": "creative",
+      "prompt": "Invent a name for a fictional planet with purple oceans.",
+      "why": "Pure invention."
+    },
+    {
+      "id": "sbe-creative-05",
+      "kind": "creative",
+      "prompt": "Write a two-sentence horror story about a vending machine.",
+      "why": "Self-contained creative prompt."
+    },
+    {
+      "id": "sbe-lexical-overlap-01",
+      "kind": "lexical-overlap",
+      "prompt": "What does the term 'mise en place' mean in a recipe?",
+      "why": "Shares 'recipe' with cooking chats but asks for a definition, not a past recipe."
+    },
+    {
+      "id": "sbe-lexical-overlap-02",
+      "kind": "lexical-overlap",
+      "prompt": "What is a Gantt chart used for in project planning?",
+      "why": "Shares 'plan' and 'project'; asks what a tool is, not about any plan of the user's."
+    },
+    {
+      "id": "sbe-lexical-overlap-03",
+      "kind": "lexical-overlap",
+      "prompt": "Roughly how long does a trip from Earth to Mars take?",
+      "why": "Shares 'trip' and 'long' with travel chats; a space-travel fact."
+    },
+    {
+      "id": "sbe-lexical-overlap-04",
+      "kind": "lexical-overlap",
+      "prompt": "Why do dogs pant when they are hot?",
+      "why": "Shares 'dog' with pet chats; a general biology question about all dogs."
+    },
+    {
+      "id": "sbe-lexical-overlap-05",
+      "kind": "lexical-overlap",
+      "prompt": "What does a job interview STAR answer stand for?",
+      "why": "Shares 'job' and 'interview'; asks for an acronym's meaning."
+    },
+    {
+      "id": "sbe-lexical-overlap-06",
+      "kind": "lexical-overlap",
+      "prompt": "What is the origin of the word 'workout'?",
+      "why": "Shares 'workout' with fitness chats; an etymology question."
+    },
+    {
+      "id": "sbe-lexical-overlap-07",
+      "kind": "lexical-overlap",
+      "prompt": "How does compound interest work on a savings account?",
+      "why": "Shares 'savings' and 'account' with money chats; asks for a general mechanism."
+    },
+    {
+      "id": "sbe-lexical-overlap-08",
+      "kind": "lexical-overlap",
+      "prompt": "What's the difference between baking soda and baking powder?",
+      "why": "Shares 'baking' with cooking chats; a chemistry fact."
+    },
+    {
+      "id": "sbe-lexical-overlap-09",
+      "kind": "lexical-overlap",
+      "prompt": "Why do flights get bumpy over mountains?",
+      "why": "Shares 'flight' with travel chats; asks about turbulence in general."
+    },
+    {
+      "id": "sbe-lexical-overlap-10",
+      "kind": "lexical-overlap",
+      "prompt": "What is a book's ISBN number for?",
+      "why": "Shares 'book' and 'number'; a general fact about publishing."
+    },
+    {
+      "id": "sbe-lexical-overlap-11",
+      "kind": "lexical-overlap",
+      "prompt": "How do noise-cancelling headphones work?",
+      "why": "Shares 'headphones' with shopping chats; asks how the technology works."
+    },
+    {
+      "id": "sbe-lexical-overlap-12",
+      "kind": "lexical-overlap",
+      "prompt": "What is the rule of thirds in photography?",
+      "why": "Shares 'photo' with camera and hobby chats; a composition rule."
+    },
+    {
+      "id": "sbe-lexical-overlap-13",
+      "kind": "lexical-overlap",
+      "prompt": "Why does a car battery die faster in cold weather?",
+      "why": "Shares 'car' and 'battery' with car chats; a chemistry fact."
+    },
+    {
+      "id": "sbe-lexical-overlap-14",
+      "kind": "lexical-overlap",
+      "prompt": "What does 'RSVP' mean on a wedding invitation?",
+      "why": "Shares 'wedding' and 'invitation' with event chats; asks what an abbreviation means."
+    }
+  ]
+}
