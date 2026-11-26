@@ -197,7 +197,7 @@ Recall is unchanged (none of these touch the packet). Cost estimates: claude $17
 
 ## Round 5 (the last round)
 
-A fresh audit found no label leak, no high findings, and 2 medium and 7 low findings. A separate check of the original 16 found 13 fixed, 2 partly fixed and disclosed (M5 cost, L3 test gap) and 3 design notes, plus one minor new problem. Both raw reports are in the audit report's appendix. These fixes came after the last round, so no fresh audit has read them; a narrower check of just these fixes is in the report.
+A fresh audit found no label leak, no high findings, and 2 medium and 7 low findings. A separate check of the original 16 found 11 fixed, 2 partly fixed and disclosed (M5 cost, L3 test gap) and 3 design notes, plus one minor new problem. Both raw reports are in the audit report's appendix. These fixes came after the last round, so no fresh audit has read them; a narrower check of just these fixes is in the report.
 
 ### New findings from the round 5 audit
 
