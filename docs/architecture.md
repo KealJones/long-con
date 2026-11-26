@@ -54,6 +54,16 @@ Built fresh every turn, stable part first so prompt caching still works:
 3. **Raw spans** pulled in by retrieval and by pointers.
 4. **Topic window:** the current topic's stretch of conversation, then the new message.
 
+### Retrieval order
+
+Search is the last resort. Most turns should be filled before anything is searched.
+
+1. **Resolve.** A deterministic resolver turns follow-ups like "multiply it by 32" into a standalone query using the registers. Often the registers answer it outright and nothing needs searching.
+2. **Registers.** Rules, open loops and recent results go straight into the packet.
+3. **Search what's left.** Hybrid BM25 plus embedding search over topic segments that a tiny online splitter makes as you chat. Each segment is indexed three ways: your words, the assistant's words, and both ([threader.md](research/threader.md)).
+4. **Filter and trim.** Drop anything marked rejected or superseded, boost label matches, rerank, then trim inside each segment to the hit messages plus a neighbor or two. A hit on a question pulls in its answer.
+5. **Fill** the packet to budget.
+
 Choosing what goes in:
 
 - **Lean by default.** The packet holds only what this message needs, not a big budget filled up, and the recall slot catches anything it missed. Rules and the topic window are protected; everything else is ranked by relevance and cut to fit.

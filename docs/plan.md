@@ -24,7 +24,7 @@ The full log, with dates and what each decision replaced, is in [decisions.md](d
 
 1. **Evals.** Replay harness, canary set and scorer, run from the command line. First milestone: one real chat scored on all three arms (packet, compaction, full chat). See [evals/README.md](../evals/README.md).
 2. **Core log.** Append-only log, session splitter, sorter.
-3. **Packet builder v1** on a frontier model, tuned against the evals until it beats compaction. The first packet is plain retrieval plus pinned rules with no sorter; the sorter has to beat that baseline to earn its place.
+3. **Packet builder v1** on a frontier model, tuned against the evals until it beats compaction. The first packet is plain retrieval plus pinned rules with no sorter; the sorter has to beat that baseline to earn its place. Retrieval runs resolver, then registers, then hybrid search over topic segments, then filter and trim (see [architecture.md](architecture.md#retrieval-order)). Each builder is tested with a ladder of readers, so builder and reader are measured separately.
 4. **Web app.** The first real chat screen, on the same core.
 5. **Small-model track.** About 3K-token packets, free model paths first.
 6. **Mac app.** Last, only if the web app hits a wall.

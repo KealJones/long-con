@@ -34,6 +34,18 @@ The benchmark is **Long Con versus compaction**, not versus a huge context windo
 4. **Real labels.** After a week of real use, hand-label about 200 Long Con turns at span level.
 5. **Public benchmarks.** LongMemEval, BEAM and LoCoMo, run as packet plus one message. See [memory-benchmarks.md](../docs/research/memory-benchmarks.md).
 
+## Reader ladder
+
+The builder and the reader are measured separately. The earlier automated packets (1-3/12) used LFM3 1.7B as the reader, so they can't tell a bad packet from a weak reader.
+
+Every builder runs with three readers, strongest first:
+
+1. **Claude Opus:** tests the builder alone.
+2. **Claude Haiku:** how a smaller frontier model fares on the same packets.
+3. **LFM3 1.7B:** the small-model track.
+
+Each reader reports accuracy against packet size, next to packet recall.
+
 ## When evals run
 
 Not every benchmark on every change. Three tiers, cheapest first:
