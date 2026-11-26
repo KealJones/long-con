@@ -1,474 +1,736 @@
 {
- "description": "Identifier-exact path:line set over this repo's own source. Labels were written by reading the code at the pinned commit, not by running the resolver. expect: block (each listed path:line comes with its whole block), pointers (exactly these path:line, no body), empty (nothing). A name the index can't match exactly, like a string literal or a typo, is labeled empty even when a human could guess the place: the resolver must not guess.",
+ "description": "Identifier-exact path:line set over this repo's own source. Labels were written by reading the code at the pinned commit, not by running the resolver. expect: block (each listed path:line comes with its whole block), pointers (exactly these path:line, no body), empty (nothing). Each at entry is path:line-endLine, the declaration's span (comments above excluded) taken from the TypeScript compiler's syntax tree at the commit. subset exact: prompts that name a symbol the way the spec describes, so they check the spec is implemented. subset hard: written before any run; plain-language questions, sloppy names, lone PascalCase words and code-shaped words that aren't definitions here. A name the index can't match exactly, like a string literal or a typo, is labeled empty even when a human could guess the place: the resolver must not guess.",
  "commit": "2f04267c20ce85c5a4b905dd2bef6dfff177e88e",
  "index": "every git-tracked .ts/.tsx/.js/.mjs/.py/.go file at the commit",
  "split": "held-out when FNV-1a(id) % 3 == 0, dev otherwise; tune only on dev",
  "prompts": [
   {
    "id": "named-buildPacket",
+   "subset": "exact",
    "prompt": "where is buildPacket defined?",
    "expect": "block",
    "at": [
-    "packages/core/src/packet.ts:47"
+    "packages/core/src/packet.ts:47-117"
    ]
   },
   {
    "id": "named-estimateTokens",
+   "subset": "exact",
    "prompt": "how does estimateTokens count tokens",
    "expect": "block",
    "at": [
-    "packages/core/src/text.ts:35"
+    "packages/core/src/text.ts:35-37"
    ]
   },
   {
    "id": "named-splitTurn",
+   "subset": "exact",
    "prompt": "splitTurn cuts a long turn mid-sentence sometimes, can you check it",
    "expect": "block",
    "at": [
-    "packages/core/src/segments.ts:51"
+    "packages/core/src/segments.ts:51-70"
    ]
   },
   {
    "id": "named-assemblePrompt",
+   "subset": "exact",
    "prompt": "what order does assemblePrompt put things in?",
    "expect": "block",
    "at": [
-    "packages/core/src/prompt.ts:18"
+    "packages/core/src/prompt.ts:18-24"
    ]
   },
   {
    "id": "named-buildRegisters",
+   "subset": "exact",
    "prompt": "buildRegisters seems to miss rules said in the middle of a sentence",
    "expect": "block",
    "at": [
-    "packages/core/src/registers.ts:22"
+    "packages/core/src/registers.ts:22-46"
    ]
   },
   {
    "id": "named-pickFromList",
+   "subset": "exact",
    "prompt": "why would pickFromList return undefined for 'the other one'?",
    "expect": "block",
    "at": [
-    "packages/core/src/resolver.ts:71"
+    "packages/core/src/resolver.ts:71-83"
    ]
   },
   {
    "id": "named-loadLongMemEval",
+   "subset": "exact",
    "prompt": "loadLongMemEval is slow on the big file, any idea why?",
    "expect": "block",
    "at": [
-    "evals/src/longmemeval.ts:43"
+    "evals/src/longmemeval.ts:43-65"
    ]
   },
   {
    "id": "named-heldOutSplit",
+   "subset": "exact",
    "prompt": "does heldOutSplit drop questions that share evidence with dev?",
    "expect": "block",
    "at": [
-    "evals/src/longmemeval.ts:156"
+    "evals/src/longmemeval.ts:156-163"
    ]
   },
   {
    "id": "named-runArm",
+   "subset": "exact",
    "prompt": "walk me through runArm for the packet arm",
    "expect": "block",
    "at": [
-    "evals/src/arms.ts:85"
+    "evals/src/arms.ts:85-107"
    ]
   },
   {
    "id": "named-recallChart",
+   "subset": "exact",
    "prompt": "recallChart draws the legend off the edge, fix it",
    "expect": "block",
    "at": [
-    "evals/src/chart.ts:11"
+    "evals/src/chart.ts:11-36"
    ]
   },
   {
    "id": "named-costOf",
+   "subset": "exact",
    "prompt": "is costOf charging the long-context rate right?",
    "expect": "block",
    "at": [
-    "evals/src/model.ts:52"
+    "evals/src/model.ts:52-57"
    ]
   },
   {
    "id": "named-pairedTable",
+   "subset": "exact",
    "prompt": "what does pairedTable compare against by default",
    "expect": "block",
    "at": [
-    "evals/src/run.ts:166"
+    "evals/src/run.ts:166-180"
    ]
   },
   {
    "id": "named-EstimatingModel",
+   "subset": "exact",
    "prompt": "what does EstimatingModel return for a judge call?",
    "expect": "block",
    "at": [
-    "evals/src/estimate.ts:10"
+    "evals/src/estimate.ts:10-26"
    ]
   },
   {
    "id": "named-SubagentModel",
+   "subset": "exact",
    "prompt": "how does SubagentModel hand requests to a subagent",
    "expect": "block",
    "at": [
-    "evals/src/subagent.ts:18"
+    "evals/src/subagent.ts:18-41"
    ]
   },
   {
    "id": "named-packetRecall",
+   "subset": "exact",
    "prompt": "packetRecall counts a turn as found only if it's whole, right?",
    "expect": "block",
    "at": [
-    "evals/src/recall.ts:19"
+    "evals/src/recall.ts:19-37"
    ]
   },
   {
    "id": "named-mulberry32",
+   "subset": "exact",
    "prompt": "is mulberry32 good enough for the slice seed?",
    "expect": "block",
    "at": [
-    "evals/src/longmemeval.ts:97"
+    "evals/src/longmemeval.ts:97-106"
    ]
   },
   {
    "id": "named-HISTORY_NOTICE",
+   "subset": "exact",
    "prompt": "reword HISTORY_NOTICE so it's shorter",
    "expect": "block",
    "at": [
-    "packages/core/src/packet.ts:42"
+    "packages/core/src/packet.ts:42-43"
    ]
   },
   {
    "id": "named-COST_CAVEATS",
+   "subset": "exact",
    "prompt": "update COST_CAVEATS for the new pricing",
    "expect": "block",
    "at": [
-    "evals/src/cli.ts:21"
+    "evals/src/cli.ts:21-21"
    ]
   },
   {
    "id": "tick-stem",
+   "subset": "exact",
    "prompt": "what does `stem` do to words ending in -ies?",
    "expect": "block",
    "at": [
-    "packages/core/src/text.ts:15"
+    "packages/core/src/text.ts:15-21"
    ]
   },
   {
    "id": "tick-fuse",
+   "subset": "exact",
    "prompt": "is `fuse` doing reciprocal rank fusion?",
    "expect": "block",
    "at": [
-    "packages/core/src/packet.ts:143"
+    "packages/core/src/packet.ts:143-156"
    ]
   },
   {
    "id": "tick-PROFILES",
+   "subset": "exact",
    "prompt": "show me `PROFILES`",
    "expect": "block",
    "at": [
-    "packages/core/src/profiles.ts:36"
+    "packages/core/src/profiles.ts:36-75"
    ]
   },
   {
    "id": "tick-passes",
+   "subset": "exact",
    "prompt": "`passes` treats 'Yes.' as a pass?",
    "expect": "block",
    "at": [
-    "evals/src/judge.ts:36"
+    "evals/src/judge.ts:36-36"
    ]
   },
   {
    "id": "tick-compact",
+   "subset": "exact",
    "prompt": "how big does `compact` let the summary get",
    "expect": "block",
    "at": [
-    "evals/src/arms.ts:164"
+    "evals/src/arms.ts:164-187"
    ]
   },
   {
    "id": "tick-judge",
+   "subset": "exact",
    "prompt": "does `judge()` retry on errors",
    "expect": "block",
    "at": [
-    "evals/src/judge.ts:38"
+    "evals/src/judge.ts:38-49"
    ]
   },
   {
    "id": "tick-Bm25.search",
+   "subset": "exact",
    "prompt": "is `Bm25.search` normalizing by document length?",
    "expect": "block",
    "at": [
-    "packages/core/src/bm25.ts:25"
+    "packages/core/src/bm25.ts:25-46"
    ]
   },
   {
    "id": "tick-bootstrap",
+   "subset": "exact",
    "prompt": "how many draws does `bootstrap` use",
    "expect": "block",
    "at": [
-    "evals/src/run.ts:195"
+    "evals/src/run.ts:195-211"
    ]
   },
   {
    "id": "tick-ModelClient",
+   "subset": "exact",
    "prompt": "what methods does `ModelClient` require?",
    "expect": "block",
    "at": [
-    "evals/src/model.ts:41"
+    "evals/src/model.ts:41-43"
    ]
   },
   {
    "id": "cue-Profile",
+   "subset": "exact",
    "prompt": "add a field to the Profile interface for the block cap",
    "expect": "block",
    "at": [
-    "packages/core/src/profiles.ts:3"
+    "packages/core/src/profiles.ts:3-34"
    ]
   },
   {
    "id": "cue-resolve",
+   "subset": "exact",
    "prompt": "the resolve function should handle 'the third one'",
    "expect": "block",
    "at": [
-    "packages/core/src/resolver.ts:19"
+    "packages/core/src/resolver.ts:19-55"
    ]
   },
   {
    "id": "cue-Packet",
+   "subset": "exact",
    "prompt": "what fields does the Packet type have?",
    "expect": "block",
    "at": [
-    "packages/core/src/packet.ts:30"
+    "packages/core/src/packet.ts:30-39"
    ]
   },
   {
    "id": "call-stratifiedSlice",
+   "subset": "exact",
    "prompt": "why does stratifiedSlice() return an empty heldOut?",
    "expect": "block",
    "at": [
-    "evals/src/longmemeval.ts:71"
+    "evals/src/longmemeval.ts:71-95"
    ]
   },
   {
    "id": "dot-PROFILES.smallLocal",
+   "subset": "exact",
    "prompt": "bump PROFILES.smallLocal packetTokens to 3000",
    "expect": "block",
    "at": [
-    "packages/core/src/profiles.ts:36"
+    "packages/core/src/profiles.ts:36-75"
    ]
   },
   {
    "id": "two-buildPacket-splitIntoSegments",
+   "subset": "exact",
    "prompt": "does buildPacket call splitIntoSegments directly?",
    "expect": "block",
    "at": [
-    "packages/core/src/packet.ts:47",
-    "packages/core/src/segments.ts:20"
+    "packages/core/src/packet.ts:47-117",
+    "packages/core/src/segments.ts:20-48"
    ]
   },
   {
    "id": "amb-summarize",
+   "subset": "exact",
    "prompt": "what does `summarize` return?",
    "expect": "pointers",
    "at": [
-    "evals/src/arms.ts:109",
-    "evals/src/run.ts:96"
+    "evals/src/arms.ts:109-122",
+    "evals/src/run.ts:96-129"
    ]
   },
   {
    "id": "amb-pct",
+   "subset": "exact",
    "prompt": "`pct` rounds to one decimal, right?",
    "expect": "pointers",
    "at": [
-    "evals/src/cli.ts:414",
-    "evals/src/run.ts:213"
+    "evals/src/cli.ts:414-414",
+    "evals/src/run.ts:213-213"
    ]
   },
   {
    "id": "amb-chat",
+   "subset": "exact",
    "prompt": "where's the `chat` helper",
    "expect": "pointers",
    "at": [
-    "packages/core/test/packet.test.ts:8",
-    "evals/test/longmemeval.test.ts:78",
-    "evals/test/recall.test.ts:8"
+    "packages/core/test/packet.test.ts:8-8",
+    "evals/test/longmemeval.test.ts:78-78",
+    "evals/test/recall.test.ts:8-8"
    ]
   },
   {
    "id": "amb-filler",
+   "subset": "exact",
    "prompt": "make `filler` sessions longer",
    "expect": "pointers",
    "at": [
-    "packages/core/test/fixtures.ts:4",
-    "evals/test/run.test.ts:10"
+    "packages/core/test/fixtures.ts:4-41",
+    "evals/test/run.test.ts:10-17"
    ]
   },
   {
    "id": "amb-search",
+   "subset": "exact",
    "prompt": "the search function is slow on big histories",
    "expect": "pointers",
    "at": [
-    "packages/core/src/packet.ts:123",
-    "packages/core/src/bm25.ts:25"
+    "packages/core/src/packet.ts:123-140",
+    "packages/core/src/bm25.ts:25-46"
    ]
   },
   {
    "id": "amb-render",
+   "subset": "exact",
    "prompt": "`render` drops the tool results",
    "expect": "pointers",
    "at": [
-    "evals/src/subagent.ts:44",
-    "evals/test/recall.test.ts:12"
+    "evals/src/subagent.ts:44-47",
+    "evals/test/recall.test.ts:12-12"
    ]
   },
   {
    "id": "file-summarize",
+   "subset": "exact",
    "prompt": "what does `summarize` in run.ts count as a failure?",
    "expect": "block",
    "at": [
-    "evals/src/run.ts:96"
+    "evals/src/run.ts:96-129"
    ]
   },
   {
    "id": "file-signed",
+   "subset": "exact",
    "prompt": "the `signed` helper in cli.ts prints -0.0",
    "expect": "block",
    "at": [
-    "evals/src/cli.ts:412"
+    "evals/src/cli.ts:412-412"
    ]
   },
   {
    "id": "many-complete",
+   "subset": "exact",
    "prompt": "what does `complete` do when the model refuses?",
    "expect": "empty",
    "at": []
   },
   {
    "id": "many-constructor",
+   "subset": "exact",
    "prompt": "clean up the `constructor` code",
    "expect": "empty",
    "at": []
   },
   {
    "id": "eng-packet",
+   "subset": "exact",
    "prompt": "the packet is too big for the small model",
    "expect": "empty",
    "at": []
   },
   {
    "id": "eng-profile",
+   "subset": "exact",
    "prompt": "how is the profile chosen for a model?",
    "expect": "empty",
    "at": []
   },
   {
    "id": "eng-Profile-start",
+   "subset": "exact",
    "prompt": "Profile the build, it feels slow",
    "expect": "empty",
    "at": []
   },
   {
    "id": "eng-resolve",
+   "subset": "exact",
    "prompt": "can you resolve the merge conflict in the readme",
    "expect": "empty",
    "at": []
   },
   {
    "id": "eng-search",
+   "subset": "exact",
    "prompt": "search the web for LongMemEval results",
    "expect": "empty",
    "at": []
   },
   {
    "id": "eng-mean",
+   "subset": "exact",
    "prompt": "what's the mean token count per question?",
    "expect": "empty",
    "at": []
   },
   {
    "id": "eng-judge",
+   "subset": "exact",
    "prompt": "the judge said no on most of them",
    "expect": "empty",
    "at": []
   },
   {
    "id": "eng-languages",
+   "subset": "exact",
    "prompt": "JavaScript or TypeScript for a new GitHub project?",
    "expect": "empty",
    "at": []
   },
   {
    "id": "typo-buildPackets",
+   "subset": "exact",
    "prompt": "where is buildPackets defined?",
    "expect": "empty",
    "at": []
   },
   {
    "id": "typo-estimateToken",
+   "subset": "exact",
    "prompt": "estimateToken undercounts emoji",
    "expect": "empty",
    "at": []
   },
   {
    "id": "typo-loadLongMemEvals",
+   "subset": "exact",
    "prompt": "`loadLongMemEvals` crashes on a missing file",
    "expect": "empty",
    "at": []
   },
   {
    "id": "typo-BuildPacket",
+   "subset": "exact",
    "prompt": "BuildPacket returns nothing for short chats",
    "expect": "empty",
    "at": []
   },
   {
    "id": "typo-build_packet",
+   "subset": "exact",
    "prompt": "where's build_packet",
    "expect": "empty",
    "at": []
   },
   {
    "id": "lib-readFileSync",
+   "subset": "exact",
    "prompt": "why does readFileSync throw ENOENT here",
    "expect": "empty",
    "at": []
   },
   {
    "id": "lib-JSON.parse",
+   "subset": "exact",
    "prompt": "`JSON.parse` fails on the slice file",
    "expect": "empty",
    "at": []
   },
   {
    "id": "str-search_history",
+   "subset": "exact",
    "prompt": "where's the search_history tool defined",
    "expect": "empty",
    "at": []
   },
   {
    "id": "none-thanks",
+   "subset": "exact",
    "prompt": "thanks, that worked!",
    "expect": "empty",
    "at": []
   },
   {
    "id": "none-weather",
+   "subset": "exact",
    "prompt": "what's the weather like in Denver this weekend",
    "expect": "empty",
    "at": []
   },
   {
    "id": "none-trip",
+   "subset": "exact",
    "prompt": "remind me what we decided about the trip",
    "expect": "empty",
    "at": []
   },
   {
    "id": "none-haiku",
+   "subset": "exact",
    "prompt": "write me a haiku about autumn",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "hard-desc-drop-weak",
+   "subset": "hard",
+   "prompt": "where does the packet drop weak matches?",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "hard-desc-low-scores",
+   "subset": "hard",
+   "prompt": "the thing that throws out low scores, where's that",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "hard-desc-split-paragraphs",
+   "subset": "hard",
+   "prompt": "which function splits a long turn at paragraph breaks?",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "hard-desc-seeded-random",
+   "subset": "hard",
+   "prompt": "where's the seeded random generator for the slice",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "hard-desc-call-cost",
+   "subset": "hard",
+   "prompt": "how is the cost of a model call worked out?",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "hard-desc-fold-history",
+   "subset": "hard",
+   "prompt": "where do we fold old history into a summary",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "hard-desc-settings",
+   "subset": "hard",
+   "prompt": "where are the per-model settings defined",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "hard-sloppy-buildpacket",
+   "subset": "hard",
+   "prompt": "buildpacket returns too much",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "hard-sloppy-estimate_tokens",
+   "subset": "hard",
+   "prompt": "where's estimate_tokens",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "hard-sloppy-splitturn",
+   "subset": "hard",
+   "prompt": "the splitturn helper eats blank lines",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "hard-sloppy-buildPackt",
+   "subset": "hard",
+   "prompt": "`buildPackt` crashes on an empty chat",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "hard-sloppy-loadLongMemEvl",
+   "subset": "hard",
+   "prompt": "loadLongMemEvl is slow",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "hard-sloppy-contentwords",
+   "subset": "hard",
+   "prompt": "contentwords drops numbers?",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "hard-sloppy-build-packet",
+   "subset": "hard",
+   "prompt": "what does build packet do with the registers",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "hard-pascal-Session",
+   "subset": "hard",
+   "prompt": "what fields does Session have?",
+   "expect": "block",
+   "at": [
+    "packages/core/src/chat.ts:10-15"
+   ]
+  },
+  {
+   "id": "hard-pascal-Bm25",
+   "subset": "hard",
+   "prompt": "Bm25 is too slow on long chats",
+   "expect": "block",
+   "at": [
+    "packages/core/src/bm25.ts:9-47"
+   ]
+  },
+  {
+   "id": "hard-pascal-Pending",
+   "subset": "hard",
+   "prompt": "why does Pending get thrown?",
+   "expect": "block",
+   "at": [
+    "evals/src/subagent.ts:14-16"
+   ]
+  },
+  {
+   "id": "hard-pascal-Turn",
+   "subset": "hard",
+   "prompt": "Turn needs a timestamp field",
+   "expect": "block",
+   "at": [
+    "packages/core/src/chat.ts:5-8"
+   ]
+  },
+  {
+   "id": "hard-pascal-Registers",
+   "subset": "hard",
+   "prompt": "Registers should keep the last three answers",
+   "expect": "block",
+   "at": [
+    "packages/core/src/registers.ts:6-14"
+   ]
+  },
+  {
+   "id": "hard-shape-useState",
+   "subset": "hard",
+   "prompt": "how do I use useState in the web app",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "hard-shape-maxRetries",
+   "subset": "hard",
+   "prompt": "set maxRetries higher for the judge",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "hard-shape-answer_session_ids",
+   "subset": "hard",
+   "prompt": "the answer_session_ids field leaks the location",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "hard-shape-packetTokens",
+   "subset": "hard",
+   "prompt": "is packetTokens too low for small-local?",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "hard-shape-strictNullChecks",
+   "subset": "hard",
+   "prompt": "should we turn on strictNullChecks",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "hard-shape-heldOut",
+   "subset": "hard",
+   "prompt": "rename heldOut to holdout everywhere",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "hard-shape-segmentTokens",
+   "subset": "hard",
+   "prompt": "what's `segmentTokens` for",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "hard-shape-beforeEach",
+   "subset": "hard",
+   "prompt": "does node:test support beforeEach?",
    "expect": "empty",
    "at": []
   }
