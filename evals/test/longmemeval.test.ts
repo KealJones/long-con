@@ -4,24 +4,24 @@ import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadLongMemEval, stratifiedSlice } from "../src/longmemeval.ts";
+import { heldOutSplit, loadLongMemEval, stratifiedSlice, type Question } from "../src/longmemeval.ts";
 
 const raw = [
   {
-    question_id: "q1",
+    question_id: "58bf7951",
     question_type: "single-session-user",
     question: "Where is my sister moving?",
     question_date: "2023/05/30 (Tue) 23:40",
     answer: "Denver",
-    answer_session_ids: ["answer_4f2a_1"],
+    answer_session_ids: ["answer_355c48bb"],
     haystack_dates: ["2023/05/01 (Mon) 10:00", "2023/05/02 (Tue) 10:00"],
-    haystack_session_ids: ["sharegpt_x1", "answer_4f2a_1"],
+    haystack_session_ids: ["sharegpt_LG0uJvY_0", "answer_355c48bb"],
     haystack_sessions: [
       [{ role: "user", content: "pasta tips?" }, { role: "assistant", content: "Salt the water." }],
       [{ role: "user", content: "my sister is moving to Denver", has_answer: true }, { role: "assistant", content: "Big change!" }],
     ],
   },
-  { question_id: "q2_abs", question_type: "multi-session", question: "What is my dog's name?", question_date: "2023/06/01", answer: "You never mentioned a dog.", answer_session_ids: [], haystack_dates: [], haystack_session_ids: [], haystack_sessions: [] },
+  { question_id: "0862e8bf_abs", question_type: "multi-session", question: "What is my dog's name?", question_date: "2023/06/01", answer: "You never mentioned a dog.", answer_session_ids: [], haystack_dates: [], haystack_session_ids: [], haystack_sessions: [] },
 ];
 
 function load() {
@@ -33,7 +33,7 @@ function load() {
 test("the chats a builder reads carry no evidence labels, not even in their ids", () => {
   const [q] = load();
   // The benchmark's real ids name every evidence chat "answer_...".
-  assert.doesNotMatch(JSON.stringify(q!.sessions), /has_answer|answer_session_ids|answer_4f2a/);
+  assert.doesNotMatch(JSON.stringify(q!.sessions), /has_answer|answer_session_ids|answer_355c48bb|answer_/);
   assert.doesNotMatch(JSON.stringify(q!.sessions), /sharegpt/, "filler ids are replaced too, so ids carry no pattern");
 });
 
@@ -73,4 +73,23 @@ test("the same seed picks the same slice whatever order the questions come in", 
   const b = stratifiedSlice([...pool].reverse(), 20, 7).dev.map((d) => d.id).sort();
   assert.deepEqual(a, b);
   assert.notDeepEqual(a, stratifiedSlice(pool, 20, 8).dev.map((d) => d.id).sort(), "a different seed picks differently");
+});
+
+const chat = (id: string, text: string) => ({ id, date: "2023/05/01 (Mon) 10:00", turns: [{ role: "user" as const, content: text }] });
+const q = (id: string, evidence: string): Question => ({
+  id, type: "single-session-user", question: "?", date: "2023/05/30", answer: "", abstention: id.endsWith("_abs"),
+  sessions: [chat("chat-1", evidence), chat("chat-2", "pasta tips?")],
+  evidence: { sessions: ["chat-1"], turns: ["chat-1#0"] },
+});
+
+test("held-out leaves out every question that shares evidence with dev, so tuning on dev can't leak into it", () => {
+  const all = [
+    q("58bf7951", "my sister is moving to Denver"),
+    q("58bf7951_abs", "my sister is moving to Denver"), // the abstention twin of a dev question
+    q("1e043500", "my sister is moving to Denver"), // a different question over the same evidence chat
+    q("c4a1ceb8", "I adopted a beagle named Pepper"),
+  ];
+  const { heldOut, excluded } = heldOutSplit(all, [all[0]!]);
+  assert.deepEqual(heldOut.map((h) => h.id), ["c4a1ceb8"]);
+  assert.equal(excluded, 2);
 });

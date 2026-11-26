@@ -1,0 +1,15 @@
+[system]
+You grade answers. Reply with yes or no only.
+
+[user]
+I will give you a question, a correct answer, and a response from a model. Please answer yes if the response contains the correct answer. Otherwise, answer no. If the response is equivalent to the correct answer or contains all the intermediate steps to get the correct answer, you should also answer yes. If the response only contains a subset of the information required by the answer, answer no. 
+
+Question: I was going through our previous conversation about making a classic French omelette, and I wanted to confirm - how many eggs did you say we need for the recipe?
+
+Correct Answer: 2-3 eggs
+
+Model Response: For the classic French omelette, I said you need 2-3 eggs. The rest of that ingredient list was a pinch of salt, 1 tablespoon of unsalted butter, and optionally 1 tablespoon of finely chopped herbs.
+
+(Separately, when you asked for an "outstanding 3 egg omelette" on May 22, that recipe used 3 large eggs.)
+
+Is the model response correct? Answer yes or no only.

@@ -1,0 +1,96 @@
+[system]
+You are a helpful assistant in a long-running chat with the user. Use what you know from your past chats with them to answer. If the past chats don't say, say so instead of guessing.
+
+[user]
+<packet>
+Earlier chat history (since 2023/03/18 (Sat) 05:52) was left out to fit. The search_history tool can reach all of it.
+This packet is a best guess at what's relevant. Don't rely on anything in it that looks wrong; use the tools instead.
+
+Standing rules from the user, word for word:
+- "Remember to keep it concise and in the tone of a neutral user." (said 2023/04/12 (Wed) 22:15)
+
+Retrieved history, oldest first:
+### 2023/03/25 (Sat) 04:00 · confidence 0.6 · matched activity · part of a longer turn
+user: Since I'm visiting my sister, I'd like to plan some activities that she'll enjoy as well. Can you suggest some outdoor activities or attractions that are suitable for a birthday celebration?
+assistant: What a great idea! Planning activities that your sister will enjoy will make the birthday celebration even more special. Here are some outdoor activities and attractions in the South Beach area that are perfect for a birthday celebration:
+
+**Outdoor Activities:**
+
+1. **Paddleboard or Kayak Rentals**: Rent paddleboards or kayaks and explore the calm waters of Biscayne Bay or the Intracoastal Waterway. This is a great way to enjoy the outdoors and get some exercise together.
+2. **Beach Volleyball or Games**: Set up a friendly game of beach volleyball or other beach games like cornhole, ladder toss, or bocce ball. Many beaches in the area offer volleyball courts and game rentals.
+3. **Bike Ride**: Rent bikes and ride along the beachfront path, which stretches from South Pointe Park to 46th Street. You can also explore the nearby neighborhoods, like the Art Deco District or Espanola Way.
+
+**Attractions:**
+### 2023/03/27 (Mon) 20:28 · confidence 0.6 · matched week, ago · part of a longer turn
+assistant: By answering these questions, you'll start to generate content for your blog post and identify the highlights of your "Museum Marathon" experience.
+
+Which category would you like to start with?
+user: Let's start with the Art Museums category. I remember attending the "Impressionist Masters" exhibition at the Modern Art Museum three weeks ago on a Saturday afternoon with my colleague, Rachel. We really enjoyed the guided tour and admired the beautiful paintings by Monet, Renoir, and Degas.
+assistant: The "Impressionist Masters" exhibition sounds like a wonderful experience.
+
+Let's break down your visit to the Modern Art Museum into smaller details to help you craft a engaging paragraph for your blog post:
+
+**Modern Art Museum: "Impressionist Masters" Exhibition**
+
+* **Date and Time:** Saturday afternoon, three weeks ago
+* **Companion:** Rachel, your colleague
+* **Exhibition:** "Impressionist Masters"
+* **Highlights:**
+	+ Guided tour: What did the guide share that stood out to you? Were there any interesting anecdotes or insights about the artists or their works?
+	+ Paintings by Monet, Renoir, and Degas: Which specific paintings caught your attention? What did you admire about them? (e.g., use of color, composition, emotion evoked)
+	+ Atmosphere: Describe the ambiance of the museum and the exhibition space. Was it crowded or peaceful?
+
+Here's a possible paragraph based on your experience:
+### 2023/03/27 (Mon) 20:28 · confidence 0.66 · matched activity, week, ago · part of a longer turn
+assistant: "I had the privilege of exploring the Contemporary Art Museum with my cousin Michael, an art historian, who provided a private tour six weeks ago. His expertise added depth and nuance to my understanding of the artwork, and I appreciated his insightful commentary on the artists' intentions and the cultural context in which they created. The tour was followed by a lively lunchtime discussion at the museum café, where we debated our favorite pieces and shared our personal connections to the art. Michael's knowledge and passion for contemporary art were infectious, and I left the museum with a renewed appreciation for the genre."
+
+Feel free to modify this paragraph or add more details to make it your own.
+
+Now that we've covered the Art Museums category, we can move on to the Science and History Museums category. Which museum would you like to start with in this category? The Natural History Museum, Science Museum, or Archaeology Museum?
+user: Let's start with the Natural History Museum. I remember attending the "Museum at Night" event there about a week after I visited the Modern Art Museum. It was a unique experience, as the museum was open till midnight, and they had special activities and events lined up.
+### 2023/04/12 (Wed) 22:15 · confidence 0.59 · matched activity, week, ago
+assistant: That's great to hear! The smaller compartments can make a big difference in keeping your small items organized and easy to find. It's also awesome that you've been able to use it for both your daily commute and your camping trip.
+
+It's always great to have a versatile bag that can adapt to different situations. REI's backpacks are designed to be rugged and durable, so it's no surprise that it held up well on your camping trip.
+
+I'm curious, what was your favorite part of the camping trip? Was there a particular activity or moment that stood out to you?
+
+And how did you find the backpack performed in terms of comfort and weight distribution? Was it comfortable to wear for extended periods of time, and did it distribute the weight of your gear well?
+user: Please respond with the next user message. Remember to keep it concise and in the tone of a neutral user.
+assistant: I'm also in the market for a new backpack, what made you choose REI's backpack over other brands? Was it the price, quality, or something else?
+user: I chose REI's backpack because I needed a reliable one for daily use and my upcoming hiking trip. I liked the quality and features, and it was priced reasonably. Plus, I had a good experience with them when I bought my old backpack from them three weeks ago.
+### 2023/04/15 (Sat) 16:46 · confidence 1 · matched garden, activity · part of a longer turn
+assistant: 1. **Mix it into the soil**: Add a 2- to 4-inch layer of compost to the soil before planting your herbs.
+2. **Use it as a top dressing**: Sprinkle a thin layer of compost around the base of your herb plants as a top dressing.
+3. **Make a compost tea**: Steep a bucket of compost in water to create a nutrient-rich liquid fertilizer for your herbs.
+
+Some tips to keep in mind when using compost as a fertilizer:
+
+* Make sure your compost is fully broken down and has an earthy, soil-like aroma. If it's still recognizable as individual ingredients, it's not ready to use.
+* Avoid using too much compost, as this can lead to an overabundance of nutrients and cause more harm than good.
+* Consider making your own compost at home using kitchen scraps, leaves, and other organic materials.
+
+Overall, compost is an excellent choice as a fertilizer for your herbs. It's a natural, sustainable, and effective way to provide your plants with the nutrients they need to thrive.
+user: I've been using a gardening app to track the weather and soil moisture levels, which has been really helpful in planning my gardening activities. I was wondering if you could recommend any other apps or tools that might be useful for a beginner gardener like me?
+### 2023/04/21 (Fri) 00:30 · confidence 0.9 · matched garden, activity · part of a longer turn
+user: I've been using a gardening app to track the weather and soil moisture levels, which has helped me to plan my gardening activities more effectively. However, I'm not sure how often I should water my tomato plants during this dry spell. Can you provide some guidance on that?
+assistant: That's a great idea to use a gardening app to track weather and soil moisture levels! Watering tomatoes during a dry spell can be a bit tricky, but I'd be happy to help you out.
+
+**Watering Frequency for Tomato Plants:**
+
+The ideal watering frequency for tomato plants depends on several factors, including:
+
+1. **Soil type**: Tomatoes growing in sandy soil may need more frequent watering than those in clay or loamy soil.
+2. **Weather**: During hot and dry weather, tomatoes may need more frequent watering.
+3. **Soil moisture levels**: Check the soil moisture levels regularly to determine if the soil is drying out too quickly.
+4. **Plant size and age**: Younger tomato plants may need more frequent watering than mature plants.
+
+**General Guidelines:**
+### 2023/04/21 (Fri) 13:31 · confidence 0.89 · matched relat, week, ago
+user: I'm planning a baby-themed gift basket for my best friend Emily's upcoming baby shower. Can you give me some ideas for baby-related items to include? By the way, my brother John and his wife Rachel, who just had a baby boy a few weeks ago, were really happy with the baby blankets they received as gifts.
+</packet>
+
+[user]
+Current date: 2023/05/05 (Fri) 16:42
+
+What gardening-related activity did I do two weeks ago?

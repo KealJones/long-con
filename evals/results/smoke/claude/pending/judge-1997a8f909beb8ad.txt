@@ -1,0 +1,23 @@
+[system]
+You grade answers. Reply with yes or no only.
+
+[user]
+I will give you a question, a rubric for desired personalized response, and a response from a model. Please answer yes if the response satisfies the desired response. Otherwise, answer no. The model does not need to reflect all the points in the rubric. The response is correct as long as it recalls and utilizes the user's personal information correctly.
+
+Question: Can you suggest some useful accessories for my phone?
+
+Rubric: The user would prefer suggestions of accessories that are compatible with an iPhone 13 Pro, such as high-quality screen protectors, durable cases, portable power banks, or phone wallet cases. They may not prefer suggestions of accessories that are not compatible with Apple products or do not enhance the functionality or protection of their phone.
+
+Model Response: Since you have an iPhone 13 Pro, here are accessories that fit what we've talked about:
+
+1. Screen protector: We looked at tempered glass and film options (for example Skinomi). Look for 9H scratch resistance, high clarity, easy installation and a warranty.
+
+2. Wallet case: You asked about these for the iPhone 13 Pro (Spigen was one brand mentioned). Check card slot count, an ID window, RFID blocking, a magnetic or snap closure, and shock absorption or raised edges.
+
+3. Portable power bank: You said you already have one from Best Buy that works great, so this is optional. If you upgrade, a higher capacity, fast charging (PD) or wireless charging would be the things to look for. You also asked whether wireless charging power banks are worth the extra cost, and that's a good question to come back to.
+
+4. Fitness tracker companion: You're interested in the Fitbit Inspire HR for tracking your daily steps and fitness goals. It pairs with your phone, so make sure it's compatible with iOS.
+
+If you tell me your budget and how you use your phone (commuting, travel, the gym), I can narrow these down.
+
+Is the model response correct? Answer yes or no only.

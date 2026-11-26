@@ -10,9 +10,8 @@ const OUTPUT: Record<ModelRequest["purpose"], number> = { reader: 800, summarize
 export class EstimatingModel implements ModelClient {
   async complete(req: ModelRequest): Promise<ModelResponse> {
     const input = estimateTokens(req.system + JSON.stringify(req.messages) + (req.tools ? JSON.stringify(req.tools) : ""));
-    // Assume the reader searches once whenever it can, the costly case.
-    const searched = req.messages.some((m) => Array.isArray(m.content) && m.content.some((b) => b.type === "tool_result"));
-    if (req.tools && !searched) {
+    // Assume the reader uses every search it's allowed, the costly case, so the estimate is a ceiling.
+    if (req.tools && req.toolChoice !== "none") {
       const tool = { id: "estimate", name: req.tools[0]!.name, input: { query: lastUserText(req) } };
       return { text: "", toolCalls: [tool], content: [{ type: "tool_use", ...tool }], usage: { input, output: 100 }, latencyMs: 0 };
     }

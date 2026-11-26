@@ -7,7 +7,11 @@
 | Profile | Budget ceiling | Evidence chats found | Evidence turns found | All evidence in packet | Mean packet tokens | Largest packet | All-evidence points per 1K packet tokens |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | claude | 8,000 | 94.1% | 86.2% | 78.7% | 5,701 | 7,994 | 13.8 |
+| claude: plain BM25 top-k | 8,000 | 93.0% | 85.1% | 76.6% | 7,886 | 8,000 | 9.7 |
 | small-local | 2,500 | 89.1% | 80.0% | 70.2% | 2,276 | 2,508 | 30.9 |
+| small-local: plain BM25 top-k | 2,500 | 87.1% | 71.8% | 59.6% | 2,474 | 2,499 | 24.1 |
+
+Plain BM25 top-k is the baseline: the same units ranked by BM25 over all words and filled to the same ceiling, with nothing else. It also shows what ranking by the user's words adds, which suits LongMemEval, where 94% of evidence turns are user turns, and may not carry over to real chats.
 
 ## What the reader takes in per question
 

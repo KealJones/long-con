@@ -3,6 +3,7 @@
 // the packet builder reads can see them. Chat ids are replaced too: the benchmark names every evidence
 // chat "answer_...", which would hand a reader the answer's location.
 
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import type { Session } from "@long-con/core";
 
@@ -102,4 +103,44 @@ function mulberry32(seed: number): () => number {
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
+}
+
+/**
+ * Groups questions that share evidence: `X` and `X_abs` siblings, and questions whose evidence chats are word
+ * for word the same. A question's group id is the smallest question id in it.
+ */
+export function evidenceGroups(questions: Question[]): Map<string, string> {
+  const parent = new Map(questions.map((q) => [q.id, q.id]));
+  const find = (x: string): string => {
+    while (parent.get(x) !== x) x = parent.get(x)!;
+    return x;
+  };
+  const join = (a: string, b: string) => {
+    const [ra, rb] = [find(a), find(b)];
+    if (ra !== rb) parent.set(ra < rb ? rb : ra, ra < rb ? ra : rb);
+  };
+  const owner = new Map<string, string>();
+  for (const q of questions) {
+    const sibling = q.id.replace(/_abs$/, "");
+    if (sibling !== q.id && parent.has(sibling)) join(q.id, sibling);
+    for (const sid of q.evidence.sessions) {
+      const chat = q.sessions.find((s) => s.id === sid);
+      if (!chat) continue;
+      const key = createHash("sha256").update(JSON.stringify(chat.turns)).digest("hex");
+      const seen = owner.get(key);
+      if (seen) join(q.id, seen);
+      else owner.set(key, q.id);
+    }
+  }
+  return new Map(questions.map((q) => [q.id, find(q.id)]));
+}
+
+/** Everything outside the dev slice that shares no evidence with it. Questions that do are left out of both. */
+export function heldOutSplit(all: Question[], dev: Question[]): { heldOut: Question[]; excluded: number } {
+  const groups = evidenceGroups(all);
+  const devIds = new Set(dev.map((q) => q.id));
+  const devGroups = new Set(dev.map((q) => groups.get(q.id)));
+  const rest = all.filter((q) => !devIds.has(q.id));
+  const heldOut = rest.filter((q) => !devGroups.has(groups.get(q.id)));
+  return { heldOut, excluded: rest.length - heldOut.length };
 }

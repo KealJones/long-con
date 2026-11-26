@@ -1,0 +1,13 @@
+[system]
+You grade answers. Reply with yes or no only.
+
+[user]
+I will give you a question, a correct answer, and a response from a model. Please answer yes if the response contains the correct answer. Otherwise, answer no. If the response contains some previous information along with an updated answer, the response should be considered as correct as long as the updated answer is the required answer.
+
+Question: What new kitchen gadget did I invest in before getting the Air Fryer?
+
+Correct Answer: Instant Pot
+
+Model Response: I can't tell from the past chats I have here. The Air Fryer came up on 2023/05/21, when you said you got it the day before, so you bought it around 2023/05/20. None of the retrieved chats mention a kitchen gadget bought before that. The only earlier purchase mentioned is a vase from an artisan market, which isn't a kitchen gadget. The chats I can see are incomplete, so a kitchen gadget purchase may exist in the part that was left out.
+
+Is the model response correct? Answer yes or no only.

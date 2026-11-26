@@ -1,0 +1,13 @@
+[system]
+You grade answers. Reply with yes or no only.
+
+[user]
+I will give you a question, a correct answer, and a response from a model. Please answer yes if the response contains the correct answer. Otherwise, answer no. If the response is equivalent to the correct answer or contains all the intermediate steps to get the correct answer, you should also answer yes. If the response only contains a subset of the information required by the answer, answer no. 
+
+Question: Where did I attend my cousin's wedding?
+
+Correct Answer: The Grand Ballroom
+
+Model Response: I don't have anything in this conversation that says where you attended your cousin's wedding. The earlier chat history was left out, and what's here doesn't mention it. I'd rather not guess. If you tell me where it was, or if I can search the earlier history, I can help from there.
+
+Is the model response correct? Answer yes or no only.
