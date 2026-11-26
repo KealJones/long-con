@@ -6,6 +6,7 @@ import { Bm25, type Hit } from "./bm25.ts";
 import { buildRegisters, refKey } from "./registers.ts";
 import { resolve, type Resolution } from "./resolver.ts";
 import { splitIntoSegments, type Segment } from "./segments.ts";
+import { extractNotes, groupNotes, groupWords, renderGroup, type Note } from "./notes.ts";
 import type { Profile } from "./profiles.ts";
 import { isTallyQuestion, tallySearch } from "./tally.ts";
 import { contentWords, estimateTokens } from "./text.ts";
@@ -37,6 +38,8 @@ export interface Packet {
   resolution: Resolution;
   retrieved: boolean;
   segments: PacketSegment[];
+  /** Interest notes shown, newest value of each topic first. Their source turns stay reachable by search. */
+  notes: Note[];
 }
 
 /** Mentions the search tool only when the model has one, so no arm is told about a tool it can't use. */
@@ -77,13 +80,37 @@ export function buildPacket({ history, message, profile, currentSessionId }: Bui
   // Every character of the final text is counted, joins and the section line included, so the packet can't pass its ceiling.
   let budget = profile.packetTokens - estimateTokens(head.join("\n") + `\n\n${RETRIEVED}`);
   const chosen: { segment: Segment; hit: Hit<Segment>; confidence: number }[] = [];
+  const noteLines: string[] = [];
+  const shownNotes: Note[] = [];
 
   if (gateOpen) {
     const seen = new Set<string>();
-    const hits = search(history, resolution.query, profile.segmentTokens, current?.id, recentStart);
+    const { hits, idf } = search(history, resolution.query, profile.segmentTokens, current?.id, recentStart);
     // The absolute bar asks whether history holds anything strong enough to answer at all. It judges the best unit
     // only: per unit, it cut the weaker second piece multi-session questions need (P02 dev sweep).
     const found = hits.some((h) => h.score >= profile.minScore);
+    // Interest notes come in only behind the same bar, and only when they cover enough of the message's weight,
+    // so a note can never turn a should-be-empty packet into a non-empty one on its own.
+    if (found && profile.noteCoverage > 0) {
+      const words = [...new Set(contentWords(resolution.query))];
+      const total = words.reduce((a, w) => a + idf(w), 0);
+      const groups = groupNotes(extractNotes(history, isRecent))
+        .map((g) => ({ g, hit: words.filter((w) => groupWords(g).has(w)) }))
+        // One shared word is chance ("good morning!" fully covered by "morning walks in the park"), so it takes two.
+        .filter(({ hit }) => hit.length >= MIN_NOTE_WORDS)
+        .map(({ g, hit }) => ({ g, cover: hit.reduce((a, w) => a + idf(w), 0) / total }))
+        .filter((x) => x.cover >= profile.noteCoverage)
+        .sort((a, b) => b.cover - a.cover)
+        .slice(0, MAX_NOTE_GROUPS);
+      for (const { g } of groups) {
+        const line = renderGroup(g);
+        const cost = estimateTokens(`\n${noteLines.length ? "" : `\n${NOTES}\n`}${line}`);
+        if (cost > budget) continue;
+        budget -= cost;
+        noteLines.push(line);
+        shownNotes.push(...g.notes);
+      }
+    }
     // Counting questions take one small piece per matching user turn instead of whole segments (see tally.ts).
     const tally = found && profile.tallyPieces > 0 && isTallyQuestion(message);
     const ranked = !found ? [] : tally ? tallySearch(history, resolution.query, current?.id, recentStart).slice(0, profile.tallyPieces) : hits;
@@ -105,7 +132,7 @@ export function buildPacket({ history, message, profile, currentSessionId }: Bui
   // Oldest first reads like the chat did, and keeps dates in order for "how long ago" questions.
   chosen.sort((a, b) => order(history, a.segment).localeCompare(order(history, b.segment)));
   const body = chosen.map((c) => renderSegment(c.segment, registers.rejected, c.confidence, c.hit.matched));
-  const text = [...head, ...(body.length ? ["", RETRIEVED, ...body] : [])].join("\n");
+  const text = [...head, ...(noteLines.length ? ["", NOTES, ...noteLines] : []), ...(body.length ? ["", RETRIEVED, ...body] : [])].join("\n");
 
   return {
     text,
@@ -121,6 +148,7 @@ export function buildPacket({ history, message, profile, currentSessionId }: Bui
       confidence: round(confidence),
       why: `matched ${hit.matched.slice(0, 3).join(", ")}`,
     })),
+    notes: shownNotes,
   };
 }
 
@@ -152,7 +180,8 @@ function search(history: Session[], query: string, segmentTokens: number, curren
       absolute.set(h.item, Math.max(absolute.get(h.item) ?? 0, h.score / ceilings[i]!));
     }
   });
-  return fuse(...lists).map((hit) => ({ hit, confidence: share.get(hit.item)!, score: absolute.get(hit.item)! }));
+  const hits = fuse(...lists).map((hit) => ({ hit, confidence: share.get(hit.item)!, score: absolute.get(hit.item)! }));
+  return { hits, idf: (w: string) => all.idf(w) };
 }
 
 /** Reciprocal-rank fusion, keeping the matched words from both lists. */
@@ -172,6 +201,10 @@ function fuse<T>(...lists: Hit<T>[][]): Hit<T>[] {
 }
 
 const RETRIEVED = "Retrieved history, oldest first:";
+export const NOTES = "Notes on what the user said they like, newest value first:";
+// shortcut: a fixed cap; make it per profile once a reader run shows how many notes help.
+const MAX_NOTE_GROUPS = 3;
+const MIN_NOTE_WORDS = 2;
 
 function renderSegment(seg: Segment, rejected: Set<string>, confidence: number, matched: string[]): string {
   // No chat ids here: the date is the source the model can use, and ids can carry labels it shouldn't see.

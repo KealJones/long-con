@@ -1,0 +1,616 @@
+{
+  "about": "Hand-labeled sample of notes the P31 rule noter (packages/core/src/notes.ts) saved on the 50 LongMemEval_S dev histories. 60 of 114 distinct notes (123 saved; filler chats repeat across histories), seeded shuffle (evals/loop/interest-notes.ts --dump 50 --sample). Dev histories only. The labels were written by the noter author, after the rules were last changed, so they are a first check, not an independent one. real: the sentence states a genuine interest or preference of the user. valueUsable: real, and the saved value names the liked thing on its own.",
+  "notes": [
+    {
+      "history": "ba358f49",
+      "cue": "loving",
+      "topic": "Oprah's book club series and Little America",
+      "value": "Oprah's book club series and Little America",
+      "date": "2022/09/01",
+      "sentence": "And on Apple TV+, I've been enjoying Oprah's book club series and \"Little America\".",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "45dc21b6",
+      "cue": "prefer",
+      "topic": "books that are character-driven and focus",
+      "value": "books that are character-driven and focus",
+      "date": "2023/05/30",
+      "sentence": "I prefer books that are character-driven and focus on the emotional journey of the protagonist.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "58bf7951",
+      "cue": "fan of",
+      "topic": "Gardening Know How website and the Gardener's",
+      "value": "Gardening Know How website and the Gardener's",
+      "date": "2023/05/22",
+      "sentence": "As for gardening resources, I'm a big fan of the Gardening Know How website and the Gardener's Supply Company blog.",
+      "real": true,
+      "valueUsable": false,
+      "why": "value cut mid-name"
+    },
+    {
+      "history": "gpt4_6ed717ea",
+      "cue": "favorite",
+      "topic": "bookstore",
+      "value": "Indiebound",
+      "date": "2023/05/29",
+      "sentence": "I also won a gift card to my favorite bookstore, Indiebound, and I'm looking forward to picking out some new books soon.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "d52b4f67",
+      "cue": "loving",
+      "topic": "listening to podcasts on my daily commute",
+      "value": "listening to podcasts on my daily commute",
+      "date": "2023/05/28",
+      "sentence": "I've been enjoying listening to podcasts on my daily commute, and it would be great to learn more about my own community.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "gpt4_d6585ce9",
+      "cue": "fan of",
+      "topic": "mushrooms",
+      "value": "mushrooms",
+      "date": "2023/04/15",
+      "sentence": "I'm a big fan of mushrooms, and the combination with Oaxaca cheese sounds really flavorful.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "d52b4f67",
+      "cue": "loving",
+      "topic": "reading about sustainable cities and taking notes",
+      "value": "reading about sustainable cities and taking notes",
+      "date": "2023/05/28",
+      "sentence": "I've been enjoying reading about sustainable cities and taking notes on potential ideas for my own community.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "22d2cb42",
+      "cue": "loving",
+      "topic": "indie rock scene",
+      "value": "indie rock scene",
+      "date": "2023/05/23",
+      "sentence": "I've been loving the indie rock scene lately, and I'm always on the lookout for new artists and bands to add to my playlist.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "gpt4_483dd43c",
+      "cue": "loving",
+      "topic": "scarves",
+      "value": "scarves",
+      "date": "2023/05/29",
+      "sentence": "I've been really into scarves lately and I think they can add a nice touch to my outfits.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "0a34ad58",
+      "cue": "loving",
+      "topic": "board games",
+      "value": "board games",
+      "date": "2023/05/30",
+      "sentence": "I've been getting into board games lately and I'm looking for some recommendations.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "gpt4_cd90e484",
+      "cue": "loving",
+      "topic": "poetry",
+      "value": "poetry",
+      "date": "2023/05/20",
+      "sentence": "I've been into poetry lately, and I recently bought two books from poet Emily Patel, so I was wondering if you could suggest some similar poets or collections?",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "bf659f65",
+      "cue": "loving",
+      "topic": "indie and folk-rock",
+      "value": "indie and folk-rock",
+      "date": "2023/05/29",
+      "sentence": "I've been really into indie and folk-rock lately, especially after discovering The Whiskey Wanderers at a music festival last weekend - I bought their EP 'Midnight Sky' at the festival merchandise booth and can't get enough of it.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "0e5e2d1a",
+      "cue": "prefer",
+      "topic": "wired mouse for reliability",
+      "value": "wired mouse for reliability",
+      "date": "2023/05/22",
+      "sentence": "I prefer a wired mouse for reliability.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "gpt4_e414231e",
+      "cue": "loving",
+      "topic": "Disney+",
+      "value": "Disney+",
+      "date": "2023/03/19",
+      "sentence": "By the way, I've been loving Disney+ so far - it's been a great way to pass the time since I started my free trial a couple of months ago.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "d52b4f67",
+      "cue": "loving",
+      "topic": "listening to audiobooks on my daily commute",
+      "value": "listening to audiobooks on my daily commute",
+      "date": "2023/05/28",
+      "sentence": "I've been enjoying listening to audiobooks on my daily commute, and I think it would be great to learn more about the history and development of my own community.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "gpt4_93159ced",
+      "cue": "loving",
+      "topic": "learning about cognitive biases and heuristics",
+      "value": "learning about cognitive biases and heuristics",
+      "date": "2023/05/25",
+      "sentence": "I've been enjoying learning about cognitive biases and heuristics, and I think this podcast will provide more in-depth information on those topics.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "gpt4_483dd43c",
+      "cue": "loving",
+      "topic": "scarves",
+      "value": "scarves",
+      "date": "2023/05/29",
+      "sentence": "I've been really into scarves lately, and it's always fun to add some new pieces to my wardrobe.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "gpt4_e414231e",
+      "cue": "loving",
+      "topic": "playing guitar",
+      "value": "playing guitar",
+      "date": "2023/03/19",
+      "sentence": "I've been really into playing guitar lately - I finally got around to dusting off my old guitar and started playing again about a month ago - and I want to explore more music that features great guitar work.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "945e3d21",
+      "cue": "favorite",
+      "topic": "authors",
+      "value": "Celeste Ng and Gabrielle Zevin",
+      "date": "2023/12/08",
+      "sentence": "By the way, I just attended a literary festival in downtown Chicago today, where I attend back-to-back book readings by two of my favorite authors, Celeste Ng and Gabrielle Zevin.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "945e3d21",
+      "cue": "loving",
+      "topic": "other publications like The New Yorker",
+      "value": "other publications like The New Yorker",
+      "date": "2023/12/01",
+      "sentence": "By the way, I just canceled my Forbes magazine subscription in early March because I wasn't finding the articles that interesting, but I've been enjoying other publications like The New Yorker, which I subscribed to in early February.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "gpt4_1e4a8aec",
+      "cue": "loving",
+      "topic": "discussions there",
+      "value": "discussions there",
+      "date": "2023/03/22",
+      "sentence": "I've been thinking about the Book Lovers Unite group and how I've been enjoying the discussions there.",
+      "real": true,
+      "valueUsable": false,
+      "why": "value has no referent (discussions where?)"
+    },
+    {
+      "history": "0862e8bf_abs",
+      "cue": "loving",
+      "topic": "Khalid",
+      "value": "Khalid",
+      "date": "2023/05/27",
+      "sentence": "I've been really into Khalid lately, I just saw him live at the Greek Theatre in Berkeley with my sister, Sophia, and it was amazing!",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "d52b4f67",
+      "cue": "loving",
+      "topic": "audiobooks",
+      "value": "audiobooks",
+      "date": "2023/05/28",
+      "sentence": "I've been getting into audiobooks lately, and I just finished listening to \"Sapiens\".",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "58bf7951",
+      "cue": "loving",
+      "topic": "gardening journey",
+      "value": "gardening journey",
+      "date": "2023/05/22",
+      "sentence": "By the way, I've been enjoying my gardening journey so far, and it's amazing how much I've learned in just a few months.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "18bc8abd",
+      "cue": "prefer",
+      "topic": "evening for running and cycling",
+      "value": "evening for running and cycling",
+      "date": "2023/06/30",
+      "sentence": "My available times are morning and evening, but I prefer evening for running and cycling.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "18bc8abd",
+      "cue": "loving",
+      "topic": "tennis lessons",
+      "value": "tennis lessons",
+      "date": "2023/06/30",
+      "sentence": "Since I've been enjoying my tennis lessons, I was wondering if you could recommend some tennis drills I could do on my own to improve my serves and volleys.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "d52b4f67",
+      "cue": "prefer",
+      "topic": "clean",
+      "value": "clean",
+      "date": "2023/05/21",
+      "sentence": "I prefer a clean, professional style for my work.",
+      "real": true,
+      "valueUsable": false,
+      "why": "value cut at a comma (clean, professional style)"
+    },
+    {
+      "history": "07b6f563",
+      "cue": "prefer",
+      "topic": "weighted keys",
+      "value": "weighted keys",
+      "date": "2023/05/21",
+      "sentence": "I mostly play piano and some synth sounds, and I prefer weighted keys.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "bf659f65",
+      "cue": "favorite",
+      "topic": "team",
+      "value": "Lakers",
+      "date": "2023/05/21",
+      "sentence": "My favorite team, the Lakers, just advanced to the conference finals.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "2311e44b_abs",
+      "cue": "loving",
+      "topic": "Sapiens",
+      "value": "Sapiens",
+      "date": "2023/05/22",
+      "sentence": "I've been enjoying \"Sapiens\" but it's really slow going.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "gpt4_2f8be40d",
+      "cue": "prefer",
+      "topic": "books that are engaging and thought-provoking",
+      "value": "books that are engaging and thought-provoking",
+      "date": "2023/10/15",
+      "sentence": "I'm open to trying out new authors, and I prefer books that are engaging and thought-provoking, but still easy to follow.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "d52b4f67",
+      "cue": "loving",
+      "topic": "discussing these topics with my friend",
+      "value": "discussing these topics with my friend",
+      "date": "2023/05/28",
+      "sentence": "I've been enjoying discussing these topics with my friend at the bookstore, and it would be great to meet more people who share my interests.",
+      "real": true,
+      "valueUsable": false,
+      "why": "value has no referent (these topics)"
+    },
+    {
+      "history": "0862e8bf_abs",
+      "cue": "loving",
+      "topic": "yoga practice",
+      "value": "yoga practice",
+      "date": "2023/05/21",
+      "sentence": "By the way, I've been loving my yoga practice lately, I've been going 3 times a week for the past 6 weeks and it's been a game changer for my flexibility.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "18bc8abd",
+      "cue": "loving",
+      "topic": "photography and graphic design",
+      "value": "photography and graphic design",
+      "date": "2023/05/01",
+      "sentence": "I've been getting into photography and graphic design lately, and I'm looking for some online courses to improve my skills.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "18bc8abd",
+      "cue": "loving",
+      "topic": "ability to control the lighting remotely",
+      "value": "ability to control the lighting remotely",
+      "date": "2023/04/16",
+      "sentence": "Since I recently installed smart bulbs in my bedroom, I've been enjoying the ability to control the lighting remotely, so I might look for a floor lamp that's smart-enabled or has a dimmer switch.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "gpt4_6ed717ea",
+      "cue": "loving",
+      "topic": "their in-depth articles and insightful commentary",
+      "value": "their in-depth articles and insightful commentary",
+      "date": "2023/05/29",
+      "sentence": "As a subscriber to The New Yorker, I've been enjoying their in-depth articles and insightful commentary on a wide range of topics.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "0862e8bf_abs",
+      "cue": "prefer",
+      "topic": "to stay home",
+      "value": "to stay home",
+      "date": "2023/05/24",
+      "sentence": "Being able to order delivery or takeout from these vegetarian restaurants in Bangkok is great news for me, especially during the pandemic when I prefer to stay home.",
+      "real": false,
+      "valueUsable": false,
+      "why": "situational (pandemic), not a lasting taste"
+    },
+    {
+      "history": "dc439ea3",
+      "cue": "into",
+      "topic": "trying out different cuisines",
+      "value": "trying out different cuisines",
+      "date": "2023/05/25",
+      "sentence": "By the way, I'm really into trying out different cuisines, and I've been experimenting with Indian and Korean recipes lately.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "gpt4_c27434e8",
+      "cue": "loving",
+      "topic": "laptop's performance",
+      "value": "laptop's performance",
+      "date": "2023/05/29",
+      "sentence": "By the way, I've been loving my laptop's performance since I upgraded the RAM recently.",
+      "real": false,
+      "valueUsable": false,
+      "why": "satisfaction with an upgrade, not a preference"
+    },
+    {
+      "history": "gpt4_e414231e",
+      "cue": "fan of",
+      "topic": "pour-over coffee",
+      "value": "pour-over coffee",
+      "date": "2023/03/19",
+      "sentence": "I'm a fan of pour-over coffee, and I've been using my new coffee maker with a built-in grinder to experiment with different roasts.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "gpt4_6ed717ea",
+      "cue": "loving",
+      "topic": "photography",
+      "value": "photography",
+      "date": "2023/05/29",
+      "sentence": "By the way, I've been really enjoying photography since I organized my old photos from the past few years on my computer about 3 weeks ago, and I'm excited to continue improving my skills.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "eac54adc",
+      "cue": "fan of",
+      "topic": "Almodovar's work",
+      "value": "Almodovar's work",
+      "date": "2023/02/10",
+      "sentence": "Yeah, I'm a big fan of Almodovar's work.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "bf659f65",
+      "cue": "favorite",
+      "topic": "movies",
+      "value": "The Dark Knight and Inception",
+      "date": "2023/05/22",
+      "sentence": "I'm thinking of re-watching some of my favorite movies, including \"The Dark Knight\" and \"Inception\", both directed by Christopher Nolan.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "60bf93ed_abs",
+      "cue": "prefer",
+      "topic": "mix of both",
+      "value": "mix of both",
+      "date": "2023/01/24",
+      "sentence": "I think I prefer a mix of both.",
+      "real": true,
+      "valueUsable": false,
+      "why": "value has no referent (both what?)"
+    },
+    {
+      "history": "dc439ea3",
+      "cue": "loving",
+      "topic": "morning walks in the park",
+      "value": "morning walks in the park",
+      "date": "2023/05/28",
+      "sentence": "By the way, I've been enjoying my morning walks in the park lately, and I'm loving how the flowers are blooming more and more each week.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "ba358f49",
+      "cue": "fan of",
+      "topic": "complex characters and morally ambiguous themes",
+      "value": "complex characters and morally ambiguous themes",
+      "date": "2022/09/01",
+      "sentence": "I'm also a fan of complex characters and morally ambiguous themes.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "eace081b",
+      "cue": "favorite",
+      "topic": "one in Jackson Hole",
+      "value": "one in Jackson Hole",
+      "date": "2023/05/25",
+      "sentence": "We stayed in some really nice hotels, but I think my favorite was the one in Jackson Hole, Wyoming.",
+      "real": true,
+      "valueUsable": false,
+      "why": "value misses the noun (hotel)"
+    },
+    {
+      "history": "157a136e",
+      "cue": "loving",
+      "topic": "poetry",
+      "value": "poetry",
+      "date": "2024/02/05",
+      "sentence": "I've been into poetry lately, especially after attending a poetry reading at a local coffee shop recently, where a group of emerging poets read from their latest works.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "2311e44b_abs",
+      "cue": "loving",
+      "topic": "new laptop",
+      "value": "new laptop",
+      "date": "2023/05/27",
+      "sentence": "By the way, I've been really enjoying my new laptop, a Lenovo Yoga 7i that I bought for $800 to replace my old desktop computer.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "gpt4_cd90e484",
+      "cue": "loving",
+      "topic": "poetry",
+      "value": "poetry",
+      "date": "2023/05/20",
+      "sentence": "I've been enjoying poetry lately, and I've even bought two books from poet Emily Patel, which I really liked.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "gpt4_7f6b06db",
+      "cue": "into",
+      "topic": "collecting stamps featuring animals",
+      "value": "collecting stamps featuring animals",
+      "date": "2023/05/15",
+      "sentence": "I'm also getting into collecting stamps featuring animals, especially birds.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "07b6f563",
+      "cue": "favorite",
+      "topic": "coffee shop on Friday evening",
+      "value": "courtesy of my partner",
+      "date": "2023/05/27",
+      "sentence": "I just got a new gift from my favorite coffee shop on Friday evening, courtesy of my partner, and it got me thinking about trying out some new coffee-based recipes.",
+      "real": false,
+      "valueUsable": false,
+      "why": "value is not the thing liked; the favorite shop is unnamed"
+    },
+    {
+      "history": "6222b6eb",
+      "cue": "loving",
+      "topic": "audiobooks",
+      "value": "audiobooks",
+      "date": "2023/05/22",
+      "sentence": "I've been enjoying audiobooks a lot lately, especially during my daily commute.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "gpt4_1e4a8aec",
+      "cue": "loving",
+      "topic": "new backpack from REI",
+      "value": "new backpack from REI",
+      "date": "2023/04/12",
+      "sentence": "Speaking of bags, I've been loving my new backpack from REI, it's been really helpful for my daily commute.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "945e3d21",
+      "cue": "into",
+      "topic": "sneakers",
+      "value": "sneakers",
+      "date": "2023/12/06",
+      "sentence": "I'm really into sneakers right now, and I've been wearing my new Adidas sneakers almost every day since I got them.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "0a34ad58",
+      "cue": "loving",
+      "topic": "classes",
+      "value": "classes",
+      "date": "2023/05/24",
+      "sentence": "I've been really enjoying the classes, by the way - I started on January 10th and I've learned so much from my instructor Rachel.",
+      "real": true,
+      "valueUsable": false,
+      "why": "value has no referent (which classes?)"
+    },
+    {
+      "history": "gpt4_7f6b06db",
+      "cue": "favorite",
+      "topic": "foods",
+      "value": "can you give me some suggestions",
+      "date": "2023/03/04",
+      "sentence": "I'm having trouble finding lactose-free alternatives to my favorite foods, can you give me some suggestions?",
+      "real": false,
+      "valueUsable": false,
+      "why": "value is the rest of a question"
+    },
+    {
+      "history": "8077ef71",
+      "cue": "fan of",
+      "topic": "action-adventure and role-playing games",
+      "value": "action-adventure and role-playing games",
+      "date": "2022/03/09",
+      "sentence": "I'm a big fan of action-adventure and role-playing games, and I've already played some of the games on your list, like God of War and Uncharted 4.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "gpt4_93159ced",
+      "cue": "loving",
+      "topic": "sneakers",
+      "value": "sneakers",
+      "date": "2023/05/25",
+      "sentence": "I've been really into sneakers lately, especially since I got my new Adidas ones three weeks ago.",
+      "real": true,
+      "valueUsable": true
+    },
+    {
+      "history": "gpt4_93159ced",
+      "cue": "loving",
+      "topic": "listening to podcasts during my commute",
+      "value": "listening to podcasts during my commute",
+      "date": "2023/05/25",
+      "sentence": "I've been enjoying listening to podcasts during my commute as well, and I think it would be great to find some psychology-related ones.",
+      "real": true,
+      "valueUsable": true
+    }
+  ]
+}

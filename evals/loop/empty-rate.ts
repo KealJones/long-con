@@ -26,6 +26,7 @@ export const SLICE = join(ROOT, "evals/slices/longmemeval-s-dev50.json");
 export const TIER1 = join(ROOT, "evals/sets/should-be-empty/tier1.json");
 export const FIXTURE = join(ROOT, "evals/sets/should-be-empty/fixture-haystack.json");
 const RETRIEVED = "Retrieved history, oldest first:";
+const NOTES = "Notes on what the user said they like, newest value first:";
 
 export type TierName = "tier1-off-history" | "tier2-cross-history" | "tier3-evidence-ablated" | "tier4-abstention" | "answerable";
 
@@ -180,11 +181,18 @@ export interface ProbeResult {
   retrievedTokens: number;
 }
 
-export function runProbe(probe: Probe, profile: Profile, build: (p: Probe) => Pick<Packet, "segments" | "text" | "tokens"> = defaultBuild(profile)): ProbeResult {
+export function runProbe(
+  probe: Probe,
+  profile: Profile,
+  build: (p: Probe) => Pick<Packet, "segments" | "text" | "tokens"> & Partial<Pick<Packet, "notes">> = defaultBuild(profile),
+): ProbeResult {
   const packet = build(probe);
-  const evidenceUnits = probe.evidence ? packet.segments.filter((s) => isEvidenceUnit(s, probe.evidence!)).length : 0;
-  const at = packet.text.indexOf(RETRIEVED);
-  return { probe, units: packet.segments.length, evidenceUnits, tokens: packet.tokens, retrievedTokens: at < 0 ? 0 : estimateTokens(packet.text.slice(at)) };
+  // Each interest note shown is a unit too, judged by its source turn, so a note on a should-be-empty prompt counts as a false inclusion.
+  const units = [...packet.segments, ...(packet.notes ?? []).map((n) => ({ sessionId: n.from.sessionId, start: n.from.turn, end: n.from.turn }))];
+  const evidenceUnits = probe.evidence ? units.filter((s) => isEvidenceUnit(s, probe.evidence!)).length : 0;
+  const found = [NOTES, RETRIEVED].map((h) => packet.text.indexOf(h)).filter((i) => i >= 0);
+  const at = found.length ? Math.min(...found) : -1;
+  return { probe, units: units.length, evidenceUnits, tokens: packet.tokens, retrievedTokens: at < 0 ? 0 : estimateTokens(packet.text.slice(at)) };
 }
 
 // Same call as `eval recall`: no current session, so nothing rides along raw. The switch point isn't applied, since

@@ -24,6 +24,11 @@ export interface Profile {
   segmentTokens: number;
   /** Most pieces a counting question brings in (tally mode, see tally.ts). 0 turns tally mode off. */
   tallyPieces: number;
+  /**
+   * Interest notes (notes.ts) come in when they cover at least this share of the message's IDF weight, and only
+   * when the absolute bar already let history in. 0 turns notes off.
+   */
+  noteCoverage: number;
   /** How many of the model's own latest answers in this chat go in the registers. */
   recentAnswers: number;
   /** Whether a per-turn gate can skip retrieval for messages that need none, like "thanks". */
@@ -58,6 +63,7 @@ export const PROFILES = {
     // question and answer together; smaller still scored a little higher on a benchmark whose facts sit in user turns.
     segmentTokens: 400,
     tallyPieces: Infinity,
+    noteCoverage: 0.5,
     recentAnswers: 2,
     gate: true,
     trustNote: true,
@@ -80,6 +86,7 @@ export const PROFILES = {
     segmentTokens: 400,
     // Off: on the dev slice every cap that kept its recall gain added wrong pieces on evidence-ablated histories (P06).
     tallyPieces: 0,
+    noteCoverage: 0.5,
     recentAnswers: 1,
     gate: true,
     trustNote: true,
