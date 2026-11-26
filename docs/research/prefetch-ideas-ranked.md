@@ -21,14 +21,14 @@ Score = expected gain × confidence ÷ cost, roughly. Measurement and safety ite
 | # | ID | Idea | Profile it helps most | Cost | Status |
 | --- | --- | --- | --- | --- | --- |
 | 1 | P01 | Should-be-empty set and empty-rate metric | Both (measurement) | Low | kept |
-| 2 | P02 | Absolute relevance gate (normalized BM25, coverage, anchor) | small-local | Low | open |
+| 2 | P02 | Absolute relevance gate (normalized BM25, coverage, anchor) | small-local | Low | kept (score bar only) |
 | 3 | P03 | Logistic gate on ~9 features, τ per profile | small-local | Low | open |
 | 3b | P31 | Interest notes: background noter plus remember tool (queued ahead of P04 on 2026-11-26) | Both | Medium | open |
 | 4 | P04 | Cross-encoder rerank of top 40-60 | small-local | Medium | open |
-| 5 | P05 | Zero-model contextual prefix in the index | Both | Low | open |
-| 6 | P06 | Tally mode for counting questions | Both | Low | open |
+| 5 | P05 | Zero-model contextual prefix in the index | Both | Low | dropped (retry as tie-break) |
+| 6 | P06 | Tally mode for counting questions | Both | Low | kept (claude only) |
 | 7 | P07 | Event-date index and time-range boost | Both | Low | open |
-| 8 | P08 | Rule PRF plus entity second hop | Both | Low | open |
+| 8 | P08 | Rule PRF plus entity second hop | Both | Low | dropped |
 | 9 | P09 | Preference spans with category keys | small-local | Low | folded into P31 |
 | 10 | P10 | Message-level dense channel with its own floor | Both | Medium | open |
 | 11 | P11 | Static embedder for small-local | small-local | Low | open |
