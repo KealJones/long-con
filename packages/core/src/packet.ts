@@ -11,6 +11,7 @@ import type { Profile } from "./profiles.ts";
 import { isTallyQuestion, SEG_GATE, tallySearch } from "./tally.ts";
 import { unitProbability } from "./gate.ts";
 import { contentWords, estimateTokens, type Stemmer } from "./text.ts";
+import { lookupSymbols, type SymbolIndex, type SymbolItem } from "./symbols.ts";
 
 export interface BuildPacketInput {
   history: Session[];
@@ -18,6 +19,11 @@ export interface BuildPacketInput {
   profile: Profile;
   /** Set when the message continues an existing session; its latest turns ride along raw. */
   currentSessionId?: string;
+  /**
+   * The workspace's symbol index, when the caller has one. A message naming an identifier with exactly one definition
+   * gets its path:line and signature, two or three get pointers, anything else gets no Code section.
+   */
+  code?: SymbolIndex;
 }
 
 /** One retrieved unit of history in the packet, with the labels the model sees. */
@@ -41,6 +47,8 @@ export interface Packet {
   segments: PacketSegment[];
   /** Interest notes shown, newest value of each topic first. Their source turns stay reachable by search. */
   notes: Note[];
+  /** Definitions in the Code section: a signature for a single match, pointers otherwise. */
+  code: SymbolItem[];
 }
 
 /** Mentions the search tool only when the model has one, so no arm is told about a tool it can't use. */
@@ -49,7 +57,7 @@ export const HISTORY_NOTICE = (since: string, canSearch = true) =>
 export const TRUST_NOTE = (canSearch = true) =>
   `This packet is a best guess at what's relevant. Don't rely on anything in it that looks wrong${canSearch ? "; use the tools instead" : ""}.`;
 
-export function buildPacket({ history, message, profile, currentSessionId }: BuildPacketInput): Packet {
+export function buildPacket({ history, message, profile, currentSessionId, code }: BuildPacketInput): Packet {
   const current = history.find((s) => s.id === currentSessionId);
   const recentStart = current ? Math.max(0, current.turns.length - profile.rawTurns) : 0;
   const recentTurns = current ? current.turns.slice(recentStart) : [];
@@ -80,6 +88,10 @@ export function buildPacket({ history, message, profile, currentSessionId }: Bui
   const gateOpen = !profile.gate || resolution.status !== "none" || contentWords(message).length > 0;
   // Every character of the final text is counted, joins and the section line included, so the packet can't pass its ceiling.
   let budget = profile.packetTokens - estimateTokens(head.join("\n") + `\n\n${RETRIEVED}`);
+  // Code is its own source with its own exactness rule, so it sits behind no history bar; it spends the same budget.
+  const symbols = code ? lookupSymbols(message, code, { blockTokens: 0, packetTokens: budget - estimateTokens(`\n\n${CODE}\n`), shape: "signature" }) : undefined;
+  const codeLines = symbols?.text ? ["", CODE, symbols.text] : [];
+  budget -= estimateTokens(codeLines.join("\n"));
   const chosen: { segment: Segment; hit: Hit<Segment>; confidence: number }[] = [];
   const noteLines: string[] = [];
   const shownNotes: Note[] = [];
@@ -142,7 +154,7 @@ export function buildPacket({ history, message, profile, currentSessionId }: Bui
   // Oldest first reads like the chat did, and keeps dates in order for "how long ago" questions.
   chosen.sort((a, b) => order(history, a.segment).localeCompare(order(history, b.segment)));
   const body = chosen.map((c) => renderSegment(c.segment, registers.rejected, c.confidence, c.hit.matched));
-  const text = [...head, ...(noteLines.length ? ["", NOTES, ...noteLines] : []), ...(body.length ? ["", RETRIEVED, ...body] : [])].join("\n");
+  const text = [...head, ...codeLines, ...(noteLines.length ? ["", NOTES, ...noteLines] : []), ...(body.length ? ["", RETRIEVED, ...body] : [])].join("\n");
 
   return {
     text,
@@ -159,6 +171,7 @@ export function buildPacket({ history, message, profile, currentSessionId }: Bui
       why: `matched ${hit.matched.slice(0, 3).join(", ")}`,
     })),
     notes: shownNotes,
+    code: symbols?.items ?? [],
   };
 }
 
@@ -254,6 +267,7 @@ function fuse<T>(...lists: Hit<T>[][]): Hit<T>[] {
 }
 
 const RETRIEVED = "Retrieved history, oldest first:";
+const CODE = "Code the message names, from the workspace's symbol index (read the file before editing):";
 export const NOTES = "Notes on what the user said they like, newest value first:";
 // shortcut: a fixed cap; make it per profile once a reader run shows how many notes help.
 const MAX_NOTE_GROUPS = 3;

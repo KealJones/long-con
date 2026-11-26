@@ -33,12 +33,16 @@ export interface SymbolBudget {
   blockTokens: number;
   /** Ceiling on the whole symbol section. */
   packetTokens: number;
+  /** What one definition brings: its whole block (default), or its signature alone, for the packet's short Code section. */
+  shape?: "block" | "signature";
 }
 
 export interface SymbolItem {
   def: SymbolDef;
   /** The whole block, when one definition matched and it fit. Absent for a pointer. */
   block?: string;
+  /** The signature lines, when one definition matched in signature shape. */
+  signature?: string;
 }
 
 export interface SymbolLookup {
@@ -52,6 +56,8 @@ export interface SymbolLookup {
 const MAX_POINTERS = 3;
 /** Most distinct names one message resolves. */
 const MAX_NAMES = 3;
+/** A signature longer than this is cut; the path:line still says where the rest is. */
+const SIGNATURE_LINES = 4;
 /** A block scan gives up after this many lines and takes the definition line alone. */
 const MAX_BLOCK_LINES = 600;
 
@@ -81,6 +87,17 @@ export class SymbolIndex {
   /** The definition's lines, comments above it included. */
   block(def: SymbolDef): string {
     return (this.lines.get(def.path) ?? []).slice(def.startLine - 1, def.endLine).join("\n");
+  }
+
+  /** The definition's own opening lines, up to where its body starts or its statement ends. */
+  signature(def: SymbolDef): string {
+    const lines = this.lines.get(def.path) ?? [];
+    const out: string[] = [];
+    for (let i = def.line - 1; i < def.endLine && out.length < SIGNATURE_LINES; i++) {
+      out.push(lines[i]!);
+      if (/(?:[{:;]|=>)\s*$/.test(lines[i]!.replace(/\s\/\/.*$/, ""))) break;
+    }
+    return out.join("\n");
   }
 
   get size(): number {
@@ -138,6 +155,7 @@ function indexBraced(path: string, lines: string[], lang: "ts" | "go"): SymbolDe
     defs.push(d);
     return d;
   };
+  let comment = false;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
     if (lang === "go") {
@@ -150,18 +168,31 @@ function indexBraced(path: string, lines: string[], lang: "ts" | "go"): SymbolDe
       }
       continue;
     }
-    let matched = false;
+    // Only a top-level statement defines anything here (class members come from classMembers). Each statement's own
+    // lines are skipped, so a function inside a function body, or code inside a template string, is no definition.
+    if (comment) {
+      if (line.includes("*/")) comment = false;
+      continue;
+    }
+    const t = line.trim();
+    if (!t || t.startsWith("//")) continue;
+    if (t.startsWith("/*")) {
+      comment = !t.includes("*/", 2);
+      continue;
+    }
+    let end: number | undefined;
     for (const [re, kind] of TS_DECL) {
       const m = line.match(re);
       if (!m) continue;
-      matched = true;
       const d = def(m[1]!, kind, i);
       if (kind === "class") defs.push(...classMembers(path, lines, d, lang));
+      end = d.endLine - 1;
       break;
     }
-    if (matched) continue;
-    const v = line.match(TS_TOP_VAR);
-    if (v) def(v[1]!, TS_ARROW.test(v[2]!) ? "function" : "const", i);
+    const v = end === undefined ? line.match(TS_TOP_VAR) : null;
+    // `const scan = require("./scan")` binds a name defined elsewhere.
+    if (v && !/^\s*require\s*\(/.test(v[2]!)) end = def(v[1]!, TS_ARROW.test(v[2]!) ? "function" : "const", i).endLine - 1;
+    i = Math.max(i, end ?? blockEnd(lines, i, lang));
   }
   return defs;
 }
@@ -328,6 +359,8 @@ export interface NamedIdentifier {
   head?: string;
   /** A kind word right next to it: "the Profile interface". */
   kind?: SymbolKind[];
+  /** Let in only by call parens ("add()"): a bare call can't name a method, which is called on something. */
+  bareCall?: boolean;
 }
 
 const KIND_WORDS: Record<string, SymbolKind[]> = {
@@ -360,7 +393,7 @@ export function identifierShaped(token: string): boolean {
 export function identifiersIn(message: string): NamedIdentifier[] {
   const out: NamedIdentifier[] = [];
   const seen = new Set<string>();
-  const push = (raw: string, kind?: SymbolKind[]) => {
+  const push = (raw: string, kind?: SymbolKind[], bareCall = false) => {
     const parts = raw.split(".");
     const id: NamedIdentifier = { name: parts[parts.length - 1]! };
     if (parts.length > 1) {
@@ -368,6 +401,7 @@ export function identifiersIn(message: string): NamedIdentifier[] {
       id.head = parts[0];
     }
     if (kind) id.kind = kind;
+    if (bareCall) id.bareCall = true;
     if (seen.has(raw)) return;
     seen.add(raw);
     out.push(id);
@@ -376,7 +410,7 @@ export function identifiersIn(message: string): NamedIdentifier[] {
   // Backticks are the user saying "this is code", so any identifier inside counts.
   const rest = message.replace(/`([^`\n]+)`/g, (_, inner: string) => {
     const t = inner.trim().replace(/\(.*\)$/, "").replace(/^(?:function|class|interface|type|const|def|func)\s+/, "");
-    if (IDENT.test(t) && !FILE_EXT.test(t) && !SKIP.has(t.toLowerCase())) push(t);
+    if (IDENT.test(t) && !FILE_EXT.test(t) && !SKIP.has(t)) push(t);
     return " ";
   });
 
@@ -400,7 +434,8 @@ export function identifiersIn(message: string): NamedIdentifier[] {
       continue;
     }
     if (SKIP.has(token.toLowerCase())) continue;
-    if (identifierShaped(token) || (call && token.length >= 3) || /^[A-Za-z]{2,}\d/.test(token)) push(token, kind);
+    const shaped = identifierShaped(token) || /^[A-Za-z]{2,}\d/.test(token);
+    if (shaped || (call && token.length >= 3)) push(token, kind, !shaped && !kind);
     else if (kind && token.length >= 3) push(token, kind);
   }
   return out;
@@ -421,10 +456,9 @@ export function definitionsFor(id: NamedIdentifier, index: SymbolIndex, message 
     if (qualified.length) defs = qualified;
     else defs = id.head ? index.lookup(id.head).filter((d) => d.kind === "const" || d.kind === "class" || d.kind === "enum") : [];
   }
-  if (defs.length > 1 && id.kind) {
-    const kinded = defs.filter((d) => id.kind!.includes(d.kind));
-    if (kinded.length) defs = kinded;
-  }
+  if (id.bareCall) defs = defs.filter((d) => d.kind !== "method");
+  // "the question type" names a type; a question() function is not it.
+  if (id.kind) defs = defs.filter((d) => id.kind!.includes(d.kind));
   if (defs.length > 1) {
     const named = defs.filter((d) => mentionsFile(message, d.path));
     if (named.length) defs = named;
@@ -452,6 +486,18 @@ export function lookupSymbols(message: string, index: SymbolIndex, budget: Symbo
     const defs = definitionsFor(id, index, message).filter((d) => !taken.has(where(d)));
     if (defs.length === 0 || defs.length > MAX_POINTERS) continue;
     names++;
+    if (defs.length === 1 && budget.shape === "signature") {
+      const def = defs[0]!;
+      const signature = index.signature(def);
+      const rendered = renderSignature(def, signature);
+      const cost = estimateTokens(rendered);
+      if (tokens + cost > budget.packetTokens) continue;
+      items.push({ def, signature });
+      parts.push(rendered);
+      tokens += cost;
+      taken.add(where(def));
+      continue;
+    }
     if (defs.length === 1) {
       const def = defs[0]!;
       const block = index.block(def);
@@ -485,6 +531,11 @@ const label = (d: SymbolDef) => `${d.container ? `${d.container}.` : ""}${d.name
 function renderBlock(def: SymbolDef, block: string): string {
   const lang = languageOf(def.path) === "ts" ? "ts" : (languageOf(def.path) ?? "");
   return `${where(def)} (${def.kind} ${label(def)}, lines ${def.startLine}-${def.endLine}):\n\`\`\`${lang}\n${block}\n\`\`\``;
+}
+
+function renderSignature(def: SymbolDef, signature: string): string {
+  const lang = languageOf(def.path) === "ts" ? "ts" : (languageOf(def.path) ?? "");
+  return `${where(def)} (${def.kind} ${label(def)}, lines ${def.line}-${def.endLine}):\n\`\`\`${lang}\n${signature}\n\`\`\``;
 }
 
 function renderPointers(name: string, defs: SymbolDef[]): string {

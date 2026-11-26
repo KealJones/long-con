@@ -2,6 +2,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { identifiersIn, indexSource, lookupSymbols, SymbolIndex } from "../src/symbols.ts";
+import { buildPacket } from "../src/packet.ts";
+import { PROFILES } from "../src/profiles.ts";
 
 const ts = `// Packet helpers.
 import { x } from "./x.ts";
@@ -169,6 +171,53 @@ test("more than three definitions, a typo or a wrong case: nothing", () => {
   assert.equal(lookupSymbols("where is buildPackets defined", index, roomy).text, "");
   assert.equal(lookupSymbols("BuildPacket is broken", index, roomy).text, "");
   assert.equal(lookupSymbols("the packet is too big", index, roomy).text, "");
+});
+
+test("only top-level statements define: template strings, comments, nested functions and require bindings don't", () => {
+  const src = [
+    "const fixture = `",
+    "export function ghost() {}",
+    "`;",
+    "function outer() {",
+    "  function inner() {}",
+    "}",
+    'const scan = require("./scan");',
+    "/*",
+    "export function commented() {}",
+    "*/",
+    "export function real() {}",
+  ].join("\n");
+  const names = indexSource("x.js", src).map((d) => `${d.name}:${d.line}`);
+  assert.deepEqual(names, ["fixture:1", "outer:4", "real:11"]);
+});
+
+test("a bare call can't name a method, and a kind word that doesn't fit gives nothing", () => {
+  assert.equal(lookupSymbols("how do I add() an item to a Set", index, roomy).text, "", "add is only a method here");
+  assert.equal(lookupSymbols("Bm25.add() skips nothing", index, roomy).items.length, 1, "a qualified call still names it");
+  assert.equal(lookupSymbols("the buildPacket interface", index, roomy).text, "");
+  assert.equal(lookupSymbols("the Mode enum", index, roomy).items.length, 1);
+});
+
+test("signature shape: path:line and the opening line, no body", () => {
+  const out = lookupSymbols("where is buildPacket defined?", index, { ...roomy, shape: "signature" });
+  assert.equal(out.items[0]!.signature, "export function buildPacket(input: { message: string }): string {");
+  assert.match(out.text, /src\/packet\.ts:5 /);
+  assert.doesNotMatch(out.text, /return/);
+});
+
+test("the packet gets a Code section only with a code source and an exact name, inside its budget", () => {
+  const plain = buildPacket({ history: [], message: "why is buildPacket slow", profile: PROFILES.claude });
+  const withCode = buildPacket({ history: [], message: "why is buildPacket slow", profile: PROFILES.claude, code: index });
+  assert.equal(plain.code.length, 0);
+  assert.deepEqual(withCode.code.map((i) => `${i.def.path}:${i.def.line}`), ["src/packet.ts:5"]);
+  assert.ok(withCode.text.startsWith(plain.text.split("\n")[0]!) && withCode.text.includes("src/packet.ts:5"));
+  for (const message of ["where is fetchUserProfile defined?", "thanks!", "how do I reverse a linked list"]) {
+    assert.equal(buildPacket({ history: [], message, profile: PROFILES.claude, code: index }).text, buildPacket({ history: [], message, profile: PROFILES.claude }).text);
+  }
+  const tiny = { ...PROFILES.claude, packetTokens: plain.tokens + 5 };
+  const squeezed = buildPacket({ history: [], message: "why is buildPacket slow", profile: tiny, code: index });
+  assert.equal(squeezed.code.length, 0, "a section that doesn't fit stays out");
+  assert.ok(squeezed.tokens <= tiny.packetTokens);
 });
 
 test("a block over the cap becomes a pointer; the packet ceiling is never passed", () => {

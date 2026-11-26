@@ -1,7 +1,7 @@
 {
- "description": "Identifier-exact path:line set over this repo's own source. Labels were written by reading the code at the pinned commit, not by running the resolver. expect: block (each listed path:line comes with its whole block), pointers (exactly these path:line, no body), empty (nothing). Each at entry is path:line-endLine, the declaration's span (comments above excluded) taken from the TypeScript compiler's syntax tree at the commit. subset exact: prompts that name a symbol the way the spec describes, so they check the spec is implemented. subset hard: written before any run; plain-language questions, sloppy names, lone PascalCase words and code-shaped words that aren't definitions here. A name the index can't match exactly, like a string literal or a typo, is labeled empty even when a human could guess the place: the resolver must not guess.",
+ "description": "Identifier-exact path:line set over this repo's own source. Labels were written by reading the code at the pinned commit, not by running the resolver. expect: block (each listed path:line comes with its whole block), pointers (exactly these path:line, no body), empty (nothing). Each at entry is path:line-endLine, the declaration's span (comments above excluded) taken from the TypeScript compiler's syntax tree at the commit. subset exact: prompts that name a symbol the way the spec describes, so they check the spec is implemented. subset hard: written before any run; plain-language questions, sloppy names, lone PascalCase words and code-shaped words that aren't definitions here. A name the index can't match exactly, like a string literal or a typo, is labeled empty even when a human could guess the place: the resolver must not guess. Prompts with ids starting v2- were added later: each carries a source, either a commit of this repo (gold from the syntax tree at that commit, where the test fixtures' template strings are not definitions) or npm:picomatch@4.0.7 (read from node_modules, never edited; gold from the syntax tree, plus two property-assigned functions labeled by hand). subset empty-code: should-be-empty coding prompts (names that don't exist here, generic programming questions naming standard-library calls, prose). Written before the packet wiring was scored.",
  "commit": "2f04267c20ce85c5a4b905dd2bef6dfff177e88e",
- "index": "every git-tracked .ts/.tsx/.js/.mjs/.py/.go file at the commit",
+ "index": "every git-tracked .ts/.tsx/.js/.mjs/.py/.go file at the commit; for a v2- prompt, its source",
  "split": "held-out when FNV-1a(id) % 3 == 0, dev otherwise; tune only on dev",
  "prompts": [
   {
@@ -731,6 +731,1398 @@
    "id": "hard-shape-beforeEach",
    "subset": "hard",
    "prompt": "does node:test support beforeEach?",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-searchUnits",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "getting a TypeError: Cannot read properties of undefined (reading 'score') in searchUnits when history is empty",
+   "expect": "block",
+   "at": [
+    "packages/core/src/packet.ts:170-219"
+   ]
+  },
+  {
+   "id": "v2-searchHistory",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "can you make searchHistory put the query in its 'No matches.' line",
+   "expect": "block",
+   "at": [
+    "packages/core/src/packet.ts:225-238"
+   ]
+  },
+  {
+   "id": "v2-fuse",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "fuse() keeps duplicate matched words I think, check it",
+   "expect": "block",
+   "at": [
+    "packages/core/src/packet.ts:241-254"
+   ]
+  },
+  {
+   "id": "v2-renderSegment",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "renderSegment should show whether a unit was cut from a longer turn more clearly",
+   "expect": "block",
+   "at": [
+    "packages/core/src/packet.ts:262-270"
+   ]
+  },
+  {
+   "id": "v2-earliestDate",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "earliestDate returns an empty string when no session has a date, is that handled upstream?",
+   "expect": "block",
+   "at": [
+    "packages/core/src/packet.ts:283-285"
+   ]
+  },
+  {
+   "id": "v2-unitProbability",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "what does unitProbability return when the weights array is shorter than the features",
+   "expect": "block",
+   "at": [
+    "packages/core/src/gate.ts:23-27"
+   ]
+  },
+  {
+   "id": "v2-isTallyQuestion",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "add a test for isTallyQuestion with 'how many times did I'",
+   "expect": "block",
+   "at": [
+    "packages/core/src/tally.ts:17-17"
+   ]
+  },
+  {
+   "id": "v2-tallySearch",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "tallySearch is slow on the 500-session haystack, can you profile it",
+   "expect": "block",
+   "at": [
+    "packages/core/src/tally.ts:49-115"
+   ]
+  },
+  {
+   "id": "v2-extractNotes",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "extractNotes picks up hypothetical sentences like 'if I liked jazz'",
+   "expect": "block",
+   "at": [
+    "packages/core/src/notes.ts:84-93"
+   ]
+  },
+  {
+   "id": "v2-groupNotes",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "groupNotes should merge topics case-insensitively",
+   "expect": "block",
+   "at": [
+    "packages/core/src/notes.ts:99-108"
+   ]
+  },
+  {
+   "id": "v2-renderGroup",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "renderGroup output is too wordy for small-local",
+   "expect": "block",
+   "at": [
+    "packages/core/src/notes.ts:114-120"
+   ]
+  },
+  {
+   "id": "v2-notesFromTurn",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "notesFromTurn: why does it skip question sentences?",
+   "expect": "block",
+   "at": [
+    "packages/core/src/notes.ts:66-81"
+   ]
+  },
+  {
+   "id": "v2-clip",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "the `clip` helper cuts note values mid-word",
+   "expect": "block",
+   "at": [
+    "packages/core/src/notes.ts:57-63"
+   ]
+  },
+  {
+   "id": "v2-splitIntoSegments",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "splitIntoSegments drops the last turn when a session has an odd number of turns?",
+   "expect": "block",
+   "at": [
+    "packages/core/src/segments.ts:20-48"
+   ]
+  },
+  {
+   "id": "v2-contentWords",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "contentWords should keep numbers like 2023",
+   "expect": "block",
+   "at": [
+    "packages/core/src/text.ts:31-38"
+   ]
+  },
+  {
+   "id": "v2-profileByName",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "profileByName('small-local') returns undefined in the web app",
+   "expect": "block",
+   "at": [
+    "packages/core/src/profiles.ts:129-129"
+   ]
+  },
+  {
+   "id": "v2-lastList",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "lastList in the resolver should only look at assistant turns",
+   "expect": "block",
+   "at": [
+    "packages/core/src/resolver.ts:58-69"
+   ]
+  },
+  {
+   "id": "v2-withRecentWords",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "withRecentWords adds too many words to the query",
+   "expect": "block",
+   "at": [
+    "packages/core/src/resolver.ts:85-88"
+   ]
+  },
+  {
+   "id": "v2-firstLine",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "firstLine in registers chops rules that start with a quote",
+   "expect": "block",
+   "at": [
+    "packages/core/src/registers.ts:48-51"
+   ]
+  },
+  {
+   "id": "v2-refKey",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "refKey uses '#' as the separator, could that collide with session ids?",
+   "expect": "block",
+   "at": [
+    "packages/core/src/registers.ts:16-16"
+   ]
+  },
+  {
+   "id": "v2-loadLongMemEval",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "loadLongMemEval: support the _m variant of the dataset too",
+   "expect": "block",
+   "at": [
+    "evals/src/longmemeval.ts:43-69"
+   ]
+  },
+  {
+   "id": "v2-stratified-mulberry",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "is stratifiedSlice deterministic across node versions? it uses mulberry32 right",
+   "expect": "block",
+   "at": [
+    "evals/src/longmemeval.ts:75-99",
+    "evals/src/longmemeval.ts:101-110"
+   ]
+  },
+  {
+   "id": "v2-evidenceGroups",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "evidenceGroups merges questions too aggressively",
+   "expect": "block",
+   "at": [
+    "evals/src/longmemeval.ts:117-157"
+   ]
+  },
+  {
+   "id": "v2-packetRecall",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "does packetRecall count partial segments as hits?",
+   "expect": "block",
+   "at": [
+    "evals/src/recall.ts:19-37"
+   ]
+  },
+  {
+   "id": "v2-splitKey",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "splitKey breaks on session ids that contain a colon",
+   "expect": "block",
+   "at": [
+    "evals/src/recall.ts:39-42"
+   ]
+  },
+  {
+   "id": "v2-judgePrompt",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "judgePrompt should tell the judge to ignore formatting differences",
+   "expect": "block",
+   "at": [
+    "evals/src/judge.ts:9-30"
+   ]
+  },
+  {
+   "id": "v2-costOf",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "costOf uses the wrong price for cache writes",
+   "expect": "block",
+   "at": [
+    "evals/src/model.ts:52-57"
+   ]
+  },
+  {
+   "id": "v2-isOutage",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "isOutage should treat a 529 as an outage too",
+   "expect": "block",
+   "at": [
+    "evals/src/model.ts:95-99"
+   ]
+  },
+  {
+   "id": "v2-BilledError",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "BilledError needs to carry the request id",
+   "expect": "block",
+   "at": [
+    "evals/src/model.ts:31-39"
+   ]
+  },
+  {
+   "id": "v2-AnthropicModel.complete",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "AnthropicModel.complete retries forever when the API is overloaded",
+   "expect": "block",
+   "at": [
+    "evals/src/model.ts:66-88"
+   ]
+  },
+  {
+   "id": "v2-SubagentModel.complete",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "SubagentModel.complete never resolves if the subagent dies",
+   "expect": "block",
+   "at": [
+    "evals/src/subagent.ts:28-40"
+   ]
+  },
+  {
+   "id": "v2-EstimatingModel",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "EstimatingModel overcounts output tokens",
+   "expect": "block",
+   "at": [
+    "evals/src/estimate.ts:10-30"
+   ]
+  },
+  {
+   "id": "v2-lastUserText",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "lastUserText sometimes returns the system prompt",
+   "expect": "block",
+   "at": [
+    "evals/src/estimate.ts:33-37"
+   ]
+  },
+  {
+   "id": "v2-runEval",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "runEval should write partial results if it crashes halfway",
+   "expect": "block",
+   "at": [
+    "evals/src/run.ts:33-52"
+   ]
+  },
+  {
+   "id": "v2-answerOne",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "answerOne swallows the judge's error",
+   "expect": "block",
+   "at": [
+    "evals/src/run.ts:54-74"
+   ]
+  },
+  {
+   "id": "v2-summaryTable",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "the columns in summaryTable are misaligned",
+   "expect": "block",
+   "at": [
+    "evals/src/run.ts:143-162"
+   ]
+  },
+  {
+   "id": "v2-writeSummary",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "writeSummary overwrites the previous run's file",
+   "expect": "block",
+   "at": [
+    "evals/src/run.ts:164-171"
+   ]
+  },
+  {
+   "id": "v2-pairedTable",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "pairedTable: add a column for the interval width",
+   "expect": "block",
+   "at": [
+    "evals/src/run.ts:178-193"
+   ]
+  },
+  {
+   "id": "v2-bootstrap",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "bootstrap() uses Math.random, make it seeded",
+   "expect": "block",
+   "at": [
+    "evals/src/run.ts:208-224"
+   ]
+  },
+  {
+   "id": "v2-firstMessages",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "firstMessages builds the packet twice per question",
+   "expect": "block",
+   "at": [
+    "evals/src/arms.ts:72-99"
+   ]
+  },
+  {
+   "id": "v2-packetAsToolCall",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "packetAsToolCall should include when the packet was retrieved",
+   "expect": "block",
+   "at": [
+    "evals/src/arms.ts:110-122"
+   ]
+  },
+  {
+   "id": "v2-readerLoop",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "readerLoop stops after one tool round on small-local",
+   "expect": "block",
+   "at": [
+    "evals/src/arms.ts:184-209"
+   ]
+  },
+  {
+   "id": "v2-compact",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "compact() loses the dates when it summarizes",
+   "expect": "block",
+   "at": [
+    "evals/src/arms.ts:226-256"
+   ]
+  },
+  {
+   "id": "v2-runArm",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "runArm ignores the arm's output cap",
+   "expect": "block",
+   "at": [
+    "evals/src/arms.ts:136-158"
+   ]
+  },
+  {
+   "id": "v2-recallChart",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "recallChart: the y axis should start at 0",
+   "expect": "block",
+   "at": [
+    "evals/src/chart.ts:11-36"
+   ]
+  },
+  {
+   "id": "v2-recallReport",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "recallReport is over 100 lines, split it up",
+   "expect": "block",
+   "at": [
+    "evals/src/cli.ts:288-416"
+   ]
+  },
+  {
+   "id": "v2-bm25Runs",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "bm25Runs should use the user-word index too",
+   "expect": "block",
+   "at": [
+    "evals/src/cli.ts:258-276"
+   ]
+  },
+  {
+   "id": "v2-devSlice",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "devSlice rewrites the slice file when it's missing, isn't that risky?",
+   "expect": "block",
+   "at": [
+    "evals/src/cli.ts:226-236"
+   ]
+  },
+  {
+   "id": "v2-sendTurn",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "sendTurn in the web app doesn't handle a 429",
+   "expect": "block",
+   "at": [
+    "apps/web/src/chat.ts:39-64"
+   ]
+  },
+  {
+   "id": "v2-dayLabel",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "dayLabel shows the wrong weekday in UTC",
+   "expect": "block",
+   "at": [
+    "apps/web/src/chat.ts:16-20"
+   ]
+  },
+  {
+   "id": "v2-setStatus",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "setStatus should clear itself after 3 seconds",
+   "expect": "block",
+   "at": [
+    "apps/web/src/main.ts:70-73"
+   ]
+  },
+  {
+   "id": "v2-crossPairs",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "crossPairs should skip pairs of the same question type",
+   "expect": "block",
+   "at": [
+    "evals/loop/empty-rate.ts:130-143"
+   ]
+  },
+  {
+   "id": "v2-nearCopy",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "the nearCopy check is too loose",
+   "expect": "block",
+   "at": [
+    "evals/loop/empty-rate.ts:119-124"
+   ]
+  },
+  {
+   "id": "v2-buildProbes",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "buildProbes: add a tier for paraphrased prompts",
+   "expect": "block",
+   "at": [
+    "evals/loop/empty-rate.ts:162-174"
+   ]
+  },
+  {
+   "id": "v2-formatReport",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "formatReport should print retrieved tokens per tier",
+   "expect": "block",
+   "at": [
+    "evals/loop/empty-rate.ts:238-274"
+   ]
+  },
+  {
+   "id": "v2-fitLogistic",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "fitLogistic diverges with a learning rate of 0.5",
+   "expect": "block",
+   "at": [
+    "evals/loop/fit-gate.ts:32-67"
+   ]
+  },
+  {
+   "id": "v2-auroc",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "auroc() handles ties wrong I think",
+   "expect": "block",
+   "at": [
+    "evals/loop/fit-gate.ts:87-103"
+   ]
+  },
+  {
+   "id": "v2-Segment",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "the `Segment` interface needs a doc comment on partial",
+   "expect": "block",
+   "at": [
+    "packages/core/src/segments.ts:8-17"
+   ]
+  },
+  {
+   "id": "v2-TurnRef",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "the TurnRef interface should carry the date",
+   "expect": "block",
+   "at": [
+    "packages/core/src/chat.ts:18-21"
+   ]
+  },
+  {
+   "id": "v2-UNIT_WEIGHTS",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "UNIT_WEIGHTS were fit on the old features, do they need a refit?",
+   "expect": "block",
+   "at": [
+    "packages/core/src/gate.ts:21-21"
+   ]
+  },
+  {
+   "id": "v2-TALLY_FEATURES",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "TALLY_FEATURES order has to match the weights, is that checked anywhere",
+   "expect": "block",
+   "at": [
+    "packages/core/src/tally.ts:29-42"
+   ]
+  },
+  {
+   "id": "v2-HISTORY_NOTICE",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "HISTORY_NOTICE should mention the date range",
+   "expect": "block",
+   "at": [
+    "packages/core/src/packet.ts:47-48"
+   ]
+  },
+  {
+   "id": "v2-buildPacket",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "buildPacket ignores currentSessionId when that session has no turns",
+   "expect": "block",
+   "at": [
+    "packages/core/src/packet.ts:52-163"
+   ]
+  },
+  {
+   "id": "v2-Bm25.search",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "Bm25.search returns NaN scores for empty documents",
+   "expect": "block",
+   "at": [
+    "packages/core/src/bm25.ts:37-56"
+   ]
+  },
+  {
+   "id": "v2-SymbolIndex.lookup",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "SymbolIndex.lookup should maybe be case-insensitive",
+   "expect": "block",
+   "at": [
+    "packages/core/src/symbols.ts:77-79"
+   ]
+  },
+  {
+   "id": "v2-identifiersIn",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "identifiersIn misses names wrapped in parentheses",
+   "expect": "block",
+   "at": [
+    "packages/core/src/symbols.ts:360-407"
+   ]
+  },
+  {
+   "id": "v2-definitionsFor",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "definitionsFor narrows by file name wrongly",
+   "expect": "block",
+   "at": [
+    "packages/core/src/symbols.ts:417-433"
+   ]
+  },
+  {
+   "id": "v2-blockEnd",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "blockEnd gets confused by regex literals with slashes in them",
+   "expect": "block",
+   "at": [
+    "packages/core/src/symbols.ts:235-306"
+   ]
+  },
+  {
+   "id": "v2-assemblePrompt",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "does assemblePrompt put the recent turns after the message?",
+   "expect": "block",
+   "at": [
+    "packages/core/src/prompt.ts:18-24"
+   ]
+  },
+  {
+   "id": "v2-PromptParts",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "the PromptParts interface needs a tools field",
+   "expect": "block",
+   "at": [
+    "packages/core/src/prompt.ts:6-11"
+   ]
+  },
+  {
+   "id": "v2-label-packet",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "label() in packet.ts should use the session's date",
+   "expect": "block",
+   "at": [
+    "packages/core/src/packet.ts:272-275"
+   ]
+  },
+  {
+   "id": "v2-Profile",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "add a temperature field to the Profile interface",
+   "expect": "block",
+   "at": [
+    "packages/core/src/profiles.ts:5-63"
+   ]
+  },
+  {
+   "id": "v2-Resolution",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "the Resolution type should have a reason on every branch",
+   "expect": "block",
+   "at": [
+    "packages/core/src/resolver.ts:8-11"
+   ]
+  },
+  {
+   "id": "v2-summarize",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "which summarize() is the one that builds the per-arm table?",
+   "expect": "pointers",
+   "at": [
+    "evals/loop/empty-rate.ts:207-229",
+    "evals/src/arms.ts:160-182",
+    "evals/src/run.ts:103-141"
+   ]
+  },
+  {
+   "id": "v2-sentences",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "sentences() splits on 'Dr.' wrongly",
+   "expect": "pointers",
+   "at": [
+    "packages/core/src/notes.ts:55-55",
+    "packages/core/src/tally.ts:26-26"
+   ]
+  },
+  {
+   "id": "v2-pct",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "pct() rounds to one decimal, make it two",
+   "expect": "pointers",
+   "at": [
+    "evals/loop/empty-rate.ts:235-235",
+    "evals/src/cli.ts:422-422",
+    "evals/src/run.ts:226-226"
+   ]
+  },
+  {
+   "id": "v2-signed",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "signed() prints +0.0 for zero",
+   "expect": "pointers",
+   "at": [
+    "evals/src/cli.ts:420-420",
+    "evals/src/run.ts:227-227"
+   ]
+  },
+  {
+   "id": "v2-SLICE",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "`SLICE` points at the dev50 file, right?",
+   "expect": "pointers",
+   "at": [
+    "evals/loop/empty-rate.ts:25-25",
+    "evals/src/cli.ts:18-18"
+   ]
+  },
+  {
+   "id": "v2-DATA",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "the `DATA` path is hardcoded to the _s file",
+   "expect": "pointers",
+   "at": [
+    "evals/loop/empty-rate.ts:24-24",
+    "evals/src/cli.ts:17-17"
+   ]
+  },
+  {
+   "id": "v2-SYSTEM",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "the `SYSTEM` prompt is too long",
+   "expect": "pointers",
+   "at": [
+    "apps/web/src/chat.ts:10-11",
+    "evals/src/arms.ts:53-54"
+   ]
+  },
+  {
+   "id": "v2-render",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "render() redraws everything on every message",
+   "expect": "pointers",
+   "at": [
+    "apps/web/src/main.ts:46-61",
+    "evals/src/subagent.ts:44-47",
+    "evals/test/recall.test.ts:12-12"
+   ]
+  },
+  {
+   "id": "v2-add",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "add() should skip documents it has already seen",
+   "expect": "pointers",
+   "at": [
+    "packages/core/src/bm25.ts:17-23",
+    "packages/core/src/symbols.ts:66-74"
+   ]
+  },
+  {
+   "id": "v2-complete",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "complete() should time out after 60 seconds",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-ROOT",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "`ROOT` should come from an env var",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-chat-helper",
+   "subset": "exact",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "the chat() helper in the tests builds sessions without dates",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-fetchUserProfile",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "where is fetchUserProfile defined?",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-parseConfig",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "parseConfig throws on an empty file",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-retryWithBackoff",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "the `retryWithBackoff` helper needs jitter",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-normalizeWhitespace",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "add a test for normalizeWhitespace",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-TokenBudget",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "the TokenBudget class should track spend per section",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-renderMarkdown",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "renderMarkdown escapes too much",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-PacketBuilder.build",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "PacketBuilder.build is slow on long histories",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-computeRecallAt5",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "computeRecallAt5 is off by one",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-search_history",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "the search_history tool returns too many results",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-max_tokens",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "is `max_tokens` too low for the judge?",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-loadSession",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "loadSession should be async",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-useChatHistory",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "where's the useChatHistory hook?",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-segment_tokens",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "bump segment_tokens to 600",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-buildPackets",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "buildPackets is called twice per turn",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-symbolIndex",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "the symbolIndex cache never invalidates",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-flatMap",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "how do I use Array.prototype.flatMap with async functions",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-promise-all",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "what's the difference between Promise.all and Promise.allSettled",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-json-stringify",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "JSON.stringify drops undefined values, how do I keep them",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-setTimeout",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "how does setTimeout() behave inside a for loop with var",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-os-path-join",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "in python, os.path.join vs pathlib, which is better?",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-useEffect",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "explain useEffect cleanup in React",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-debounce",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "how do I write a debounce function in TypeScript",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-fmt-println",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "what does fmt.Println return in Go",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-binary-search",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "write a binary search in Python",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-linked-list",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "how do I reverse a linked list",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-object-keys",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "does Object.keys() guarantee insertion order?",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-parseInt",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "why does parseInt('08') return 8",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-set-add",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "how do I add() an item to a Set and check membership in JS",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-string-search",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "how do I search() a string for a regex in JS",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-dict-lookup",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "how do I lookup() a key in a Python dict safely",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-split-regex",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "what does String.prototype.split() do with a regex",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-map-vs-object",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "when should I use a Map instead of an object for a cache",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-let-const",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "explain the difference between let and const",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-readFileSync",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "is readFileSync bad in a server?",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-structuredClone",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "can structuredClone copy a class instance?",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-dog",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "my sister's dog got loose yesterday lol",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-thanks",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "thanks, that fixed it!",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-push",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "ok push it",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-dinner",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "what should I make for dinner tonight",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-summarize-day",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "can you summarize what we did today",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-sleep",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "I'm going to sleep, let's pick this up tomorrow",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-profile-build",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "Profile the build and tell me what's slow",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-search-later",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "search for flights to Denver later this week",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-add-milk",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "add milk to the grocery list",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-render-video",
+   "subset": "empty-code",
+   "source": "004acd79ebb330411889693eeab0d45e5666e090",
+   "prompt": "how long does it take to render a 4K video",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-pico-expandRange",
+   "subset": "exact",
+   "source": "npm:picomatch@4.0.7",
+   "prompt": "picomatch's expandRange ignores options.expandRange",
+   "expect": "block",
+   "at": [
+    "lib/parse.js:22-38"
+   ]
+  },
+  {
+   "id": "v2-pico-splitTopLevel",
+   "subset": "exact",
+   "source": "npm:picomatch@4.0.7",
+   "prompt": "splitTopLevel breaks on escaped pipes",
+   "expect": "block",
+   "at": [
+    "lib/parse.js:48-98"
+   ]
+  },
+  {
+   "id": "v2-pico-parseRepeatedExtglob",
+   "subset": "exact",
+   "source": "npm:picomatch@4.0.7",
+   "prompt": "parseRepeatedExtglob is the recursion guard for extglobs right? how deep does it go",
+   "expect": "block",
+   "at": [
+    "lib/parse.js:164-231"
+   ]
+  },
+  {
+   "id": "v2-pico-analyzeRepeatedExtglob",
+   "subset": "exact",
+   "source": "npm:picomatch@4.0.7",
+   "prompt": "what does analyzeRepeatedExtglob return for +(a|aa)",
+   "expect": "block",
+   "at": [
+    "lib/parse.js:287-347"
+   ]
+  },
+  {
+   "id": "v2-pico-isPathSeparator",
+   "subset": "exact",
+   "source": "npm:picomatch@4.0.7",
+   "prompt": "isPathSeparator should accept backslashes on posix?",
+   "expect": "block",
+   "at": [
+    "lib/scan.js:22-24"
+   ]
+  },
+  {
+   "id": "v2-pico-hasRepeatedCharPrefixOverlap",
+   "subset": "exact",
+   "source": "npm:picomatch@4.0.7",
+   "prompt": "hasRepeatedCharPrefixOverlap looks quadratic",
+   "expect": "block",
+   "at": [
+    "lib/parse.js:142-162"
+   ]
+  },
+  {
+   "id": "v2-pico-POSIX_REGEX_SOURCE",
+   "subset": "exact",
+   "source": "npm:picomatch@4.0.7",
+   "prompt": "is [:word:] in POSIX_REGEX_SOURCE?",
+   "expect": "block",
+   "at": [
+    "lib/constants.js:73-89"
+   ]
+  },
+  {
+   "id": "v2-pico-WINDOWS_CHARS",
+   "subset": "exact",
+   "source": "npm:picomatch@4.0.7",
+   "prompt": "WINDOWS_CHARS: what's the slash literal on windows",
+   "expect": "block",
+   "at": [
+    "lib/constants.js:52-67"
+   ]
+  },
+  {
+   "id": "v2-pico-scan",
+   "subset": "exact",
+   "source": "npm:picomatch@4.0.7",
+   "prompt": "picomatch's scan() reports the wrong base for '!(foo)/*.js'",
+   "expect": "block",
+   "at": [
+    "lib/scan.js:49-401"
+   ]
+  },
+  {
+   "id": "v2-pico-parse",
+   "subset": "exact",
+   "source": "npm:picomatch@4.0.7",
+   "prompt": "parse() in lib/parse.js chokes on nested extglobs",
+   "expect": "block",
+   "at": [
+    "lib/parse.js:356-1331"
+   ]
+  },
+  {
+   "id": "v2-pico-syntaxError",
+   "subset": "exact",
+   "source": "npm:picomatch@4.0.7",
+   "prompt": "syntaxError message should include the pattern",
+   "expect": "block",
+   "at": [
+    "lib/parse.js:44-46"
+   ]
+  },
+  {
+   "id": "v2-pico-buildCharClassStar",
+   "subset": "exact",
+   "source": "npm:picomatch@4.0.7",
+   "prompt": "buildCharClassStar escapes the dash wrong",
+   "expect": "block",
+   "at": [
+    "lib/parse.js:233-239"
+   ]
+  },
+  {
+   "id": "v2-pico-makeRe",
+   "subset": "exact",
+   "source": "npm:picomatch@4.0.7",
+   "prompt": "picomatch.makeRe ignores the nocase option",
+   "expect": "block",
+   "at": [
+    "lib/picomatch.js:305-321"
+   ]
+  },
+  {
+   "id": "v2-pico-escapeRegex",
+   "subset": "exact",
+   "source": "npm:picomatch@4.0.7",
+   "prompt": "utils.escapeRegex doesn't escape the slash",
+   "expect": "block",
+   "at": [
+    "lib/utils.js:14-14"
+   ]
+  },
+  {
+   "id": "v2-pico-picomatch",
+   "subset": "exact",
+   "source": "npm:picomatch@4.0.7",
+   "prompt": "where's the picomatch() entry point?",
+   "expect": "pointers",
+   "at": [
+    "index.js:6-14",
+    "lib/picomatch.js:43-109"
+   ]
+  },
+  {
+   "id": "v2-pico-minimatch",
+   "subset": "empty-code",
+   "source": "npm:picomatch@4.0.7",
+   "prompt": "minimatch vs picomatch, which is faster",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-pico-globSync",
+   "subset": "empty-code",
+   "source": "npm:picomatch@4.0.7",
+   "prompt": "globSync returns duplicates",
+   "expect": "empty",
+   "at": []
+  },
+  {
+   "id": "v2-pico-braces",
+   "subset": "empty-code",
+   "source": "npm:picomatch@4.0.7",
+   "prompt": "does picomatch expand braces like {a,b}?",
    "expect": "empty",
    "at": []
   }
