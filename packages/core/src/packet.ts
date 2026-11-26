@@ -86,7 +86,7 @@ export function buildPacket({ history, message, profile, currentSessionId }: Bui
 
   if (gateOpen) {
     const seen = new Set<string>();
-    const { hits, idf } = searchUnits(history, resolution.query, profile.segmentTokens, current?.id, recentStart, profile.stemmer, profile.barCeiling);
+    const { hits, idf } = searchUnits(history, resolution.query, profile.segmentTokens, current?.id, recentStart, profile.stemmer, barFor(profile, message));
     // The absolute bar asks whether history holds anything strong enough to answer at all. It judges the best unit
     // only: per unit, it cut the weaker second piece multi-session questions need (P02 dev sweep).
     const found = hits.some((h) => h.bar >= profile.minScore);
@@ -238,7 +238,7 @@ export function searchUnits(
  * abstains, the tool still answers: a unit the packet would leave out comes back marked low confidence.
  */
 export function searchHistory(history: Session[], query: string, profile: Profile): string {
-  const { hits } = searchUnits(history, query, profile.segmentTokens, undefined, 0, profile.stemmer, profile.barCeiling);
+  const { hits } = searchUnits(history, query, profile.segmentTokens, undefined, 0, profile.stemmer, barFor(profile, query));
   if (!hits.length) return "No matches.";
   const found = hits.some((h) => h.bar >= profile.minScore);
   const rejected = buildRegisters(history, profile.recentAnswers).rejected;
@@ -263,6 +263,15 @@ export function barTerms(words: string[], mode: BarCeiling, stemmer: Stemmer, df
   const filler = new Set(contentWords(FILLER, stemmer));
   return words.filter((w) => !filler.has(w));
 }
+
+/**
+ * The profile's barCeiling applies only to counting and "how long ago / since" questions, whose time words rarely say
+ * what they're about; every other message keeps the plain bar, so other histories' near-misses don't get easier.
+ */
+export const barFor = (profile: Profile, message: string): BarCeiling =>
+  profile.barCeiling && (isTallyQuestion(message) || SPAN.test(message)) ? profile.barCeiling : "all";
+// shortcut: English phrase rules on the message alone, like tally.ts.
+const SPAN = /\b(how long|ago|since|how many (?:days|weeks|months|years))\b/i;
 
 // Words that place a question in time or pad it, rarely what it's about. Hand-picked, not fitted.
 const FILLER = "year years month months week weeks day days today yesterday tonight ago ever recently recent lately time times last past since currently now far total overall";

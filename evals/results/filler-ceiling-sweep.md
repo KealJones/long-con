@@ -57,3 +57,19 @@ empties three packets main fills: the Bandung restaurant question (complete on m
 
 On claude, filler loses "the order of the three trips I took in the past three months": with "past" and "months" out,
 "order three trip took earliest latest" no longer clears the bar, yet those time words are in the evidence. Claude keeps "all".
+
+## Filler bar on counting and "how long ago / since" questions only (barFor)
+
+Every other message keeps the plain bar. Claude is unchanged (its profile has no barCeiling): its row matches main exactly.
+
+| small-local | All evidence | Turns | Tokens | Empty answerable | Tier 1 | Tier 1t | Tier 2 | Tier 3 | Precision |
+| --- | ---: | ---: | ---: | ---: | --- | --- | --- | --- | ---: |
+| all 0.25 (main) | 66.0 | 72.2 | 1,425 | 7 | 73.6 / 1.43 / 392 | 96.0 / 0.21 / 55 | 72.0 / 1.18 / 309 | 76.6 / 1.06 / 267 | 24.8 |
+| gated 0.25 | 68.1 | 75.4 | 1,449 | 5 | 73.6 / 1.43 / 392 | 96.3 / 0.19 / 49 | 62.0 / 1.64 / 424 | 72.3 / 1.15 / 286 | 24.9 |
+| gated 0.26 | 68.1 | 74.3 | 1,393 | 7 | 75.8 / 1.37 / 376 | 97.0 / 0.16 / 41 | 68.0 / 1.40 / 371 | 74.5 / 1.11 / 281 | 25.3 |
+| **gated 0.27 (branch)** | 66.0 | 72.2 | 1,344 | 8 | 77.4 / 1.33 / 362 | 97.7 / 0.13 / 32 | 74.0 / 1.20 / 326 | 76.6 / 1.06 / 267 | 26.0 |
+
+Fills at every bar: "how many days ago did I attend a networking event" (evidence, complete) and "total number of days in
+Japan and Chicago" (1 evidence unit of 5). The wrong fill ("music event last Saturday") is gone. From 0.26 the bar empties
+two preference packets, and at 0.27 also the Bandung question. Tier 2 at 0.27 matches the ungated run (plain 0.27 gives
+1.00 / 263), so the extra unit comes from cross-history counting questions themselves.

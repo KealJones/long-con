@@ -112,6 +112,7 @@ export const PROFILES = {
     // (0.24 keeps a second question but adds tier-3 FI). Then the bar was judged without time and filler words, which
     // fills "how many days ago..." packets; at 0.25 that added false inclusions on tiers 1t-3, and 0.27 is the bar that
     // holds all-evidence with 5% fewer tokens and a third fewer tier-1 FI (tier 2 +1 unit in 50 prompts; filler sweep).
+    // Applied to counting and "how long ago" questions only (barFor), 0.27 still adds that tier-2 unit.
     // Claude keeps "all": every filler setting lost a question there, since "past three months" can be the evidence.
     minScore: 0.27,
     barCeiling: "filler",
