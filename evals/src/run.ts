@@ -24,6 +24,8 @@ export interface RunOptions extends ArmConfig {
   concurrency: number;
   /** Runs of every question on every arm. Above 1, the summary's intervals cover run-to-run noise too. */
   repeats?: number;
+  /** Stop starting new answers once this many dollars are spent. Answers already running finish, so it can go over by a few. */
+  maxCost?: number;
 }
 
 export async function runEval(questions: Question[], opts: RunOptions): Promise<Answer[]> {
@@ -33,10 +35,12 @@ export async function runEval(questions: Question[], opts: RunOptions): Promise<
   const answers: Answer[] = [];
   const shared = { ...opts, summaries: opts.summaries ?? new Map() };
   let next = 0;
+  let spent = 0;
   const worker = async () => {
-    while (next < jobs.length) {
+    while (next < jobs.length && !(opts.maxCost !== undefined && spent >= opts.maxCost)) {
       const { q, arm, repeat } = jobs[next++]!;
       const answer = await answerOne(q, arm, repeat, shared);
+      spent += answer.calls.reduce((c, x) => c + x.cost, 0);
       answers.push(answer);
       if (opts.outDir) appendFileSync(join(opts.outDir, "answers.jsonl"), JSON.stringify(answer) + "\n");
     }
@@ -76,8 +80,13 @@ export interface ArmSummary {
   readerInputTokens: number;
   /** Summarizer input tokens per question: what compaction reads to write its summaries. */
   summarizerInputTokens: number;
+  /** Packet or context tokens per answer, over answers that didn't fail (a failed answer has none to count). */
   contextTokens: number;
+  /** What the arm itself spends per question: reader and summarizer, not grading. */
   costPerQuestion: number;
+  /** The judge's cost per question, the same job for every arm, so it's kept out of the arm's own cost. */
+  judgeCostPerQuestion: number;
+  /** Everything, judge included: what the run costs. */
   totalCost: number;
   readerLatencyMs: number;
   toolCallsPerQuestion: number;
@@ -98,6 +107,8 @@ export function summarize(answers: Answer[], arms: ArmName[]): ArmSummary[] {
     }
     for (const t of Object.values(byType)) t.accuracy /= t.n;
     const totalCost = sum((a) => a.calls.reduce((c, x) => c + x.cost, 0));
+    const judgeCost = sum((a) => a.calls.filter((c) => c.purpose === "judge").reduce((c, x) => c + x.cost, 0));
+    const ok = mine.filter((a) => !a.error);
     return {
       arm,
       questions: mine.length,
@@ -106,8 +117,9 @@ export function summarize(answers: Answer[], arms: ArmName[]): ArmSummary[] {
       byType,
       readerInputTokens: sum((a) => reader(a).reduce((c, x) => c + x.input, 0)) / n,
       summarizerInputTokens: sum((a) => a.calls.filter((c) => c.purpose === "summarizer").reduce((c, x) => c + x.input, 0)) / n,
-      contextTokens: sum((a) => a.contextTokens) / n,
-      costPerQuestion: totalCost / n,
+      contextTokens: ok.reduce((acc, a) => acc + a.contextTokens, 0) / (ok.length || 1),
+      costPerQuestion: (totalCost - judgeCost) / n,
+      judgeCostPerQuestion: judgeCost / n,
       totalCost,
       readerLatencyMs: sum((a) => reader(a).reduce((c, x) => c + x.latencyMs, 0)) / n,
       toolCallsPerQuestion: sum((a) => a.toolCalls) / n,
@@ -119,7 +131,7 @@ export function summarize(answers: Answer[], arms: ArmName[]): ArmSummary[] {
 export function summaryTable(rows: ArmSummary[], withAccuracy = true): string {
   // Reader input (every reader call, tool results included) is the headline token number; the packet or
   // summary alone understates what the reader takes in once it searches.
-  const cols = ["Arm", ...(withAccuracy ? ["Accuracy", "95% interval", "Errors"] : []), "Reader input tokens", "Summarizer input tokens", "Packet or context tokens", "Searches", "Cost / question", "Total cost"];
+  const cols = ["Arm", ...(withAccuracy ? ["Accuracy", "95% interval", "Errors"] : []), "Reader input tokens", "Summarizer input tokens", "Packet or context tokens", "Searches", "Arm cost / question", "Judge cost / question", "Total cost, judge included"];
   const lines = rows.map((r) => {
     const cells = [
       r.arm,
@@ -129,6 +141,7 @@ export function summaryTable(rows: ArmSummary[], withAccuracy = true): string {
       Math.round(r.contextTokens).toLocaleString("en-US"),
       r.toolCallsPerQuestion.toFixed(1),
       `$${r.costPerQuestion.toFixed(4)}`,
+      `$${r.judgeCostPerQuestion.toFixed(4)}`,
       `$${r.totalCost.toFixed(2)}`,
     ];
     return `| ${cells.join(" | ")} |`;

@@ -10,7 +10,7 @@ Commits: `aac8fe4` (first fixes), `4ad3090` (the rest).
 
 | Id | Sorted as | File | What changed | Why | Commit |
 | --- | --- | --- | --- | --- | --- |
-| H1 | Blocking | evals/src/longmemeval.ts, packages/core/src/packet.ts | The loader renames every chat `chat-N` in shuffled order and packets show no ids at all. A test uses a real-looking `answer_…` id and checks it never reaches a reader. | LongMemEval names every evidence chat `answer_…`, and packet headers printed those ids raw, so the packet arm's reader could see which chats held the answer. The ids come from the benchmark; printing them was the bug. | aac8fe4 |
+| H1 | Blocking | evals/src/longmemeval.ts, packages/core/src/packet.ts | The loader renames every chat `chat-N` in haystack order and packets show no ids at all. A test uses a real-looking `answer_…` id and checks it never reaches a reader. | LongMemEval names every evidence chat `answer_…`, and packet headers printed those ids raw, so the packet arm's reader could see which chats held the answer. The ids come from the benchmark; printing them was the bug. | aac8fe4 |
 | H2 | Blocking | evals/src/arms.ts, evals/src/run.ts | Every arm but classic `compaction` gets the same search tool and round count. A new `compaction-search` arm is the summary plus the tool. Reader input tokens (every reader call, tool results included) is the headline token column. Each arm is paired against `bare`. | `full` and `compaction` had no tool while `packet` and `bare` did, and the context-tokens column hid that the packet reader took in more than compaction once it searched. | aac8fe4, 4ad3090 |
 | M1 | Blocking | evals/src/arms.ts | The last round keeps the tool defined with `tool_choice: none`, so earlier tool turns stay valid and the reader can only answer. Not yet confirmed against the real API. | Dropping tools on the last round after tool turns likely made the API refuse the call, scored as a wrong answer. | aac8fe4 |
 | M2 | Blocking | evals/src/longmemeval.ts, evals/src/cli.ts | Held-out leaves out any question sharing evidence with dev: `_abs` twins and questions whose evidence chat is word for word a dev question's (union-find over sha256 of the turns). 438 held out, 12 left out of both. `eval recall` refuses held-out. | `X` and `X_abs` siblings and identical evidence chats crossed the split, so tuning on dev leaked into held-out. | aac8fe4, 4ad3090 |
@@ -90,3 +90,43 @@ A fresh audit (no context, no list of earlier findings) found 1 high, 4 medium a
 ### Recall after round 1
 
 Stricter recall (whole turns only) and the exact ceiling moved small-local from 70.2% to 68.1% (plain BM25 57.4%). Claude stays at 78.7% (plain BM25 76.6%).
+
+## Round 2
+
+A fresh audit found no leaks and no split contamination, and 4 medium and 10 low findings, all about fairness between arms and how results read. A separate check of the original 16 found 13 fixed and 3 design notes, with a few test gaps. Both raw reports are in the audit report's appendix.
+
+### New findings from the round 2 audit
+
+| Id | Sorted as | File | What changed | Why |
+| --- | --- | --- | --- | --- |
+| R2-M1 | Blocking | evals/src/arms.ts | Both compaction arms are told the history was summarized and may leave details out; `compaction-search` is also told the search tool reaches all of it, as `packet` and `bare` are. A test checks every arm that can search is told. | `compaction-search` had the tool but no word that its summary was lossy or that the tool reached the original chats. |
+| R2-M2 | Justified | evals/README.md | Documented: `packet` against `bare` measures the whole builder, its own retrieval and budget included; the recall report's plain-BM25 baseline isolates retrieval. | The packet's fused ranking and fill are the builder under test. Giving the shared tool the packet's ranking would change what every arm is compared with. |
+| R2-M3 | Blocking | evals/src/run.ts | Cost is split: the arm's own cost per question (reader and summarizer), the judge's cost per question, and the run's total with the judge. A test checks the split. | The judge, the same job for every arm, made up most of the cheap arms' cost and shrank the ratios between arms. |
+| R2-M4 | Blocking | evals/src/cli.ts, evals/README.md | The recall report gives 95% bootstrap intervals, a paired packet-minus-BM25 difference with its interval and the questions only one side gets whole, and says these are tuning numbers and that one question is 2.1 points. | The builder's gain over plain BM25 was one question for claude, in-sample, with no intervals. |
+| R2-L1 | Justified | evals/README.md | No change. Every arm's token size is in the summary. | Unequal token budgets are what the arms are; the gaps work against the packet. |
+| R2-L2 | Design note, non-blocking | packages/core/src/packet.ts | No change. | The packet ordering same-day chats by timestamp is packet design, from dates a real chat has. |
+| R2-L3 | Blocking | evals/src/estimate.ts | The estimate searches with the last plain user message, which holds the question in every arm. | For the packet arm the first user message is the packet, so it searched the packet's tail. |
+| R2-L4 | Justified | evals/README.md | No change. | Parallel searches in one round are treated alike in every arm. |
+| R2-L5 | Blocking | evals/src/run.ts, evals/src/cli.ts, .github/workflows/evals.yml | `--max-cost` also caps real spending during a run: no new answers start once it's spent, and the summary says if the run stopped early. A test checks it. | The cap was checked once, against an estimate. |
+| R2-L6 | Justified | evals/README.md | Already documented (R1-L10). | The judge prompts are LongMemEval's own; agreement with human labels needs a paid run. |
+| R2-L7 | Justified | evals/test/run.test.ts | Disclosed already (R1-L11): the stand-ins check plumbing, not quality. | Only a real run measures summary quality. |
+| R2-L8 | Justified | evals/src/recall.ts | No change; the definition is in the report. | "Evidence chats found" is a looser, documented companion to "all evidence in packet". |
+| R2-L9 | Blocking | evals/results/smoke/ | The committed `pending/` prompts are gone. The summaries already say they're a pipeline check, not a result. | Judge prompts with answers sat beside reader prompts. |
+| R2-L10 | Justified | evals/README.md | Already documented (R1-L12). | A lock wouldn't stop anyone with the repo. |
+
+### From the round 2 check of the original findings
+
+| Id | Gap the check found | What changed |
+| --- | --- | --- |
+| H1 | The log said chats are renamed in shuffled order. | Corrected: haystack order. |
+| H2 | The README still listed four arms. | Five arms in the table. |
+| M1 | No test on the SDK mapping of `tool_choice`. | A test checks the API client sends `tool_choice: none` with the tool still defined. Still not checked against the live API. |
+| M2 | No test pins each grouping rule alone; dev evidence chats appear as filler in held-out. | One test per rule. The filler overlap is noted in the README. |
+| M3 | The pairing itself had no test. | A test fails if each question isn't differenced against itself. |
+| M4 | A failed answer records 0 context tokens. | The packet-or-context column averages only answers that didn't fail. A test checks it. |
+| L5 | The recall report didn't state its limits. | It now states both: unlabeled evidence chats aren't counted, and searches aren't. |
+| L3, L4 | No test on real-confidence costing or the stratified `--limit`. | Not added: both are right on real data, and the budget sweep covers the ceiling. Noted as open. |
+
+### Recall after round 2
+
+Unchanged: claude 78.7% (66.0% to 89.4%) against plain BM25 76.6%, a +2.1-point paired difference (+0.0 to +6.4). Small-local 68.1% (55.3% to 80.9%) against 57.4%, +10.6 (+2.1 to +21.3).

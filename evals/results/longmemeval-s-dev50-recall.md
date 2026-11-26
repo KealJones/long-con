@@ -2,14 +2,23 @@
 
 47 answerable questions of the 50-question dev slice (3 abstention questions have no evidence to find). Full history averages 139,782 tokens per question. Builder: BM25 only (no embeddings yet), size-based segments. No model calls. "All evidence in packet" means every labeled evidence turn is in it.
 
+These are tuning numbers, not results: the segment cap and the cutoff were picked on this same slice, so they flatter the builder. With 47 questions, one question moves "All evidence in packet" by 2.1%. Intervals are 95% bootstraps over questions. Two limits: an evidence chat with no labeled turn isn't counted, and recall leaves out what a reader would find by searching.
+
 ## Each profile at its own settings
 
-| Profile | Budget ceiling | Evidence chats found | Evidence turns found | All evidence in packet | Mean packet tokens | Largest packet | All-evidence points per 1K packet tokens |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| claude | 8,000 | 94.1% | 86.2% | 78.7% | 5,700 | 7,982 | 13.8 |
-| claude: plain BM25 top-k | 8,000 | 93.0% | 85.1% | 76.6% | 7,886 | 8,000 | 9.7 |
-| small-local | 2,500 | 89.1% | 77.8% | 68.1% | 2,273 | 2,494 | 30.0 |
-| small-local: plain BM25 top-k | 2,500 | 87.1% | 69.7% | 57.4% | 2,474 | 2,499 | 23.2 |
+| Profile | Budget ceiling | Evidence chats found | Evidence turns found | All evidence in packet | 95% interval | Mean packet tokens | Largest packet | All-evidence points per 1K packet tokens |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| claude | 8,000 | 94.1% | 86.2% | 78.7% | 66.0% to 89.4% | 5,700 | 7,982 | 13.8 |
+| claude: plain BM25 top-k | 8,000 | 93.0% | 85.1% | 76.6% | 63.8% to 87.2% | 7,886 | 8,000 | 9.7 |
+| small-local | 2,500 | 89.1% | 77.8% | 68.1% | 55.3% to 80.9% | 2,273 | 2,494 | 30.0 |
+| small-local: plain BM25 top-k | 2,500 | 87.1% | 69.7% | 57.4% | 42.6% to 72.3% | 2,474 | 2,499 | 23.2 |
+
+Packet against plain BM25 top-k on the same questions:
+
+| Profile | All-evidence difference | 95% interval | Questions only the packet gets whole | Questions only BM25 gets whole |
+| --- | --- | --- | --- | --- |
+| claude | +2.1 | +0.0 to +6.4 | 1 | 0 |
+| small-local | +10.6 | +2.1 to +21.3 | 5 | 0 |
 
 Plain BM25 top-k is the baseline: the same units ranked by BM25 over all words and filled to the same ceiling, with nothing else. It also shows what ranking by the user's words adds, which suits LongMemEval, where 95% of the dev slice's evidence turns are user turns, and may not carry over to real chats.
 

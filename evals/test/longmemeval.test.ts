@@ -102,3 +102,30 @@ test("a near-copy of a dev question's evidence chat is left out too, not just an
   const { heldOut } = heldOutSplit([dev, near, q("c4a1ceb8", "I adopted a beagle named Pepper")], [dev]);
   assert.deepEqual(heldOut.map((h) => h.id), ["c4a1ceb8"]);
 });
+
+// Each grouping rule on its own, so dropping any one of them fails a test.
+const withChat = (id: string, turns: string[]): Question => ({
+  ...q(id, ""),
+  sessions: [{ id: "chat-1", date: "2023/05/01 (Mon) 10:00", turns: turns.map((content, i) => ({ role: i % 2 ? ("assistant" as const) : ("user" as const), content })) }, chat("chat-2", "pasta tips?")],
+});
+
+test("an abstention twin is held out with its question even when its evidence chat is different", () => {
+  const dev = q("7a1b2c3d", "my sister is moving to Denver");
+  const twin = q("7a1b2c3d_abs", "my cousin is moving to Boise");
+  const { heldOut } = heldOutSplit([dev, twin, q("c4a1ceb8", "I adopted a beagle named Pepper")], [dev]);
+  assert.deepEqual(heldOut.map((h) => h.id), ["c4a1ceb8"]);
+});
+
+test("one shared evidence turn is enough to hold a question out, even in an otherwise different chat", () => {
+  const dev = withChat("aa000001", ["my sister is moving to Denver", "a1", "a2", "a3", "a4", "a5"]);
+  const other = withChat("aa000002", ["my sister is moving to Denver", "b1", "b2", "b3", "b4", "b5"]);
+  const { heldOut } = heldOutSplit([dev, other, q("c4a1ceb8", "I adopted a beagle named Pepper")], [dev]);
+  assert.deepEqual(heldOut.map((h) => h.id), ["c4a1ceb8"]);
+});
+
+test("an evidence chat sharing half its turns with a dev evidence chat is held out, even with a different evidence turn", () => {
+  const dev = withChat("bb000001", ["my sister is moving to Denver", "shared one", "shared two", "a4"]);
+  const other = withChat("bb000002", ["my brother bought a canoe", "shared one", "shared two", "b4"]);
+  const { heldOut } = heldOutSplit([dev, other, q("c4a1ceb8", "I adopted a beagle named Pepper")], [dev]);
+  assert.deepEqual(heldOut.map((h) => h.id), ["c4a1ceb8"]);
+});

@@ -25,9 +25,9 @@ export class EstimatingModel implements ModelClient {
   }
 }
 
-/** The question, which ends the first user message, so every search has a real query and bills real results. */
+/** The question, which ends the last plain user message in every arm, so every search has a real query and bills real results. */
 function lastUserText(req: ModelRequest): string {
-  const first = req.messages.find((m) => m.role === "user" && typeof m.content === "string");
-  const text = typeof first?.content === "string" ? first.content : "";
+  const last = req.messages.findLast((m) => m.role === "user" && typeof m.content === "string");
+  const text = typeof last?.content === "string" ? last.content : "";
   return text.slice(-500);
 }

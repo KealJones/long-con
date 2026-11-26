@@ -1,9 +1,0 @@
-[system]
-You are a helpful assistant in a long-running chat with the user. Use what you know from your past chats with them to answer. If the past chats don't say, say so instead of guessing.
-
-[user]
-Earlier chat history (since 2023/05/20 (Sat) 05:04) was left out to fit. The search_history tool can reach all of it.
-
-Current date: 2023/05/30 (Tue) 21:46
-
-Can you suggest some useful accessories for my phone?

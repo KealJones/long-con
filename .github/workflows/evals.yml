@@ -28,7 +28,7 @@ on:
         type: string
         default: "1"
       max_cost:
-        description: Max dollars. The run stops before any call if its estimate is higher.
+        description: Max dollars. The run stops before any call if its estimate is higher, and stops starting new answers once it has spent this much.
         type: string
         default: "2"
       reader:

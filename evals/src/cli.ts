@@ -10,7 +10,7 @@ import { EstimatingModel } from "./estimate.ts";
 import { heldOutSplit, loadLongMemEval, stratifiedSlice, type Question } from "./longmemeval.ts";
 import { AnthropicModel, PRICES } from "./model.ts";
 import { packetRecall } from "./recall.ts";
-import { runEval, summarize, summaryTable, writeSummary, type RunOptions } from "./run.ts";
+import { bootstrap, runEval, summarize, summaryTable, writeSummary, type RunOptions } from "./run.ts";
 import { SubagentModel } from "./subagent.ts";
 
 const ROOT = new URL("../..", import.meta.url).pathname;
@@ -41,7 +41,7 @@ Options:
   --backend <name>     subagent (default) or api
   --no-tools           No search tool for any arm (the subagent backend needs this)
   --out <dir>          Where a run writes its prompts, answers and summary
-  --max-cost <usd>     Refuse an API run whose estimate is higher (default 5)`;
+  --max-cost <usd>     Refuse an API run whose estimate is higher, and stop starting new answers once a run has spent it (default 5)`;
 
 export async function main(argv: string[]): Promise<number> {
   const { values, positionals } = parseArgs({
@@ -196,13 +196,16 @@ export async function main(argv: string[]): Promise<number> {
     return 1;
   }
   const outDir = values.out ?? join(ROOT, "evals/runs", new Date().toISOString().replace(/[:.]/g, "-"));
-  const opts: RunOptions = { ...base, model: new AnthropicModel(), outDir };
+  const opts: RunOptions = { ...base, model: new AnthropicModel(), outDir, maxCost };
   const answers = await runEval(dev, opts);
   const rows = summarize(answers, arms);
+  const planned = dev.length * arms.length * repeats;
+  const stopped = answers.length < planned ? ` **Stopped at the --max-cost cap after ${answers.length} of ${planned} answers, so arms may cover different questions; trust only the paired tables.**` : "";
+  if (stopped) console.error(stopped.replaceAll("**", "").trim());
   writeSummary(
     outDir,
     rows,
-    `# LongMemEval_S ${values.split} run: ${dev.length} questions × ${values.repeats} run(s), ${profile.name} profile\n\nBackend: Anthropic API. Reader ${values.reader}, judge ${values.judge} reading LongMemEval's own judge prompts, ${tools}. ${COST_CAVEATS}`,
+    `# LongMemEval_S ${values.split} run: ${dev.length} questions × ${values.repeats} run(s), ${profile.name} profile\n\nBackend: Anthropic API. Reader ${values.reader}, judge ${values.judge} reading LongMemEval's own judge prompts, ${tools}. ${COST_CAVEATS}${stopped}`,
     true,
     answers,
   );
@@ -278,6 +281,7 @@ function recallReport(dev: Question[], profiles: Profile[]): { report: string; c
   const answerable = dev.filter((q) => !q.abstention);
   const fullTokens = mean(dev.map((q) => estimateTokens(q.sessions.flatMap((s) => s.turns.map((t) => t.content)).join("\n"))));
   const main: string[] = [];
+  const paired: string[] = [];
   const input: string[] = [];
   const sweeps: string[] = [];
   const byType: string[] = [];
@@ -289,15 +293,21 @@ function recallReport(dev: Question[], profiles: Profile[]): { report: string; c
     const complete = mean(runs.map((r) => (r.complete ? 1 : 0)));
     const tokens = mean(runs.map((r) => r.tokens));
     main.push(
-      `| ${profile.name} | ${fmt(profile.packetTokens)} | ${pct(mean(runs.map((r) => r.sessionRecall)))} | ${pct(mean(runs.map((r) => r.turnRecall)))} | ${pct(complete)} | ${fmt(tokens)} | ${fmt(Math.max(...runs.map((r) => r.tokens)))} | ${((complete * 100) / (tokens / 1000)).toFixed(1)} |`,
+      `| ${profile.name} | ${fmt(profile.packetTokens)} | ${pct(mean(runs.map((r) => r.sessionRecall)))} | ${pct(mean(runs.map((r) => r.turnRecall)))} | ${pct(complete)} | ${interval(completes(runs))} | ${fmt(tokens)} | ${fmt(Math.max(...runs.map((r) => r.tokens)))} | ${((complete * 100) / (tokens / 1000)).toFixed(1)} |`,
     );
 
     const base = bm25Runs(answerable, profile);
     const baseComplete = mean(base.map((r) => (r.complete ? 1 : 0)));
     const baseTokens = mean(base.map((r) => r.tokens));
     main.push(
-      `| ${profile.name}: plain BM25 top-k | ${fmt(profile.packetTokens)} | ${pct(mean(base.map((r) => r.sessionRecall)))} | ${pct(mean(base.map((r) => r.turnRecall)))} | ${pct(baseComplete)} | ${fmt(baseTokens)} | ${fmt(Math.max(...base.map((r) => r.tokens)))} | ${((baseComplete * 100) / (baseTokens / 1000)).toFixed(1)} |`,
+      `| ${profile.name}: plain BM25 top-k | ${fmt(profile.packetTokens)} | ${pct(mean(base.map((r) => r.sessionRecall)))} | ${pct(mean(base.map((r) => r.turnRecall)))} | ${pct(baseComplete)} | ${interval(completes(base))} | ${fmt(baseTokens)} | ${fmt(Math.max(...base.map((r) => r.tokens)))} | ${((baseComplete * 100) / (baseTokens / 1000)).toFixed(1)} |`,
     );
+
+    const ours = completes(runs);
+    const theirs = completes(base);
+    const diffs = new Map([...ours].map(([id, v]) => [id, v - theirs.get(id)!]));
+    const [lo, hi] = bootstrap(diffs);
+    paired.push(`| ${profile.name} | ${signed(complete - baseComplete)} | ${signed(lo)} to ${signed(hi)} | ${[...diffs.values()].filter((d) => d > 0).length} | ${[...diffs.values()].filter((d) => d < 0).length} |`);
 
     const inputs = dev.map((q) => readerInput(q, profile));
     const room = profile.contextWindow - profile.answerTokens;
@@ -361,11 +371,19 @@ function recallReport(dev: Question[], profiles: Profile[]): { report: string; c
     "",
     `${answerable.length} answerable questions of the ${dev.length}-question dev slice (${dev.length - answerable.length} abstention questions have no evidence to find). Full history averages ${fmt(fullTokens)} tokens per question. Builder: BM25 only (no embeddings yet), size-based segments. No model calls. "All evidence in packet" means every labeled evidence turn is in it.`,
     "",
+    `These are tuning numbers, not results: the segment cap and the cutoff were picked on this same slice, so they flatter the builder. With ${answerable.length} questions, one question moves "All evidence in packet" by ${pct(1 / answerable.length)}. Intervals are 95% bootstraps over questions. Two limits: an evidence chat with no labeled turn isn't counted, and recall leaves out what a reader would find by searching.`,
+    "",
     "## Each profile at its own settings",
     "",
-    "| Profile | Budget ceiling | Evidence chats found | Evidence turns found | All evidence in packet | Mean packet tokens | Largest packet | All-evidence points per 1K packet tokens |",
-    "| --- | --- | --- | --- | --- | --- | --- | --- |",
+    "| Profile | Budget ceiling | Evidence chats found | Evidence turns found | All evidence in packet | 95% interval | Mean packet tokens | Largest packet | All-evidence points per 1K packet tokens |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ...main,
+    "",
+    "Packet against plain BM25 top-k on the same questions:",
+    "",
+    "| Profile | All-evidence difference | 95% interval | Questions only the packet gets whole | Questions only BM25 gets whole |",
+    "| --- | --- | --- | --- | --- |",
+    ...paired,
     "",
     "Plain BM25 top-k is the baseline: the same units ranked by BM25 over all words and filled to the same ceiling, with nothing else. It also shows what ranking by the user's words adds, which suits LongMemEval, where 95% of the dev slice's evidence turns are user turns, and may not carry over to real chats.",
     "",
@@ -389,6 +407,9 @@ function recallReport(dev: Question[], profiles: Profile[]): { report: string; c
   return { report, chart: recallChart(series) };
 }
 
+const completes = (runs: RecallRun[]) => new Map(runs.map((r) => [r.q.id, r.complete ? 1 : 0]));
+const interval = (values: Map<string, number>) => bootstrap(values).map(pct).join(" to ");
+const signed = (x: number) => `${x >= 0 ? "+" : ""}${(x * 100).toFixed(1)}`;
 const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
 const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
 const fmt = (x: number) => Math.round(x).toLocaleString("en-US");

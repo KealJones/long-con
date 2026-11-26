@@ -220,7 +220,18 @@ test("both compaction arms read one shared summary, so they differ only in the s
   assert.equal(perArm[0], summaries.length, "the summary was written once");
   assert.equal(perArm[0], perArm[1], "and each arm reports its cost");
   const firstContext = (tools: boolean) => JSON.stringify(model.calls.find((c) => c.purpose === "reader" && !!c.tools === tools)!.messages[0]);
-  assert.equal(firstContext(false), firstContext(true));
+  // The searching arm is also told, as the packet and bare arms are, that the tool reaches the cut history.
+  assert.match(firstContext(true), /may leave details out\. The search_history tool can reach all of it\./);
+  assert.equal(firstContext(false), firstContext(true).replace(" The search_history tool can reach all of it.", ""));
+});
+
+test("every arm that can search is told the tool reaches history it doesn't have in front of it", async () => {
+  for (const arm of ["compaction-search", "packet", "bare"] as const) {
+    const model = new StandIn();
+    await runEval([question], { ...opts(model), arms: [arm] });
+    const first = model.calls.find((c) => c.purpose === "reader")!;
+    assert.match(JSON.stringify(first.messages[0]), /The search_history tool can reach all of it\./, arm);
+  }
 });
 
 test("with no tools, no arm is told about a search tool it doesn't have", async () => {
@@ -241,4 +252,52 @@ test("the API client turns a cut-off or refused answer into an error that carrie
       (err: unknown) => err instanceof BilledError && err.usage.input === 1234 && err.usage.output === 16000,
     );
   }
+});
+
+test("an arm's own cost leaves out the judge, which is the same job for every arm; the total still counts it", async () => {
+  const model = new StandIn();
+  const answers = await runEval([question], { ...opts(model), arms: ["packet"] });
+  const [row] = summarize(answers, ["packet"]);
+  const judge = answers[0]!.calls.filter((c) => c.purpose === "judge").reduce((a, c) => a + c.cost, 0);
+  const all = answers[0]!.calls.reduce((a, c) => a + c.cost, 0);
+  assert.ok(judge > 0);
+  assert.ok(Math.abs(row!.judgeCostPerQuestion - judge) < 1e-12);
+  assert.ok(Math.abs(row!.costPerQuestion - (all - judge)) < 1e-12);
+  assert.ok(Math.abs(row!.totalCost - all) < 1e-12);
+});
+
+test("a run stops starting new answers once it has spent its cap", async () => {
+  const model = new StandIn();
+  const many = Array.from({ length: 6 }, (_, i) => ({ ...question, id: `q${i}` }));
+  const answers = await runEval(many, { ...opts(model), arms: ["full"], concurrency: 1, maxCost: 1e-9 });
+  assert.equal(answers.length, 1, "the first answer runs, then nothing new starts");
+  const uncapped = await runEval(many, { ...opts(new StandIn()), arms: ["full"], concurrency: 1 });
+  assert.equal(uncapped.length, 6);
+});
+
+test("a failed answer doesn't drag the packet-or-context column toward zero", () => {
+  const ok = { questionId: "a", repeat: 0, pass: true, arm: "packet", type: "t", answer: "x", calls: [], contextTokens: 1000, toolCalls: 0, judgeReply: "yes" } as Answer;
+  const failed = { ...ok, questionId: "b", pass: false, contextTokens: 0, error: "overloaded" } as Answer;
+  const [row] = summarize([ok, failed], ["packet"]);
+  assert.equal(row!.contextTokens, 1000);
+  assert.equal(row!.accuracy, 0.5, "the failure still counts as wrong");
+});
+
+test("the paired table differences each question against itself, not against the other arm's average", () => {
+  const make = (arm: Answer["arm"], questionId: string, pass: boolean) => ({ questionId, repeat: 0, pass, arm, type: "t", answer: "", calls: [], contextTokens: 0, toolCalls: 0, judgeReply: "" }) as Answer;
+  const ids = Array.from({ length: 20 }, (_, i) => `q${i}`);
+  // Same questions right and wrong on both arms: the true paired difference is exactly 0 on every question.
+  const answers = ids.flatMap((id, i) => [make("packet", id, i % 2 === 0), make("bare", id, i % 2 === 0)]);
+  const table = pairedTable(answers, ["packet", "bare"], "bare");
+  assert.match(table, /\| packet \| 20 \| \+0\.0 \| \+0\.0 to \+0\.0 \|/);
+});
+
+test("the API client sends tool_choice none on the last round, so the model can't call the tool there", async () => {
+  const sent: Record<string, unknown>[] = [];
+  const client = { messages: { create: async (body: Record<string, unknown>) => (sent.push(body), { stop_reason: "end_turn", content: [{ type: "text", text: "ok" }], usage: { input_tokens: 1, output_tokens: 1 } }) } };
+  const model = new AnthropicModel(client as never);
+  const tools = [{ name: "search_history", description: "d", input_schema: { type: "object" as const, properties: {} } }];
+  await model.complete({ model: "claude-haiku-5-5", system: "s", messages: [{ role: "user", content: "q" }], maxTokens: 10, purpose: "reader", tools, toolChoice: "none" });
+  assert.deepEqual(sent[0]!.tool_choice, { type: "none" });
+  assert.ok(Array.isArray(sent[0]!.tools), "the tool stays defined");
 });

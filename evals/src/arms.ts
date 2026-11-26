@@ -57,6 +57,9 @@ export const SEARCH_TOOL: Anthropic.Tool = {
   },
 };
 
+export const SUMMARY_NOTE = (canSearch: boolean) =>
+  `Earlier chat history was summarized to fit, and the summary may leave details out.${canSearch ? " The search_history tool can reach all of it." : ""}`;
+
 const ask = (q: Question) => `Current date: ${q.date}\n\n${q.question}`;
 
 /** The reader's first message for an arm, exactly as sent. Compaction needs the model, so it isn't here. */
@@ -89,7 +92,9 @@ export async function runArm(arm: ArmName, q: Question, cfg: ArmConfig): Promise
       });
       calls.push(...paid);
       const reader = arm === "compaction" ? { ...cfg, profile: { ...cfg.profile, maxToolRounds: 0 } } : cfg;
-      return await readerLoop(reader, calls, [{ role: "user", content: `${context}\n\n${ask(q)}` }], estimateTokens(context), q);
+      // Told what the packet and bare arms are told: history was cut, and the tool (when there is one) reaches all of it.
+      const note = SUMMARY_NOTE(reader.profile.maxToolRounds > 0);
+      return await readerLoop(reader, calls, [{ role: "user", content: `${note}\n\n${context}\n\n${ask(q)}` }], estimateTokens(`${note}\n\n${context}`), q);
     }
     const { messages, contextTokens } = firstMessages(arm, q, cfg.profile);
     return await readerLoop(cfg, calls, messages, contextTokens, q);
