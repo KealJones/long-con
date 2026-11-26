@@ -2,6 +2,60 @@
 
 One entry per idea tried by the hourly packet R&D loop. Newest run first. Numbers are dev unless marked held-out. Backlog: [prefetch-ideas-ranked.md](prefetch-ideas-ranked.md).
 
+## Run 3: 2026-11-26, 11:17 AM Arizona
+
+Baseline is main at 9635787 (end of run 2). Every number is dev and tuning-grade. This run also took three asks ahead of the backlog: share one search function between the packet and the search_history tool, a reader arm that gets the packet as tool calls, and reader ablations of the trust note and the rules register. Reader runs are paid (Claude Haiku 5.5 reader, Claude Opus 5.5 judge, 50 dev questions, one repeat, $0.32-0.34 each). With 50 questions the 95% interval is about ±12 points, so only differences in searches and tokens are clear; accuracy differences below are noise.
+
+**Net for the run (free recall), before → after:**
+
+| | claude | small-local |
+| --- | --- | --- |
+| All evidence | 80.9 → 80.9% | 66.0 → 63.8% |
+| Mean packet tokens | 4,549 → 4,499 | 2,173 → 1,831 |
+| Tier 1/2/3 FI | 12.38 / 12.78 / 10.68 → 10.86 / 12.24 / 10.21 | 3.47 / 3.94 / 2.79 → 1.72 / 1.90 / 1.26 |
+| Answerable precision | 10.2 → 10.3% | 17.6 → 21.2% |
+
+### Reader arms: packet as tool calls, trust note off, rules register off (paid)
+
+- **Changed:** `evals/src/arms.ts` arms `packet-tools` (retrieved units arrive as an assistant search_history call and its result; the head stays a short packet block), `packet-notrust` (no "best guess" trust line), `packet-norules` (no standing-rules register). Optional `standingRules` profile flag.
+- **Numbers (claude, GitHub runs 4 and 5 on f5c8645):**
+
+| Arm | Accuracy | Searches / question | Reader input tokens / question |
+| --- | --- | --- | --- |
+| packet | 78% | 1.6 | 18,040 |
+| packet-tools | 76% | 0.3 | 7,604 |
+| packet-notrust | 84% | 0.5 | 8,522 |
+| packet-norules | 80% | 1.6 | 16,875 |
+
+- **Read:** the trust line makes the reader search about three times as often and doubles its input, with no accuracy gain. Tool-call delivery cuts searches and tokens about as much. The rules register changes nothing measurable (21 of 50 dev packets carry rules). Runs are separate and unpaired (the artifacts couldn't be downloaded here), so the 2-6 point accuracy gaps are noise.
+- **Next:** a paired repeat of packet vs packet-notrust vs packet-tools before changing the default.
+
+### Shared search for the packet and the search_history tool: kept
+
+- **Changed:** `searchHistory` moved into core on top of `searchUnits` (same two-index fusion, same gate features, same unit format). The tool returns the profile's `searchResults` best units; units the packet would leave out come back marked low confidence instead of dropped. The eval's plain-BM25 copy is gone.
+- **Numbers (GitHub run 6 on 70ff2c5, with P31 and P03 in):** bare 72% (1.6 searches, 3,927 reader tokens), packet 80% (1.5 searches). Run 3 with the plain-BM25 tool had bare 72%, packet 76%. Free recall is unchanged (the packet path didn't move).
+
+### P31. Interest notes, rule noter: kept as the requested feature (neutral on scores)
+
+- **Sources:** prefetch-ideas-ranked.md P31; [LongMemEval](https://arxiv.org/pdf/2410.10813); [Preference-Aware Memory Update](https://arxiv.org/html/2510.09720v1); docs/research/people.md.
+- **Changed:** `notes.ts`: dated notes from user turns ("my favorite", "obsessed with", "I'm into", "switched to", "no longer"...), skipping questions, hypotheticals and sensitive topics; newest value wins, history kept. A Notes section behind the absolute bar, needing 2 shared words and 0.5 of the message's IDF weight, at most 3 topics. `empty-rate.ts` counts a shown note as a unit unless its source turn is already in a shown segment.
+- **Numbers:** recall and false inclusions unchanged on both profiles (claude 4,549 → 4,551 tokens, small-local 2,173 → 2,170); zero notes on any tier 1-3 prompt. Note recall 2/8 knowledge-update and 0/3 preference questions; both hits were already in the packet. Note precision 56/60 real interests on a sample labeled by the noter's author after the rules were frozen (a first check, not an independent one). 14 ms for a 616-turn history.
+- **Review (Opus 5.5):** valid with fixes. The first scorer counted a note twice when its turn was already in a shown segment, which made precision look higher; fixed, and precision is unchanged.
+- **Kept because** the notes were asked for and add no false inclusions; the keep rule's gain test doesn't apply to it. Dev evidence is mostly counts and possessions, not interest wording.
+- **Next:** quantity and possession notes ("currently 25 titles"), the model noter (arm B) and remember tool, and a reader run testing a note in place of a segment on small-local.
+
+### P03. Logistic unit gate: kept
+
+- **Sources:** prefetch-ideas-ranked.md P03; [Towards Trustworthy Reranking](https://arxiv.org/pdf/2402.12997); [Relevance Filtering for Embedding-based Retrieval](https://arxiv.org/pdf/2408.04887); [ChunkRAG](https://arxiv.org/pdf/2410.19572).
+- **Changed:** `gate.ts`: a logistic model over 10 ranking features; units under `unitGate` (claude 0.002, small-local 0.01) stay out. The P02 bar still decides empty or not; tally pieces skip the gate. `evals/loop/fit-gate.ts` fits and sweeps.
+- **Numbers (shipped weights, in-sample):** claude 80.9% at 4,499 tokens, FI down slightly. small-local 66.0 → 63.8% (one multi-session question) at 1,831 tokens, FI roughly halved, precision 17.6 → 21.2%. Leave-one-type-out CV: 4,458 / 1,821 tokens, same recall.
+- **Review (Opus 5.5):** valid with fixes; no leakage, numbers reproduced. Leave-one-type-out is a loose holdout, since tier prompts cross folds; grouped-by-question CV keeps the direction with a 10-20% smaller FI cut (small-local FI 1.79 / 1.90 / 1.30). Tau was picked on the same sweep. Fixed: commit states in-sample vs CV; `candidates()` takes the profile.
+- **Next:** a gate for tally pieces (they cause most of claude's remaining FI); claude tau 0.004 is an option (FI 6.26 / 9.72 / 7.11 at 4,102 tokens for one question); held-out check of both taus.
+
+### Next ideas
+
+P17 stemming and fusion hygiene (in flight at write time), paired repeat of the reader arms, tally-piece gate, P04 rerank of the expanded pool, P19 empty-packet line, held-out check of the P02 bars and P03 taus at a milestone.
+
 ## Run 2: 2026-11-26, 10:19 AM Arizona
 
 First run with the dataset (from the repo's release copy; huggingface.co still refuses) and with push access. Baseline is main at 979834c. Every number is dev, and every setting below was tuned on the same dev slice, so these are tuning numbers until held-out confirms them. FI is false inclusions per prompt on the should-be-empty tiers. The run also queued interest notes (P31) ahead of P04.

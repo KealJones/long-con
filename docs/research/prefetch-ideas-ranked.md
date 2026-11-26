@@ -22,8 +22,8 @@ Score = expected gain × confidence ÷ cost, roughly. Measurement and safety ite
 | --- | --- | --- | --- | --- | --- |
 | 1 | P01 | Should-be-empty set and empty-rate metric | Both (measurement) | Low | kept |
 | 2 | P02 | Absolute relevance gate (normalized BM25, coverage, anchor) | small-local | Low | kept (score bar only) |
-| 3 | P03 | Logistic gate on ~9 features, τ per profile | small-local | Low | open |
-| 3b | P31 | Interest notes: background noter plus remember tool (queued ahead of P04 on 2026-11-26) | Both | Medium | open |
+| 3 | P03 | Logistic gate on ~9 features, τ per profile | small-local | Low | kept (run 3) |
+| 3b | P31 | Interest notes: background noter plus remember tool (queued ahead of P04 on 2026-11-26) | Both | Medium | rule noter kept (run 3); model noter and remember tool open |
 | 4 | P04 | Cross-encoder rerank of top 40-60 | small-local | Medium | open |
 | 5 | P05 | Zero-model contextual prefix in the index | Both | Low | dropped (retry as tie-break) |
 | 6 | P06 | Tally mode for counting questions | Both | Low | kept (claude only) |
@@ -80,7 +80,7 @@ Score = expected gain × confidence ÷ cost, roughly. Measurement and safety ite
 - **Why it's here:** asked for directly on 2026-11-26: any expressed interest, preference or change of one should be remembered, by the harness on its own or by the model through a tool. Queued ahead of P04. Folds in P09, which only marks preference sentences at query time.
 - **Hypothesis:** a dated note store (topic, value, date, source turn; newest wins, older values kept as history) lifts knowledge-update and preference all-evidence on both profiles at a fraction of the tokens, since one line can replace a 400-token segment. A rule-based noter catches most cases for free; a cheap-model noter catches more at some false-note cost.
 - **Change:** arm A, a free rule noter (first-person interest and change patterns, "my favorite", "obsessed with", "I've been loving", "switched to", "I'm into", "I prefer", "no longer") run after each saved turn. Arm B, a small-model noter on the same turns (paid or plan usage, each run under $1 and logged in the paid-runs ledger). Arm C, a remember tool the model calls mid-turn, measurable only in a reader run. The packet gets a short "Notes" section of the matching notes, newest value first, before retrieved history; the source turn stays reachable.
-- **Measure:** knowledge-update and preference rows (all-evidence counts the note's source turn), packet tokens, and note precision: on a hand-labeled sample of saved notes, the share that are real interest. Should-be-empty tiers must not gain false inclusions from notes. Dev has few preference questions, so extend to all knowledge-update and preference questions in LongMemEval_S as a dev-only set (e.g. 18bc8abd).
+- **Measure:** knowledge-update and preference rows (all-evidence counts the note's source turn), packet tokens, and note precision: on a hand-labeled sample of saved notes, the share that are real interest. Should-be-empty tiers must not gain false inclusions from notes. Dev has few preference questions (e.g. 18bc8abd). The rest of LongMemEval_S is the held-out split, so a bigger check needs new labeled histories, not those questions.
 - **Cost:** medium (arm A is free; arm B needs a small paid or plan-usage run).
 
 ### P04. Cross-encoder rerank of the top 40-60
@@ -121,7 +121,7 @@ Score = expected gain × confidence ÷ cost, roughly. Measurement and safety ite
 
 ### P09. Preference spans with category keys
 
-- **Hypothesis:** preference all-evidence +20 points on small-local and +10 on claude, other types within 1 point. Dev has only 3 preference questions, so confirm on all 30 in LongMemEval_S as a dev-only extension.
+- **Hypothesis:** preference all-evidence +20 points on small-local and +10 on claude, other types within 1 point. Dev has only 3 preference questions, and the other 27 in LongMemEval_S are held out, so confirming it needs new labeled data.
 - **Change:** a regex marks first-person preference sentences ("I love / prefer / hate / my favourite / I usually") with a coarse category. A recommend/suggest intent rule pulls the top 3-5 for the question's category as short cards.
 - **Measure:** preference recall, tokens.
 - **Cost:** low.
