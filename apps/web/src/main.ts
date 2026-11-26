@@ -1,7 +1,8 @@
-// The page: one input box plus history, with each turn's packet behind a toggle.
+// The page: a texting-style chat, a settings dialog, and a sidebar for topics and your data.
 
 import type { Session } from "@long-con/core";
 import { MODELS, sendTurn } from "./chat.ts";
+import { dayName, topics } from "./topics.ts";
 
 type Packets = Record<string, { text: string; tokens: number }>;
 
@@ -13,98 +14,348 @@ const load = <T>(key: string, fallback: T): T => {
     return fallback;
   }
 };
-const save = (key: string, value: unknown) => localStorage.setItem(key, typeof value === "string" ? value : JSON.stringify(value));
+const saveChat = () => {
+  try {
+    localStorage.setItem("long-con:history", JSON.stringify(history));
+    localStorage.setItem("long-con:packets", JSON.stringify(packets));
+  } catch {
+    setStatus("Couldn't save to this browser's storage. Export your chat so nothing is lost.");
+  }
+};
 
-const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
-const log = $<HTMLElement>("log");
+const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
+const app = document.querySelector<HTMLElement>(".app")!;
+const log = $("log");
 const form = $<HTMLFormElement>("form");
 const input = $<HTMLTextAreaElement>("input");
 const send = $<HTMLButtonElement>("send");
-const status = $<HTMLElement>("status");
+const status = $("status");
+const presence = $("presence");
 const keyInput = $<HTMLInputElement>("key");
 const modelSelect = $<HTMLSelectElement>("model");
+const settings = $<HTMLDialogElement>("settings");
+const sidebar = $("sidebar");
+const scrim = $("scrim");
+const search = $<HTMLInputElement>("search");
 
 const history: Session[] = load("long-con:history", []);
 const packets: Packets = load("long-con:packets", {});
+const keyOf = (sessionId: string, turn: number) => `${sessionId}#${turn}`;
+
+// ---------- Settings ----------
 
 keyInput.value = localStorage.getItem("long-con:key") ?? "";
-keyInput.addEventListener("change", () => save("long-con:key", keyInput.value.trim()));
+keyInput.addEventListener("input", () => localStorage.setItem("long-con:key", keyInput.value.trim()));
 for (const m of MODELS) modelSelect.add(new Option(m, m));
 modelSelect.value = localStorage.getItem("long-con:model") ?? MODELS[0]!;
-modelSelect.addEventListener("change", () => save("long-con:model", modelSelect.value));
-if (!keyInput.value) $<HTMLDetailsElement>("settings").open = true;
-
-$<HTMLButtonElement>("clear").addEventListener("click", () => {
-  if (!confirm("Delete the whole chat from this browser? This can't be undone.")) return;
-  history.length = 0;
-  for (const k of Object.keys(packets)) delete packets[k];
-  save("long-con:history", history);
-  save("long-con:packets", packets);
-  render();
+modelSelect.addEventListener("change", () => localStorage.setItem("long-con:model", modelSelect.value));
+$("show-key").addEventListener("click", (e) => {
+  const show = keyInput.type === "password";
+  keyInput.type = show ? "text" : "password";
+  (e.currentTarget as HTMLElement).textContent = show ? "Hide" : "Show";
+  (e.currentTarget as HTMLElement).setAttribute("aria-pressed", String(show));
+});
+$("open-settings").addEventListener("click", () => settings.showModal());
+settings.addEventListener("close", () => {
+  keyInput.type = "password";
+  input.focus();
 });
 
-function render() {
-  log.replaceChildren();
-  if (!history.length) log.append(el("p", "empty", "No messages yet. Everything you say here stays in one endless chat."));
-  for (const session of history) {
-    session.turns.forEach((turn, i) => {
-      log.append(el("p", `msg ${turn.role}`, turn.content));
-      const packet = turn.role === "user" ? packets[`${session.id}#${i}`] : undefined;
-      if (packet) {
-        const details = el("details", "packet");
-        details.append(el("summary", "", `Packet · ${packet.tokens} tokens`), el("pre", "", packet.text));
-        log.append(details);
-      }
-    });
-  }
-  window.scrollTo(0, document.body.scrollHeight);
+// ---------- Sidebar ----------
+
+const narrow = matchMedia("(max-width: 760px)");
+function setSidebar(open: boolean) {
+  app.classList.toggle("side-open", open);
+  sidebar.classList.toggle("open", open);
+  scrim.hidden = !(open && narrow.matches);
+  $("open-side").setAttribute("aria-expanded", String(open));
+  if (!narrow.matches) localStorage.setItem("long-con:sidebar", open ? "1" : "");
+  if (open) renderSidebar();
+}
+$("open-side").addEventListener("click", () => setSidebar(!app.classList.contains("side-open")));
+$("close-side").addEventListener("click", () => setSidebar(false));
+scrim.addEventListener("click", () => setSidebar(false));
+
+for (const tab of ["topics", "data"]) {
+  $(`tab-${tab}`).addEventListener("click", () => {
+    for (const t of ["topics", "data"]) {
+      $(`tab-${t}`).setAttribute("aria-selected", String(t === tab));
+      $(`panel-${t}`).hidden = t !== tab;
+    }
+  });
 }
 
-function el(tag: string, className: string, text = "") {
+function renderSidebar() {
+  // Topics
+  const chips = $("topics");
+  const found = topics(history);
+  chips.replaceChildren(...found.map(({ word, count }) => {
+    const b = btn("", word);
+    b.append(el("span", "", String(count)));
+    b.addEventListener("click", () => {
+      search.value = word;
+      renderResults();
+    });
+    return b;
+  }));
+  if (!found.length) chips.append(el("p", "hint", "Topics show up here once you've chatted a bit."));
+  renderResults();
+
+  // Data
+  const messages = history.reduce((n, s) => n + s.turns.length, 0);
+  const bytes = (localStorage.getItem("long-con:history")?.length ?? 0) + (localStorage.getItem("long-con:packets")?.length ?? 0);
+  $("stats").replaceChildren(stat(messages, "messages"), stat(history.length, "days"), stat(`${Math.max(1, Math.round(bytes / 1024))} KB`, "stored"));
+  $("days").replaceChildren(...[...history].reverse().map((s) => {
+    const li = el("li");
+    const go = btn("go", dayName(s.id));
+    go.append(el("small", "", ` · ${s.turns.length} messages`));
+    go.addEventListener("click", () => jumpTo(keyOf(s.id, 0)));
+    const del = btn("icon");
+    del.setAttribute("aria-label", `Delete ${dayName(s.id)}`);
+    del.innerHTML = `<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>`;
+    del.addEventListener("click", () => {
+      if (!confirm(`Delete everything from ${dayName(s.id)}? This can't be undone.`)) return;
+      history.splice(history.indexOf(s), 1);
+      for (const k of Object.keys(packets)) if (k.startsWith(`${s.id}#`)) delete packets[k];
+      saveChat();
+      renderLog();
+      renderSidebar();
+    });
+    li.append(go, del);
+    return li;
+  }));
+}
+
+const stat = (value: string | number, label: string) => {
+  const d = el("div");
+  d.append(el("b", "", String(value)), el("span", "", label));
+  return d;
+};
+
+function renderResults() {
+  const q = search.value.trim().toLowerCase();
+  const list = $("results");
+  list.replaceChildren();
+  if (!q) return;
+  const hits: { key: string; day: string; text: string }[] = [];
+  for (const s of history) s.turns.forEach((t, i) => t.content.toLowerCase().includes(q) && hits.push({ key: keyOf(s.id, i), day: `${dayName(s.id)} · ${t.role === "user" ? "you" : "Long Con"}`, text: t.content }));
+  if (!hits.length) list.append(el("li", "hint", "Nothing yet."));
+  for (const h of hits.slice(-30).reverse()) {
+    const b = btn();
+    b.append(el("small", "", h.day), snippet(h.text, q));
+    b.addEventListener("click", () => jumpTo(h.key));
+    const li = el("li");
+    li.append(b);
+    list.append(li);
+  }
+}
+search.addEventListener("input", renderResults);
+
+function snippet(text: string, q: string) {
+  const at = text.toLowerCase().indexOf(q);
+  const start = Math.max(0, at - 40);
+  const span = el("span", "", (start ? "…" : "") + text.slice(start, at));
+  span.append(el("mark", "", text.slice(at, at + q.length)), text.slice(at + q.length, at + q.length + 60) + (at + q.length + 60 < text.length ? "…" : ""));
+  return span;
+}
+
+function jumpTo(key: string) {
+  const row = log.querySelector<HTMLElement>(`[data-key="${CSS.escape(key)}"]`);
+  if (!row) return;
+  if (narrow.matches) setSidebar(false);
+  row.scrollIntoView({ behavior: "smooth", block: "center" });
+  row.classList.add("flash");
+  setTimeout(() => row.classList.remove("flash"), 1600);
+}
+
+$("export").addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify({ history, packets }, null, 2)], { type: "application/json" });
+  const a = el("a") as HTMLAnchorElement;
+  a.href = URL.createObjectURL(blob);
+  a.download = `long-con-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+$<HTMLInputElement>("import").addEventListener("change", async (e) => {
+  const file = (e.target as HTMLInputElement).files?.[0];
+  (e.target as HTMLInputElement).value = "";
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    // Only the shape the chat reads gets in; anything else is refused.
+    const ok =
+      Array.isArray(data?.history) &&
+      data.history.every((s: Session) => typeof s?.id === "string" && Array.isArray(s.turns) && s.turns.every((t) => (t?.role === "user" || t?.role === "assistant") && typeof t.content === "string"));
+    if (!ok) throw new Error("That file isn't a Long Con export.");
+    if (history.length && !confirm("Replace the chat in this browser with the imported one?")) return;
+    history.splice(0, history.length, ...data.history);
+    for (const k of Object.keys(packets)) delete packets[k];
+    Object.assign(packets, typeof data.packets === "object" && data.packets ? data.packets : {});
+    saveChat();
+    renderLog();
+    renderSidebar();
+  } catch (err) {
+    alert(err instanceof Error ? err.message : String(err));
+  }
+});
+
+$("clear").addEventListener("click", () => {
+  if (!confirm("Delete the whole chat from this browser? This can't be undone. Export first if you want a copy.")) return;
+  history.length = 0;
+  for (const k of Object.keys(packets)) delete packets[k];
+  saveChat();
+  renderLog();
+  renderSidebar();
+});
+
+// ---------- Chat ----------
+
+function el(tag: string, className = "", text = "") {
   const node = document.createElement(tag);
-  node.className = className;
-  node.textContent = text;
+  if (className) node.className = className;
+  if (text) node.textContent = text;
   return node;
 }
 
-function setStatus(text: string, error = false) {
-  status.textContent = text;
-  status.classList.toggle("error", error);
+const btn = (className = "", text = "") => Object.assign(el("button", className, text), { type: "button" }) as HTMLButtonElement;
+
+/** Plain text with **bold** and `code`, built as DOM so nothing in a message can inject markup. */
+function richText(text: string) {
+  const frag = document.createDocumentFragment();
+  for (const part of text.split(/(\*\*[^*\n]+\*\*|`[^`\n]+`)/)) {
+    if (part.startsWith("**") && part.endsWith("**") && part.length > 4) frag.append(el("strong", "", part.slice(2, -2)));
+    else if (part.startsWith("`") && part.endsWith("`") && part.length > 2) frag.append(el("code", "", part.slice(1, -1)));
+    else if (part) frag.append(part);
+  }
+  return frag;
 }
 
-form.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const message = input.value.trim();
-  if (!message || send.disabled) return;
-  const apiKey = keyInput.value.trim();
-  if (!apiKey) {
-    $<HTMLDetailsElement>("settings").open = true;
-    setStatus("Add your Anthropic API key in Settings first.", true);
-    return;
-  }
-  send.disabled = true;
-  setStatus("Thinking…");
-  try {
-    const result = await sendTurn(history, message, { apiKey, model: modelSelect.value });
-    packets[`${result.sessionId}#${result.turn}`] = { text: result.packet, tokens: result.packetTokens };
-    save("long-con:history", history);
-    save("long-con:packets", packets);
-    input.value = "";
-    setStatus("");
-    render();
-  } catch (err) {
-    // The message stays in the box so nothing is lost.
-    setStatus(err instanceof Error ? err.message : String(err), true);
-  } finally {
-    send.disabled = false;
-  }
-});
+let lastDay = "";
+let lastRow: HTMLElement | null = null;
 
+function addTurn(sessionId: string, turn: number, role: "user" | "assistant", content: string, animate: boolean) {
+  log.querySelector(".empty")?.remove();
+  if (sessionId !== lastDay) {
+    log.append(el("div", "day", dayName(sessionId)));
+    lastDay = sessionId;
+    lastRow = null;
+  }
+  // Consecutive bubbles from one side group like a text thread: only the last keeps its tail.
+  if (lastRow?.classList.contains(role)) lastRow.querySelector(".bubble")?.classList.remove("last");
+  const row = el("div", `row ${role}`);
+  row.dataset.key = keyOf(sessionId, turn);
+  const bubble = el("div", `bubble last${animate ? "" : " still"}`);
+  bubble.append(richText(content));
+  row.append(bubble);
+  const packet = role === "user" ? packets[keyOf(sessionId, turn)] : undefined;
+  if (packet) {
+    const chip = btn("packet-chip");
+    chip.setAttribute("aria-expanded", "false");
+    chip.innerHTML = `<svg viewBox="0 0 24 24"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5zM3.3 7L12 12l8.7-5M12 22V12"/></svg>`;
+    chip.append(`packet · ${packet.tokens} tokens`);
+    const box = el("div", "packet", packet.text);
+    box.hidden = true;
+    chip.addEventListener("click", () => {
+      box.hidden = !box.hidden;
+      chip.setAttribute("aria-expanded", String(!box.hidden));
+    });
+    row.append(chip, box);
+  }
+  log.append(row);
+  lastRow = row;
+}
+
+function renderLog() {
+  log.replaceChildren();
+  lastDay = "";
+  lastRow = null;
+  if (!history.length) {
+    const empty = el("div", "empty");
+    empty.append(el("div", "avatar", "LC"), el("h1", "", "One chat, forever"), el("p", "", "Text like you would a friend. Every reply gets a fresh packet of what matters from everything you've said, and you can peek at it under each message."));
+    log.append(empty);
+  }
+  for (const s of history) s.turns.forEach((t, i) => addTurn(s.id, i, t.role, t.content, false));
+  log.scrollTop = log.scrollHeight;
+}
+
+function setStatus(text: string) {
+  status.textContent = text;
+}
+
+function showTyping(on: boolean) {
+  presence.textContent = on ? "typing…" : "remembers everything";
+  presence.classList.toggle("typing", on);
+  log.querySelector(".typing-row")?.remove();
+  if (!on) return;
+  const row = el("div", "row assistant typing-row");
+  const bubble = el("div", "bubble last");
+  bubble.setAttribute("aria-label", "Long Con is typing");
+  bubble.append(el("span", "typing-dots"));
+  bubble.firstElementChild!.append(el("i"), el("i"), el("i"));
+  row.append(bubble);
+  log.append(row);
+  log.scrollTop = log.scrollHeight;
+}
+
+const sync = () => {
+  input.style.height = "auto";
+  input.style.height = `${input.scrollHeight}px`;
+  send.disabled = busy || !input.value.trim();
+};
+let busy = false;
+input.addEventListener("input", sync);
 input.addEventListener("keydown", (event) => {
-  if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+  // Enter sends on a keyboard; on phones the return key adds a line and the button sends.
+  if (event.key === "Enter" && !event.shiftKey && !event.isComposing && !narrow.matches) {
     event.preventDefault();
     form.requestSubmit();
   }
 });
 
-render();
+form.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const message = input.value.trim();
+  if (!message || busy) return;
+  const apiKey = keyInput.value.trim();
+  if (!apiKey) {
+    setStatus("Add your Anthropic API key in Settings first.");
+    settings.showModal();
+    return;
+  }
+  busy = true;
+  setStatus("");
+  input.value = "";
+  sync();
+  // The message shows right away like a sent text; it's only saved once the reply is back.
+  const pending = el("div", "row user pending");
+  pending.append(el("div", "bubble last", message));
+  log.querySelector(".empty")?.remove();
+  log.append(pending);
+  showTyping(true);
+  try {
+    const result = await sendTurn(history, message, { apiKey, model: modelSelect.value });
+    packets[keyOf(result.sessionId, result.turn)] = { text: result.packet, tokens: result.packetTokens };
+    saveChat();
+    pending.remove();
+    showTyping(false);
+    addTurn(result.sessionId, result.turn, "user", message, false);
+    addTurn(result.sessionId, result.turn + 1, "assistant", result.answer, true);
+    log.scrollTop = log.scrollHeight;
+    if (app.classList.contains("side-open")) renderSidebar();
+  } catch (err) {
+    pending.remove();
+    showTyping(false);
+    // Put the message back so nothing is lost.
+    input.value = message;
+    setStatus(err instanceof Error ? err.message : String(err));
+  } finally {
+    busy = false;
+    sync();
+  }
+});
+
+renderLog();
+setSidebar(!narrow.matches && !!localStorage.getItem("long-con:sidebar"));
+if (!keyInput.value) settings.showModal();
+else input.focus();

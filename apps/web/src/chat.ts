@@ -8,7 +8,7 @@ import { assemblePrompt, buildPacket, PROFILES, type Session } from "@long-con/c
 export const PROFILE = { ...PROFILES.claude, maxToolRounds: 0 };
 
 export const SYSTEM =
-  "You are a helpful assistant in a long-running chat with the user. Each message comes with a packet of what seemed relevant from your past chats with them. Use it when it helps. If it doesn't say and you don't know, say so instead of guessing.";
+  "You are a helpful assistant in a long-running chat with the user. Each message comes with a packet of what seemed relevant from your past chats with them. Use it when it helps. If it doesn't say and you don't know, say so instead of guessing. Write like you're texting a friend: plain and conversational, no headings or tables.";
 
 export const MODELS = ["claude-sonnet-5-5", "claude-opus-5-5", "claude-haiku-5-5"];
 
