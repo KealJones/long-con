@@ -5,7 +5,7 @@ import type { Session, Turn, TurnRef } from "./chat.ts";
 import { Bm25, type Hit } from "./bm25.ts";
 import { buildRegisters, refKey } from "./registers.ts";
 import { resolve, type Resolution } from "./resolver.ts";
-import { splitIntoSegments, type Segment } from "./segments.ts";
+import { segmentKey, splitIntoSegments, type KeyDenoise, type Segment } from "./segments.ts";
 import { extractNotes, groupNotes, groupWords, renderGroup, type Note } from "./notes.ts";
 import type { Profile } from "./profiles.ts";
 import { isTallyQuestion, SEG_GATE, tallySearch } from "./tally.ts";
@@ -98,7 +98,7 @@ export function buildPacket({ history, message, profile, currentSessionId, code 
 
   if (gateOpen) {
     const seen = new Set<string>();
-    const { hits, idf } = searchUnits(history, resolution.query, profile.segmentTokens, current?.id, recentStart, profile.stemmer);
+    const { hits, idf } = searchUnits(history, resolution.query, profile.segmentTokens, current?.id, recentStart, profile.stemmer, profile.gateKey);
     // The absolute bar asks whether history holds anything strong enough to answer at all. It judges the best unit
     // only: per unit, it cut the weaker second piece multi-session questions need (P02 dev sweep).
     const found = hits.some((h) => h.score >= profile.minScore);
@@ -180,10 +180,13 @@ export function buildPacket({ history, message, profile, currentSessionId, code 
  * in either ranking, so it says how close a unit comes to the best match. Score is its best score as a share of
  * the most any unit could score on the query: absolute, so a weak best match shows as weak. Features feed the unit gate (gate.ts).
  */
-export function searchUnits(history: Session[], query: string, segmentTokens: number, currentId?: string, recentStart = 0, stemmer: Stemmer = "suffix") {
+export function searchUnits(history: Session[], query: string, segmentTokens: number, currentId?: string, recentStart = 0, stemmer: Stemmer = "suffix", gateKey: KeyDenoise = "") {
   // Each unit is indexed two ways, all its words and the user's words alone, then the rankings are fused.
   const all = new Bm25<Segment>();
   const user = new Bm25<Segment>();
+  // P26 gate keys: with gateKey set, a third all-words index on the denoised text feeds the absolute score (the minScore
+  // bar and the gate's absolute features) while ranking stays on the full text.
+  const key = gateKey ? new Bm25<Segment>() : all;
   const length = new Map<Segment, number>();
   for (const session of history) {
     for (const seg of splitIntoSegments(session, segmentTokens)) {
@@ -192,20 +195,27 @@ export function searchUnits(history: Session[], query: string, segmentTokens: nu
       const words = contentWords(seg.turns.map((t) => t.content).join("\n"), stemmer);
       length.set(seg, words.length);
       all.add(seg, words);
+      if (key !== all) key.add(seg, contentWords(segmentKey(session, seg, gateKey, (t) => contentWords(t, stemmer)), stemmer), gateKey.includes("fulllen") ? words.length : undefined);
       user.add(seg, contentWords(seg.turns.filter((t) => t.role === "user").map((t) => t.content).join("\n"), stemmer));
     }
   }
   const words = contentWords(query, stemmer);
   const terms = [...new Set(words)];
   const lists = [all.search(words), user.search(words)];
-  const ceilings = [all.ceiling(words), user.ceiling(words)];
+  const ceilings = [key.ceiling(words), user.ceiling(words)];
+  const keyHits = key === all ? undefined : new Map(key.search(words).map((h) => [h.item, h]));
+  // "+matched" also takes the matched-share features from the denoised key (plus the user index).
+  const userMatched = new Map(lists[1]!.map((h) => [h.item, h.matched]));
+  const gateMatched = (hit: Hit<Segment>) =>
+    keyHits && gateKey.includes("matched") ? [...new Set([...(keyHits.get(hit.item)?.matched ?? []), ...(userMatched.get(hit.item) ?? [])])] : hit.matched;
   const share = new Map<Segment, number>();
   const absolute = new Map<Segment, number>();
   const ranks = lists.map((list) => new Map(list.map((h, r) => [h.item, r])));
   lists.forEach((list, i) => {
     for (const h of list) {
       share.set(h.item, Math.max(share.get(h.item) ?? 0, h.score / list[0]!.score));
-      absolute.set(h.item, Math.max(absolute.get(h.item) ?? 0, h.score / ceilings[i]!));
+      const score = i === 0 && keyHits ? (keyHits.get(h.item)?.score ?? 0) : h.score;
+      absolute.set(h.item, Math.max(absolute.get(h.item) ?? 0, score / ceilings[i]!));
     }
   });
   const topAbsolute = Math.max(0, ...absolute.values());
@@ -221,8 +231,8 @@ export function searchUnits(history: Session[], query: string, segmentTokens: nu
       rank(0),
       rank(1),
       agreement,
-      hit.matched.reduce((a, t) => a + all.idf(t), 0) / idfAll,
-      hit.matched.length / (terms.length || 1),
+      gateMatched(hit).reduce((a, t) => a + all.idf(t), 0) / idfAll,
+      gateMatched(hit).length / (terms.length || 1),
       Math.log(1 + (length.get(hit.item) ?? 0)),
       Math.log(1 + terms.length),
     ];
@@ -236,7 +246,7 @@ export function searchUnits(history: Session[], query: string, segmentTokens: nu
  * abstains, the tool still answers: a unit the packet would leave out comes back marked low confidence.
  */
 export function searchHistory(history: Session[], query: string, profile: Profile): string {
-  const { hits } = searchUnits(history, query, profile.segmentTokens, undefined, 0, profile.stemmer);
+  const { hits } = searchUnits(history, query, profile.segmentTokens, undefined, 0, profile.stemmer, profile.gateKey);
   if (!hits.length) return "No matches.";
   const found = hits.some((h) => h.score >= profile.minScore);
   const rejected = buildRegisters(history, profile.recentAnswers).rejected;

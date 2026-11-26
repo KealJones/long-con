@@ -50,7 +50,7 @@ function main(argv: string[]) {
   const tallyProbes = probes.filter((p) => isTallyQuestion(p.message));
   const samples: (Sample & { probe: Probe })[] = [];
   for (const p of tallyProbes) {
-    const { hits } = searchUnits(p.history, p.message, PROFILES.claude.segmentTokens);
+    const { hits } = searchUnits(p.history, p.message, PROFILES.claude.segmentTokens, undefined, 0, PROFILES.claude.stemmer, PROFILES.claude.gateKey);
     if (!hits.some((h) => h.score >= PROFILES.claude.minScore)) continue;
     for (const c of tallySearch(p.history, p.message, undefined, 0, hits)) {
       const y = p.tier === "answerable" && isEvidenceUnit(c.hit.item, p.evidence!) ? 1 : 0;
