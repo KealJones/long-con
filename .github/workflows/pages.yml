@@ -1,5 +1,6 @@
-# Builds the web chat (apps/web) and deploys it to GitHub Pages on every push to main.
-# Needs Settings > Pages > Source set to "GitHub Actions".
+# Deploys the web chat (apps/web) on every push to main, by publishing it to the gh-pages branch
+# (Settings > Pages > Source: "Deploy from a branch", gh-pages, / (root)).
+# Pull-request previews (pr-preview.yml) live on the same branch under pr-preview/, which this deploy leaves alone.
 name: Web chat (Pages)
 
 on:
@@ -8,21 +9,16 @@ on:
     paths: [apps/web/**, packages/core/**, package-lock.json, .github/workflows/pages.yml]
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  group: gh-pages
+  cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    timeout-minutes: 10
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -31,8 +27,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build -w @long-con/web
-      - uses: actions/upload-pages-artifact@v3
+      - name: Publish to gh-pages
+        uses: JamesIves/github-pages-deploy-action@v4
         with:
-          path: apps/web/dist
-      - id: deployment
-        uses: actions/deploy-pages@v4
+          folder: apps/web/dist
+          branch: gh-pages
+          clean: true
+          clean-exclude: pr-preview/
+          commit-message: "Deploy ${{ github.sha }}"
