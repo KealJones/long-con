@@ -188,7 +188,10 @@ export function runProbe(
 ): ProbeResult {
   const packet = build(probe);
   // Each interest note shown is a unit too, judged by its source turn, so a note on a should-be-empty prompt counts as a false inclusion.
-  const units = [...packet.segments, ...(packet.notes ?? []).map((n) => ({ sessionId: n.from.sessionId, start: n.from.turn, end: n.from.turn }))];
+  // A note whose source turn is already inside a shown segment adds nothing new, so it isn't counted twice.
+  const inShown = (sessionId: string, turn: number) => packet.segments.some((s) => s.sessionId === sessionId && s.start <= turn && turn <= s.end);
+  const notes = (packet.notes ?? []).filter((n) => !inShown(n.from.sessionId, n.from.turn));
+  const units = [...packet.segments, ...notes.map((n) => ({ sessionId: n.from.sessionId, start: n.from.turn, end: n.from.turn }))];
   const evidenceUnits = probe.evidence ? units.filter((s) => isEvidenceUnit(s, probe.evidence!)).length : 0;
   const found = [NOTES, RETRIEVED].map((h) => packet.text.indexOf(h)).filter((i) => i >= 0);
   const at = found.length ? Math.min(...found) : -1;
