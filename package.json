@@ -13,7 +13,7 @@
   "scripts": {
     "cli": "node --experimental-strip-types apps/cli/src/main.ts",
     "typecheck": "tsc",
-    "test": "node --experimental-strip-types --no-warnings --test packages/*/test/*.test.ts evals/test/*.test.ts"
+    "test": "node --experimental-strip-types --no-warnings --test packages/*/test/*.test.ts apps/*/test/*.test.ts evals/test/*.test.ts"
   },
   "devDependencies": {
     "@types/node": "^22.20.7",

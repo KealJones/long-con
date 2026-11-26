@@ -11,5 +11,5 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["packages/*/src", "packages/*/test", "apps/*/src", "evals/src", "evals/test"]
+  "include": ["packages/*/src", "packages/*/test", "apps/*/src", "apps/*/test", "evals/src", "evals/test"]
 }
