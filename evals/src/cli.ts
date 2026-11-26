@@ -3,46 +3,59 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
-import { buildPacket, estimateTokens, PROFILES, type Profile } from "@long-con/core";
-import { ARMS, type ArmName } from "./arms.ts";
+import { buildPacket, estimateTokens, PROFILES, profileByName, type Profile } from "@long-con/core";
+import { ARMS, firstMessages, SEARCH_TOOL, searchHistory, SYSTEM, type ArmName } from "./arms.ts";
+import { recallChart, type Series } from "./chart.ts";
 import { EstimatingModel } from "./estimate.ts";
 import { loadLongMemEval, stratifiedSlice, type Question } from "./longmemeval.ts";
 import { AnthropicModel } from "./model.ts";
 import { packetRecall } from "./recall.ts";
 import { runEval, summarize, summaryTable, writeSummary, type RunOptions } from "./run.ts";
+import { SubagentModel } from "./subagent.ts";
 
 const ROOT = new URL("../..", import.meta.url).pathname;
 const DATA = join(ROOT, "evals/data/longmemeval/longmemeval_s_cleaned.json");
 const SLICE = join(ROOT, "evals/slices/longmemeval-s-dev50.json");
 const RESULTS = join(ROOT, "evals/results");
+const PROFILE_NAMES = Object.values(PROFILES).map((p) => p.name);
+const SWEEP = [1000, 1500, 2000, 2500, 3000, 4000, 6000, 8000];
 
 const usage = `Usage: long-con eval <command> [options]
 
 Commands:
   recall     Free check: is each question's evidence in the packet? No model calls.
   estimate   Dry run of all four arms with a stand-in model, to price a real run.
-  run        Real run on the dev slice. Needs ANTHROPIC_API_KEY. Stops if the estimate passes --max-cost.
+  run        Answer and judge the dev slice. --backend subagent (default) runs on a Claude plan through
+             subagents; --backend api uses ANTHROPIC_API_KEY and stops if the estimate passes --max-cost.
 
 Options:
+  --profile <name>     Model profile: ${PROFILE_NAMES.join(", ")} (recall runs all of them by default; others default to claude)
   --data <path>        LongMemEval_S file (default evals/data/longmemeval/longmemeval_s_cleaned.json)
-  --budgets <list>     Packet budgets for recall, in tokens (default 2000,4000,8000,16000)
   --arms <list>        Arms for estimate/run (default full,compaction,packet,bare)
   --reader <model>     Reader model (default claude-haiku-5-5)
   --judge <model>      Judge model (default claude-opus-5-5)
-  --limit <n>          Only the first n dev questions
-  --max-cost <usd>     Refuse a run whose estimate is higher (default 5)`;
+  --split <name>       dev (default, the 50 tuning questions) or held-out (the other 450, for headline numbers)
+  --limit <n>          A smaller stratified pick of the split
+  --backend <name>     subagent (default) or api
+  --no-tools           No search tool for any arm (the subagent backend needs this)
+  --out <dir>          Where a run writes its prompts, answers and summary
+  --max-cost <usd>     Refuse an API run whose estimate is higher (default 5)`;
 
 export async function main(argv: string[]): Promise<number> {
   const { values, positionals } = parseArgs({
     args: argv,
     allowPositionals: true,
     options: {
+      profile: { type: "string" },
       data: { type: "string", default: DATA },
-      budgets: { type: "string", default: "2000,4000,8000,16000" },
       arms: { type: "string", default: ARMS.join(",") },
       reader: { type: "string", default: "claude-haiku-5-5" },
       judge: { type: "string", default: "claude-opus-5-5" },
+      split: { type: "string", default: "dev" },
       limit: { type: "string" },
+      backend: { type: "string", default: "subagent" },
+      "no-tools": { type: "boolean", default: false },
+      out: { type: "string" },
       "max-cost": { type: "string", default: "5" },
     },
   });
@@ -51,35 +64,80 @@ export async function main(argv: string[]): Promise<number> {
     console.log(usage);
     return command ? 1 : 0;
   }
+  const picked = values.profile ? profileByName(values.profile) : undefined;
+  if (values.profile && !picked) {
+    console.error(`No profile named ${values.profile}. Profiles: ${PROFILE_NAMES.join(", ")}`);
+    return 1;
+  }
   if (!existsSync(values.data)) {
     console.error(`No LongMemEval data at ${values.data}. Run evals/scripts/fetch-longmemeval.sh first.`);
     return 1;
   }
 
   console.error("Loading LongMemEval_S...");
-  let dev = devSlice(loadLongMemEval(values.data));
-  if (values.limit) dev = dev.slice(0, Number(values.limit));
+  if (!["dev", "held-out"].includes(values.split)) {
+    console.error(`Unknown split ${values.split}: use dev or held-out.`);
+    return 1;
+  }
+  if (values.split === "held-out" && command === "recall") {
+    console.error("Recall is a tuning check, so it runs on dev only.");
+    return 1;
+  }
+  const all = loadLongMemEval(values.data);
+  const devIds = new Set(devSlice(all).map((q) => q.id));
+  let dev = values.split === "dev" ? devSlice(all) : all.filter((q) => !devIds.has(q.id));
+  // A stratified pick, so a short run isn't all one easy question type.
+  if (values.limit) dev = stratifiedSlice(dev, Number(values.limit), 1).dev;
 
   if (command === "recall") {
-    const report = recallReport(dev, values.budgets.split(",").map(Number));
+    const profiles = picked ? [picked] : Object.values(PROFILES);
+    const { report, chart } = recallReport(dev, profiles);
     mkdirSync(RESULTS, { recursive: true });
     writeFileSync(join(RESULTS, "longmemeval-s-dev50-recall.md"), report);
+    writeFileSync(join(RESULTS, "longmemeval-s-dev50-recall.svg"), chart);
     console.log(report);
     return 0;
   }
 
+  const chosen = picked ?? PROFILES.claude;
+  // Every arm gets the same tools, so turning them off turns them off for all.
+  const profile: Profile = values["no-tools"] ? { ...chosen, maxToolRounds: 0 } : chosen;
+  const tools = profile.maxToolRounds ? `up to ${profile.maxToolRounds} searches per arm` : "no tools for any arm";
   const arms = values.arms.split(",") as ArmName[];
-  const base = { arms, reader: values.reader, judgeModel: values.judge, profile: PROFILES.claude, compactAt: 30_000, maxToolRounds: 3, concurrency: 4 };
+  const base = { arms, reader: values.reader, judgeModel: values.judge, profile, concurrency: 4 };
   const estimate = summarize(await runEval(dev, { ...base, model: new EstimatingModel() }), arms);
   const estimatedTotal = estimate.reduce((a, r) => a + r.totalCost, 0);
-  const estimateHeader = `# Cost estimate: ${dev.length} LongMemEval_S dev questions\n\nReader ${values.reader}, judge ${values.judge}. Token counts are estimates (about 3.5 characters per token), and every tool-enabled arm is assumed to search once. Estimated total: **$${estimatedTotal.toFixed(2)}**.`;
+  const estimateHeader = `# Cost estimate: ${dev.length} LongMemEval_S ${values.split} questions, ${profile.name} profile\n\nReader ${values.reader}, judge ${values.judge}. Token counts are estimates (about 3.5 characters per token), every arm may search, and each is assumed to search once. Estimated total: **$${estimatedTotal.toFixed(2)}**.`;
 
   if (command === "estimate") {
-    writeFileSync(join(RESULTS, "longmemeval-s-dev50-estimate.md"), `${estimateHeader}\n\n${summaryTable(estimate, false)}\n`);
+    writeFileSync(join(RESULTS, `longmemeval-s-dev50-estimate-${profile.name}.md`), `${estimateHeader}\n\n${summaryTable(estimate, false)}\n`);
     console.log(`${estimateHeader}\n\n${summaryTable(estimate, false)}`);
     return 0;
   }
 
+  if (values.backend === "subagent") {
+    const outDir = values.out ?? join(RESULTS, "smoke", profile.name);
+    const model = new SubagentModel(outDir);
+    const answers = await runEval(dev, { ...base, model, concurrency: 1 });
+    const waiting = answers.filter((a) => a.error?.includes("Pending")).length;
+    if (waiting) {
+      console.log(`${waiting} answers wait on subagents. Answer each file in ${join(outDir, "pending")} into ${join(outDir, "answers")} under the same name, then run this again.`);
+      return 2;
+    }
+    const rows = summarize(answers, arms);
+    writeFileSync(join(outDir, "answers.jsonl"), answers.map((a) => JSON.stringify(a)).join("\n") + "\n");
+    writeSummary(
+      outDir,
+      rows,
+      `# Smoke run: ${dev.length} LongMemEval_S ${values.split} questions, ${profile.name} profile\n\nBackend: subagents on a Claude plan, reader ${values.reader}, judge ${values.judge}, ${tools}. Token counts are estimates of the prompt alone. Cost and latency are not comparable with API runs, and this sample is small.`,
+    );
+    console.log(summaryTable(rows));
+    return 0;
+  }
+  if (values.backend !== "api") {
+    console.error(`Unknown backend ${values.backend}: use subagent or api.`);
+    return 1;
+  }
   if (!process.env.ANTHROPIC_API_KEY) {
     console.error("ANTHROPIC_API_KEY isn't set, so there's no real run. `long-con eval recall` and `estimate` work without it.");
     return 1;
@@ -89,17 +147,17 @@ export async function main(argv: string[]): Promise<number> {
     console.error(`Estimated $${estimatedTotal.toFixed(2)} is over --max-cost $${maxCost}. Nothing was run.`);
     return 1;
   }
-  const outDir = join(ROOT, "evals/runs", new Date().toISOString().replace(/[:.]/g, "-"));
+  const outDir = values.out ?? join(ROOT, "evals/runs", new Date().toISOString().replace(/[:.]/g, "-"));
   const opts: RunOptions = { ...base, model: new AnthropicModel(), outDir };
   const rows = summarize(await runEval(dev, opts), arms);
-  writeSummary(outDir, rows, `# LongMemEval_S dev run: ${dev.length} questions\n\nReader ${values.reader}, judge ${values.judge} reading LongMemEval's own judge prompts.`);
+  writeSummary(outDir, rows, `# LongMemEval_S ${values.split} run: ${dev.length} questions, ${profile.name} profile\n\nBackend: Anthropic API. Reader ${values.reader}, judge ${values.judge} reading LongMemEval's own judge prompts, ${tools}.`);
   console.log(summaryTable(rows));
   console.error(`Answers and summary in ${outDir}`);
   return 0;
 }
 
 /** The fixed dev slice. Its question ids are committed, so it never moves even if the picking code changes. */
-function devSlice(all: Question[]): Question[] {
+export function devSlice(all: Question[]): Question[] {
   if (!existsSync(SLICE)) {
     const { dev } = stratifiedSlice(all, 50, 20261125);
     mkdirSync(join(ROOT, "evals/slices"), { recursive: true });
@@ -111,50 +169,141 @@ function devSlice(all: Question[]): Question[] {
   return ids.map((id) => byId.get(id)!).filter(Boolean);
 }
 
-function recallReport(dev: Question[], budgets: number[]): string {
+interface RecallRun {
+  q: Question;
+  tokens: number;
+  sessionRecall: number;
+  turnRecall: number;
+  complete: boolean;
+}
+
+// Every LongMemEval_S history (about 140K tokens) is past both profiles' switch points, so the packet always runs.
+function recallRuns(questions: Question[], profile: Profile): RecallRun[] {
+  return questions.map((q) => {
+    const packet = buildPacket({ history: q.sessions, message: q.question, profile });
+    return { q, tokens: packet.tokens, ...packetRecall(q, packet) };
+  });
+}
+
+/** The reader's real input: system prompt, tool definition, packet and question, plus one search if it runs one. */
+function readerInput(q: Question, profile: Profile): { first: number; withSearch: number } {
+  const { messages } = firstMessages("packet", q, profile);
+  const text = messages.map((m) => (typeof m.content === "string" ? m.content : JSON.stringify(m.content))).join("\n");
+  const tool = profile.maxToolRounds > 0 ? JSON.stringify(SEARCH_TOOL) : "";
+  const first = estimateTokens(SYSTEM + tool + text);
+  const search = profile.maxToolRounds > 0 ? estimateTokens(searchHistory(q.sessions, q.question, profile)) + 50 : 0;
+  return { first, withSearch: first + search };
+}
+
+function recallReport(dev: Question[], profiles: Profile[]): { report: string; chart: string } {
   const answerable = dev.filter((q) => !q.abstention);
   const fullTokens = mean(dev.map((q) => estimateTokens(q.sessions.flatMap((s) => s.turns.map((t) => t.content)).join("\n"))));
-  const rows: string[] = [];
-  let byType = "";
-  for (const budget of budgets) {
-    const profile: Profile = { ...PROFILES.claude, packetTokens: budget };
-    const results = answerable.map((q) => {
-      const packet = buildPacket({ history: q.sessions, message: q.question, profile });
-      return { q, packet, recall: packetRecall(q, packet) };
-    });
-    rows.push(
-      `| ${budget.toLocaleString("en-US")} | ${pct(mean(results.map((r) => r.recall.sessionRecall)))} | ${pct(mean(results.map((r) => r.recall.turnRecall)))} | ${pct(mean(results.map((r) => (r.recall.complete ? 1 : 0))))} | ${Math.round(mean(results.map((r) => r.packet.tokens))).toLocaleString("en-US")} | ${pct(mean(results.map((r) => r.packet.tokens)) / fullTokens)} |`,
+  const main: string[] = [];
+  const input: string[] = [];
+  const sweeps: string[] = [];
+  const byType: string[] = [];
+  const series: Series[] = [];
+  const seen = new Map<string, string>();
+
+  for (const profile of profiles) {
+    const runs = recallRuns(answerable, profile);
+    const complete = mean(runs.map((r) => (r.complete ? 1 : 0)));
+    const tokens = mean(runs.map((r) => r.tokens));
+    main.push(
+      `| ${profile.name} | ${fmt(profile.packetTokens)} | ${pct(mean(runs.map((r) => r.sessionRecall)))} | ${pct(mean(runs.map((r) => r.turnRecall)))} | ${pct(complete)} | ${fmt(tokens)} | ${fmt(Math.max(...runs.map((r) => r.tokens)))} | ${((complete * 100) / (tokens / 1000)).toFixed(1)} |`,
     );
-    if (budget === PROFILES.claude.packetTokens) {
-      const types = [...new Set(results.map((r) => r.q.type))].sort();
-      byType = [
-        `### By question type, at the Claude profile's ${budget.toLocaleString("en-US")}-token budget`,
-        "",
-        "| Type | Questions | Evidence chats found | Evidence turns found | All evidence in packet |",
-        "| --- | --- | --- | --- | --- |",
-        ...types.map((t) => {
-          const r = results.filter((x) => x.q.type === t);
-          return `| ${t} | ${r.length} | ${pct(mean(r.map((x) => x.recall.sessionRecall)))} | ${pct(mean(r.map((x) => x.recall.turnRecall)))} | ${pct(mean(r.map((x) => (x.recall.complete ? 1 : 0))))} |`;
-        }),
-      ].join("\n");
+
+    const inputs = dev.map((q) => readerInput(q, profile));
+    const room = profile.contextWindow - profile.answerTokens;
+    input.push(
+      `| ${profile.name} | ${fmt(profile.contextWindow)} | ${fmt(mean(inputs.map((i) => i.first)))} | ${fmt(Math.max(...inputs.map((i) => i.first)))} | ${fmt(mean(inputs.map((i) => i.withSearch)))} | ${fmt(Math.max(...inputs.map((i) => i.withSearch)))} | ${inputs.filter((i) => i.withSearch <= room).length} of ${inputs.length} |`,
+    );
+
+    const types = [...new Set(runs.map((r) => r.q.type))].sort();
+    byType.push(
+      `### ${profile.name}`,
+      "",
+      "| Type | Questions | Evidence turns found | All evidence in packet | Mean packet tokens |",
+      "| --- | --- | --- | --- | --- |",
+      ...types.map((t) => {
+        const r = runs.filter((x) => x.q.type === t);
+        return `| ${t} | ${r.length} | ${pct(mean(r.map((x) => x.turnRecall)))} | ${pct(mean(r.map((x) => (x.complete ? 1 : 0))))} | ${fmt(mean(r.map((x) => x.tokens)))} |`;
+      }),
+      "",
+    );
+
+    // Fixed fills each budget; adaptive stops adding weak matches. Same ceilings, same segment cap.
+    const points = { fixed: [] as Series["points"], adaptive: [] as Series["points"] };
+    const rows: string[] = [];
+    for (const budget of SWEEP) {
+      const cells: string[] = [];
+      for (const mode of ["fixed", "adaptive"] as const) {
+        const p: Profile = { ...profile, packetTokens: budget, minConfidence: mode === "fixed" ? 0 : profile.minConfidence };
+        const r = recallRuns(answerable, p);
+        const c = mean(r.map((x) => (x.complete ? 1 : 0)));
+        const t = mean(r.map((x) => x.tokens));
+        points[mode].push({ x: t, y: c });
+        cells.push(pct(c), fmt(t));
+      }
+      rows.push(`| ${fmt(budget)} | ${cells.join(" | ")} |`);
     }
+    const key = rows.join("\n");
+    const twin = seen.get(key);
+    seen.set(key, twin ?? profile.name);
+    if (twin) {
+      for (const sr of series) if (sr.name.startsWith(`${twin} `)) sr.name = sr.name.replace(twin, "both profiles");
+      sweeps.push(`### ${profile.name}`, "", `Same as ${twin}: the sweep only moves the ceiling, and both share segment cap ${fmt(profile.segmentTokens)} and cutoff ${profile.minConfidence}.`, "");
+      continue;
+    }
+    const at8k = (mode: "fixed" | "adaptive") => points[mode].at(-1)!.y;
+    const smallest = (mode: "fixed" | "adaptive") => SWEEP[points[mode].findIndex((p) => p.y >= at8k(mode) - 0.02)]!;
+    sweeps.push(
+      `### ${profile.name} (segment cap ${fmt(profile.segmentTokens)}, cutoff ${profile.minConfidence})`,
+      "",
+      "| Budget ceiling | Fixed: all evidence | Fixed: mean tokens | Adaptive: all evidence | Adaptive: mean tokens |",
+      "| --- | --- | --- | --- | --- |",
+      ...rows,
+      "",
+      `Smallest ceiling within 2 points of its own 8K score: fixed ${fmt(smallest("fixed"))}, adaptive ${fmt(smallest("adaptive"))}.`,
+      "",
+    );
+    series.push({ name: `${profile.name} fixed`, points: points.fixed, dashed: true }, { name: `${profile.name} adaptive`, points: points.adaptive });
   }
-  return [
+
+  const report = [
     `# Packet recall: LongMemEval_S dev slice`,
     "",
-    `${answerable.length} answerable questions of the ${dev.length}-question dev slice (${dev.length - answerable.length} abstention questions have no evidence to find). Full history averages ${Math.round(fullTokens).toLocaleString("en-US")} tokens per question. Builder: BM25 only (no embeddings yet), size-based segments, Claude profile. No model calls.`,
+    `${answerable.length} answerable questions of the ${dev.length}-question dev slice (${dev.length - answerable.length} abstention questions have no evidence to find). Full history averages ${fmt(fullTokens)} tokens per question. Builder: BM25 only (no embeddings yet), size-based segments. No model calls. "All evidence in packet" means every labeled evidence turn is in it.`,
     "",
-    "| Packet budget | Evidence chats found | Evidence turns found | All evidence in packet | Mean packet tokens | Share of full history |",
-    "| --- | --- | --- | --- | --- | --- |",
-    ...rows,
+    "## Each profile at its own settings",
     "",
-    byType,
+    "| Profile | Budget ceiling | Evidence chats found | Evidence turns found | All evidence in packet | Mean packet tokens | Largest packet | All-evidence points per 1K packet tokens |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- |",
+    ...main,
     "",
+    "## What the reader takes in per question",
+    "",
+    "System prompt, search tool definition, packet and question; then the same plus one search result. Room for the answer is kept out of the window.",
+    "",
+    "| Profile | Context window | First call, mean | First call, largest | With one search, mean | With one search, largest | Fits with room to answer |",
+    "| --- | --- | --- | --- | --- | --- | --- |",
+    ...input,
+    "",
+    "## Recall against packet size",
+    "",
+    "![Recall against packet size](longmemeval-s-dev50-recall.svg)",
+    "",
+    ...sweeps,
+    "## By question type",
+    "",
+    ...byType,
   ].join("\n");
+  return { report, chart: recallChart(series) };
 }
 
 const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
 const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
+const fmt = (x: number) => Math.round(x).toLocaleString("en-US");
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   process.exitCode = await main(process.argv.slice(2));

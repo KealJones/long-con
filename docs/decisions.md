@@ -4,6 +4,11 @@ Newest first. Each entry says what was decided and, where it matters, what it re
 
 ## 2026-11-26
 
+- **Minimal sufficient context:** the smallest packet that still has what's needed; the budget is a ceiling, not a target. The builder stops adding items below a per-profile confidence cutoff and drops duplicates and filler. Replaces filling every packet to its budget.
+- **Unit size capped per profile:** a turn too long for the cap splits at paragraph breaks and is marked as part of a longer turn. Replaces cutting only between exchanges, which let a single unit run to 12K tokens. Small units beat whole exchanges at every budget on the LongMemEval dev slice.
+- **Every eval setting comes from the profile:** context window, switch threshold, packet ceiling, cutoff, raw-turn window, unit cap, tools and search size. A small local profile is sized for LFM3 1.7B in the browser, with about 6K tokens of context.
+- **Evals run on a Claude plan by default,** with subagents as readers and judges. The API backend is kept for headline numbers.
+
 - **Every model, set per model profile.** Raw-turn window, switch threshold (packets from turn one allowed), packet token budget, gate on or off, and exposed tools are all per profile. Defaults: Claude (long windows, savings on token cost) and small local, e.g. LFM3 1.7B (short, de-duplicated context with junk turns dropped; caching is for speed through KV-cache prefix reuse, not cost).
 - **Normal chat first, then packets.** A chat runs as a plain chat until history crosses the profile's threshold, then a per-turn gate decides whether retrieval runs. Replaces retrieval on every turn, since always retrieving can score below never retrieving.
 - **The last few turns always ride along raw,** count set per profile.

@@ -1,21 +1,66 @@
 # Packet recall: LongMemEval_S dev slice
 
-47 answerable questions of the 50-question dev slice (3 abstention questions have no evidence to find). Full history averages 139,782 tokens per question. Builder: BM25 only (no embeddings yet), size-based segments, Claude profile. No model calls.
+47 answerable questions of the 50-question dev slice (3 abstention questions have no evidence to find). Full history averages 139,782 tokens per question. Builder: BM25 only (no embeddings yet), size-based segments. No model calls. "All evidence in packet" means every labeled evidence turn is in it.
 
-| Packet budget | Evidence chats found | Evidence turns found | All evidence in packet | Mean packet tokens | Share of full history |
-| --- | --- | --- | --- | --- | --- |
-| 2,000 | 56.1% | 48.2% | 25.5% | 1,830 | 1.3% |
-| 4,000 | 75.8% | 65.1% | 44.7% | 3,813 | 2.7% |
-| 8,000 | 87.6% | 81.4% | 72.3% | 7,799 | 5.6% |
-| 16,000 | 90.7% | 86.2% | 76.6% | 15,765 | 11.3% |
+## Each profile at its own settings
 
-### By question type, at the Claude profile's 8,000-token budget
+| Profile | Budget ceiling | Evidence chats found | Evidence turns found | All evidence in packet | Mean packet tokens | Largest packet | All-evidence points per 1K packet tokens |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| claude | 8,000 | 94.1% | 86.2% | 78.7% | 5,701 | 7,994 | 13.8 |
+| small-local | 2,500 | 89.1% | 80.0% | 70.2% | 2,276 | 2,508 | 30.9 |
 
-| Type | Questions | Evidence chats found | Evidence turns found | All evidence in packet |
+## What the reader takes in per question
+
+System prompt, search tool definition, packet and question; then the same plus one search result. Room for the answer is kept out of the window.
+
+| Profile | Context window | First call, mean | First call, largest | With one search, mean | With one search, largest | Fits with room to answer |
+| --- | --- | --- | --- | --- | --- | --- |
+| claude | 200,000 | 5,883 | 8,152 | 6,751 | 9,343 | 50 of 50 |
+| small-local | 6,000 | 2,453 | 2,692 | 2,754 | 3,124 | 50 of 50 |
+
+## Recall against packet size
+
+![Recall against packet size](longmemeval-s-dev50-recall.svg)
+
+### claude (segment cap 400, cutoff 0.3)
+
+| Budget ceiling | Fixed: all evidence | Fixed: mean tokens | Adaptive: all evidence | Adaptive: mean tokens |
 | --- | --- | --- | --- | --- |
-| knowledge-update | 8 | 93.8% | 93.8% | 87.5% |
-| multi-session | 11 | 68.9% | 59.8% | 36.4% |
-| single-session-assistant | 6 | 100.0% | 100.0% | 100.0% |
-| single-session-preference | 3 | 100.0% | 83.3% | 66.7% |
-| single-session-user | 6 | 100.0% | 100.0% | 100.0% |
-| temporal-reasoning | 13 | 85.4% | 74.4% | 69.2% |
+| 1,000 | 53.2% | 968 | 53.2% | 937 |
+| 1,500 | 66.0% | 1,468 | 66.0% | 1,392 |
+| 2,000 | 70.2% | 1,963 | 70.2% | 1,852 |
+| 2,500 | 70.2% | 2,464 | 70.2% | 2,276 |
+| 3,000 | 72.3% | 2,950 | 72.3% | 2,685 |
+| 4,000 | 74.5% | 3,971 | 74.5% | 3,428 |
+| 6,000 | 74.5% | 5,950 | 76.6% | 4,733 |
+| 8,000 | 78.7% | 7,910 | 78.7% | 5,701 |
+
+Smallest ceiling within 2 points of its own 8K score: fixed 8,000, adaptive 8,000.
+
+### small-local
+
+Same as claude: the sweep only moves the ceiling, and both share segment cap 400 and cutoff 0.3.
+
+## By question type
+
+### claude
+
+| Type | Questions | Evidence turns found | All evidence in packet | Mean packet tokens |
+| --- | --- | --- | --- | --- |
+| knowledge-update | 8 | 100.0% | 100.0% | 5,073 |
+| multi-session | 11 | 66.7% | 45.5% | 5,863 |
+| single-session-assistant | 6 | 100.0% | 100.0% | 3,079 |
+| single-session-preference | 3 | 83.3% | 66.7% | 7,970 |
+| single-session-user | 6 | 100.0% | 100.0% | 4,996 |
+| temporal-reasoning | 13 | 82.1% | 76.9% | 6,964 |
+
+### small-local
+
+| Type | Questions | Evidence turns found | All evidence in packet | Mean packet tokens |
+| --- | --- | --- | --- | --- |
+| knowledge-update | 8 | 93.8% | 87.5% | 2,275 |
+| multi-session | 11 | 64.4% | 45.5% | 2,152 |
+| single-session-assistant | 6 | 100.0% | 100.0% | 2,109 |
+| single-session-preference | 3 | 33.3% | 0.0% | 2,444 |
+| single-session-user | 6 | 100.0% | 100.0% | 2,271 |
+| temporal-reasoning | 13 | 76.9% | 69.2% | 2,421 |

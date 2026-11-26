@@ -1,5 +1,5 @@
 // The four arms. Each answers one question from the same past chats, seeing them a different way.
-// Every arm gets the same system prompt and the same question; only the context differs.
+// Every arm gets the same system prompt, the same question and the same search tool; only the context differs.
 
 import type Anthropic from "@anthropic-ai/sdk";
 import { assemblePrompt, Bm25, buildPacket, contentWords, estimateTokens, HISTORY_NOTICE, splitIntoSegments, type Profile, type Segment, type Session } from "@long-con/core";
@@ -9,13 +9,11 @@ import { costOf, type ModelClient, type ModelRequest } from "./model.ts";
 export type ArmName = "full" | "compaction" | "packet" | "bare";
 export const ARMS: ArmName[] = ["full", "compaction", "packet", "bare"];
 
+/** Everything model-specific comes from the profile: budgets, windows, tools, search size. */
 export interface ArmConfig {
   model: ModelClient;
   reader: string;
   profile: Profile;
-  /** Compaction folds the transcript into a summary whenever it passes this many tokens. */
-  compactAt: number;
-  maxToolRounds: number;
 }
 
 export interface Call {
@@ -38,7 +36,7 @@ export interface ArmResult {
 export const SYSTEM =
   "You are a helpful assistant in a long-running chat with the user. Use what you know from your past chats with them to answer. If the past chats don't say, say so instead of guessing.";
 
-const SEARCH_TOOL: Anthropic.Tool = {
+export const SEARCH_TOOL: Anthropic.Tool = {
   name: "search_history",
   description: "Search all past chats with the user. Returns the best-matching passages with their dates.",
   input_schema: {
@@ -50,34 +48,44 @@ const SEARCH_TOOL: Anthropic.Tool = {
 
 const ask = (q: Question) => `Current date: ${q.date}\n\n${q.question}`;
 
-export async function runArm(arm: ArmName, q: Question, cfg: ArmConfig): Promise<ArmResult> {
-  const calls: Call[] = [];
+/** The reader's first message for an arm, exactly as sent. Compaction needs the model, so it isn't here. */
+export function firstMessages(arm: Exclude<ArmName, "compaction">, q: Question, profile: Profile): { messages: Anthropic.MessageParam[]; contextTokens: number } {
   switch (arm) {
     case "full": {
       const context = renderChats(q.sessions);
-      return readerLoop(cfg, calls, [{ role: "user", content: `Past chats:\n\n${context}\n\n${ask(q)}` }], estimateTokens(context), q, false);
-    }
-    case "compaction": {
-      const context = await compact(q.sessions, cfg, calls);
-      return readerLoop(cfg, calls, [{ role: "user", content: `${context}\n\n${ask(q)}` }], estimateTokens(context), q, false);
+      return { messages: [{ role: "user", content: `Past chats:\n\n${context}\n\n${ask(q)}` }], contextTokens: estimateTokens(context) };
     }
     case "packet": {
-      const packet = buildPacket({ history: q.sessions, message: q.question, profile: cfg.profile });
-      const { messages } = assemblePrompt({ system: SYSTEM, packet: packet.text, recentTurns: packet.recentTurns, message: ask(q) });
-      return readerLoop(cfg, calls, messages, packet.tokens, q, true);
+      // Below the profile's switch point the chat is still short enough to send whole.
+      if (estimateTokens(renderChats(q.sessions)) <= profile.switchAt) return firstMessages("full", q, profile);
+      const packet = buildPacket({ history: q.sessions, message: q.question, profile });
+      return { messages: assemblePrompt({ system: SYSTEM, packet: packet.text, recentTurns: packet.recentTurns, message: ask(q) }).messages, contextTokens: packet.tokens };
     }
     case "bare": {
-      const notice = HISTORY_NOTICE(q.sessions.find((s) => s.date)?.date ?? "");
-      return readerLoop(cfg, calls, [{ role: "user", content: `${notice}\n\n${ask(q)}` }], estimateTokens(notice), q, true);
+      const notice = HISTORY_NOTICE(q.sessions.map((s) => s.date ?? "").filter(Boolean).sort()[0] ?? "");
+      return { messages: [{ role: "user", content: `${notice}\n\n${ask(q)}` }], contextTokens: estimateTokens(notice) };
     }
   }
 }
 
-async function readerLoop(cfg: ArmConfig, calls: Call[], messages: Anthropic.MessageParam[], contextTokens: number, q: Question, tools: boolean): Promise<ArmResult> {
+export async function runArm(arm: ArmName, q: Question, cfg: ArmConfig): Promise<ArmResult> {
+  const calls: Call[] = [];
+  if (arm === "compaction") {
+    const context = await compact(q.sessions, cfg, calls);
+    return readerLoop(cfg, calls, [{ role: "user", content: `${context}\n\n${ask(q)}` }], estimateTokens(context), q);
+  }
+  const { messages, contextTokens } = firstMessages(arm, q, cfg.profile);
+  return readerLoop(cfg, calls, messages, contextTokens, q);
+}
+
+async function readerLoop(cfg: ArmConfig, calls: Call[], messages: Anthropic.MessageParam[], contextTokens: number, q: Question): Promise<ArmResult> {
+  const { maxToolRounds, answerTokens } = cfg.profile;
   let toolCalls = 0;
   for (let round = 0; ; round++) {
-    const canSearch = tools && round < cfg.maxToolRounds;
-    const res = await call(cfg, calls, { model: cfg.reader, system: SYSTEM, messages, maxTokens: 4000, purpose: "reader", ...(canSearch ? { tools: [SEARCH_TOOL] } : {}) });
+    const canSearch = round < maxToolRounds;
+    // Once searches run out the tool stays defined, since earlier turns use it, but the model can only answer.
+    const tools = maxToolRounds > 0 ? { tools: [SEARCH_TOOL], toolChoice: canSearch ? ("auto" as const) : ("none" as const) } : {};
+    const res = await call(cfg, calls, { model: cfg.reader, system: SYSTEM, messages, maxTokens: answerTokens, purpose: "reader", ...tools });
     if (!res.toolCalls.length || !canSearch) return { answer: res.text, calls, contextTokens, toolCalls };
     toolCalls += res.toolCalls.length;
     messages = [
@@ -88,7 +96,7 @@ async function readerLoop(cfg: ArmConfig, calls: Call[], messages: Anthropic.Mes
         content: res.toolCalls.map((tc) => ({
           type: "tool_result" as const,
           tool_use_id: tc.id,
-          content: searchHistory(q.sessions, String(tc.input.query ?? ""), cfg.profile.segmentTokens),
+          content: searchHistory(q.sessions, String(tc.input.query ?? ""), cfg.profile),
         })),
       },
     ];
@@ -106,7 +114,7 @@ async function compact(sessions: Session[], cfg: ArmConfig, calls: Call[]): Prom
   let summary = "";
   let pending = "";
   for (const chat of renderEach(sessions)) {
-    if (pending && estimateTokens(summary + pending + chat) > cfg.compactAt) {
+    if (pending && estimateTokens(summary + pending + chat) > cfg.profile.compactAt) {
       const res = await call(cfg, calls, {
         model: cfg.reader,
         system: "You keep a running summary of a long chat between a user and an assistant, so the assistant can keep helping later without the full transcript.",
@@ -116,7 +124,7 @@ async function compact(sessions: Session[], cfg: ArmConfig, calls: Call[]): Prom
             content: `${summary ? `Summary so far:\n${summary}\n\n` : ""}New chats:\n\n${pending}\n\nWrite the updated summary. Keep facts about the user, what they asked for, decisions, preferences, names, numbers and dates. Drop small talk.`,
           },
         ],
-        maxTokens: 4000,
+        maxTokens: cfg.profile.answerTokens,
         purpose: "summarizer",
       });
       summary = res.text;
@@ -127,10 +135,10 @@ async function compact(sessions: Session[], cfg: ArmConfig, calls: Call[]): Prom
   return `${summary ? `Summary of earlier chats:\n${summary}\n\n` : ""}Recent chats:\n\n${pending.trim()}`;
 }
 
-function searchHistory(sessions: Session[], query: string, segmentTokens: number): string {
+export function searchHistory(sessions: Session[], query: string, profile: Profile): string {
   const index = new Bm25<Segment>();
-  for (const s of sessions) for (const seg of splitIntoSegments(s, segmentTokens)) index.add(seg, contentWords(seg.turns.map((t) => t.content).join("\n")));
-  const hits = index.search(contentWords(query), 3);
+  for (const s of sessions) for (const seg of splitIntoSegments(s, profile.segmentTokens)) index.add(seg, contentWords(seg.turns.map((t) => t.content).join("\n")));
+  const hits = index.search(contentWords(query), profile.searchResults);
   if (!hits.length) return "No matches.";
   return hits.map(({ item }) => `### ${item.date ?? "undated"}\n${item.turns.map((t) => `${t.role}: ${t.content}`).join("\n")}`).join("\n\n");
 }

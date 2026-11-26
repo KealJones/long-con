@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 380" font-family="system-ui, sans-serif" font-size="12" fill="#888">
+<rect width="640" height="380" fill="none" />
+<line x1="56" x2="470" y1="332" y2="332" stroke="#8884" /><text x="48" y="336" text-anchor="end">0%</text>
+<line x1="56" x2="470" y1="255" y2="255" stroke="#8884" /><text x="48" y="259" text-anchor="end">25%</text>
+<line x1="56" x2="470" y1="178" y2="178" stroke="#8884" /><text x="48" y="182" text-anchor="end">50%</text>
+<line x1="56" x2="470" y1="101" y2="101" stroke="#8884" /><text x="48" y="105" text-anchor="end">75%</text>
+<line x1="56" x2="470" y1="24" y2="24" stroke="#8884" /><text x="48" y="28" text-anchor="end">100%</text>
+<text x="56" y="350" text-anchor="middle">0K</text>
+<text x="159.5" y="350" text-anchor="middle">2K</text>
+<text x="263" y="350" text-anchor="middle">4K</text>
+<text x="366.5" y="350" text-anchor="middle">6K</text>
+<text x="470" y="350" text-anchor="middle">8K</text>
+<text x="263" y="372" text-anchor="middle">Mean packet tokens</text>
+<text x="14" y="178" text-anchor="middle" transform="rotate(-90 14 178)">All evidence in packet</text>
+<path d="M106.1,168.2 L132.0,128.9 L157.6,115.7 L183.5,115.7 L208.6,109.2 L261.5,102.6 L363.9,102.6 L465.3,89.5" fill="none" stroke="#2a6fdb" stroke-width="2" stroke-dasharray="5 4" /><circle cx="106.1" cy="168.2" r="3" fill="#2a6fdb" /><circle cx="132.0" cy="128.9" r="3" fill="#2a6fdb" /><circle cx="157.6" cy="115.7" r="3" fill="#2a6fdb" /><circle cx="183.5" cy="115.7" r="3" fill="#2a6fdb" /><circle cx="208.6" cy="109.2" r="3" fill="#2a6fdb" /><circle cx="261.5" cy="102.6" r="3" fill="#2a6fdb" /><circle cx="363.9" cy="102.6" r="3" fill="#2a6fdb" /><circle cx="465.3" cy="89.5" r="3" fill="#2a6fdb" /><line x1="484" x2="508" y1="34" y2="34" stroke="#2a6fdb" stroke-width="2" stroke-dasharray="5 4" /><text x="514" y="38">both profiles fixed</text>
+<path d="M104.5,168.2 L128.0,128.9 L151.8,115.7 L173.8,115.7 L194.9,109.2 L233.4,102.6 L301.0,96.1 L351.0,89.5" fill="none" stroke="#2a6fdb" stroke-width="2" /><circle cx="104.5" cy="168.2" r="3" fill="#2a6fdb" /><circle cx="128.0" cy="128.9" r="3" fill="#2a6fdb" /><circle cx="151.8" cy="115.7" r="3" fill="#2a6fdb" /><circle cx="173.8" cy="115.7" r="3" fill="#2a6fdb" /><circle cx="194.9" cy="109.2" r="3" fill="#2a6fdb" /><circle cx="233.4" cy="102.6" r="3" fill="#2a6fdb" /><circle cx="301.0" cy="96.1" r="3" fill="#2a6fdb" /><circle cx="351.0" cy="89.5" r="3" fill="#2a6fdb" /><line x1="484" x2="508" y1="54" y2="54" stroke="#2a6fdb" stroke-width="2" /><text x="514" y="58">both profiles adaptive</text>
+</svg>

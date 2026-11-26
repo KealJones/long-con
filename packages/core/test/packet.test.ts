@@ -165,3 +165,47 @@ test("turns already riding along raw aren't repeated in the packet", () => {
   assert.match(packet.recentTurns.map((t) => t.content).join(" "), /zebra healthcheck/);
   assert.doesNotMatch(packet.text, /zebra healthcheck/);
 });
+
+test("with one clear match, the packet stays far below its ceiling and still has the fact", () => {
+  const history = [
+    ...filler,
+    chat({
+      id: "plates",
+      date: "2026/03/22 (Sun) 18:00",
+      turns: [
+        { role: "user", content: "the license plate on my new subaru is 7KXR209, can never remember it" },
+        { role: "assistant", content: "Noted. You could save it in your phone's notes too." },
+      ],
+    }),
+  ];
+  const packet = packetFor(history, "whats my subaru license plate");
+  assert.match(packet.text, /7KXR209/);
+  assert.doesNotMatch(packet.text, /rigatoni|flexbox/, "weak matches stay out even with room to spare");
+  assert.ok(packet.tokens < profile.packetTokens / 4, `a ${packet.tokens}-token packet for a one-fact question`);
+});
+
+test("a fact deep inside a very long answer still fits a small model's packet", () => {
+  const essay = Array.from({ length: 60 }, (_, i) => `Paragraph ${i} about soil, compost and watering schedules for raised beds.`).join("\n\n");
+  const history = [
+    ...filler,
+    chat({
+      id: "long",
+      date: "2026/03/25 (Wed) 09:00",
+      turns: [
+        { role: "user", content: "give me the full garden guide" },
+        { role: "assistant", content: `${essay}\n\nOne last thing: your frost date in Flagstaff is May 28, so plant tomatoes after that.\n\n${essay}` },
+      ],
+    }),
+  ];
+  const packet = buildPacket({ history, message: "when is my frost date", profile: PROFILES.smallLocal });
+  assert.match(packet.text, /frost date in Flagstaff is May 28/);
+  assert.match(packet.text, /part of a longer turn/, "the model is told it's seeing part of a turn");
+  assert.ok(packet.tokens <= PROFILES.smallLocal.packetTokens);
+});
+
+test("the packet never names chats by id, since ids can carry labels the model shouldn't see", () => {
+  const history = [...filler, chat({ id: "answer_7f3e_1", date: "2026/03/26 (Thu) 10:00", turns: [{ role: "user", content: "my dentist is dr okafor on 5th street" }] })];
+  const packet = packetFor(history, "who is my dentist");
+  assert.match(packet.text, /dr okafor/);
+  assert.doesNotMatch(packet.text, /answer_7f3e/);
+});

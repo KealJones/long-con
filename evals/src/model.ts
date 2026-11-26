@@ -8,6 +8,8 @@ export interface ModelRequest {
   system: string;
   messages: Anthropic.MessageParam[];
   tools?: Anthropic.Tool[];
+  /** "none" keeps the tools defined (earlier tool turns need them) but lets the model only answer. */
+  toolChoice?: "auto" | "none";
   maxTokens: number;
   effort?: "low" | "medium" | "high";
   /** What the call is for, so costs and the estimate can be broken down. */
@@ -52,9 +54,11 @@ export class AnthropicModel implements ModelClient {
       system: req.system,
       messages: req.messages,
       ...(req.tools ? { tools: req.tools } : {}),
+      ...(req.toolChoice ? { tool_choice: { type: req.toolChoice } } : {}),
       ...(req.effort ? { output_config: { effort: req.effort } } : {}),
     });
     if (res.stop_reason === "refusal") throw new Error(`${req.model} declined the request`);
+    if (res.stop_reason === "max_tokens") throw new Error(`${req.model} ran out of output tokens (${req.maxTokens}) before answering`);
     return {
       text: res.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("").trim(),
       toolCalls: res.content.flatMap((b) => (b.type === "tool_use" ? [{ id: b.id, name: b.name, input: b.input as Record<string, unknown> }] : [])),

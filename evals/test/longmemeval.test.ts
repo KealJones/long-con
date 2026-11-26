@@ -13,9 +13,9 @@ const raw = [
     question: "Where is my sister moving?",
     question_date: "2023/05/30 (Tue) 23:40",
     answer: "Denver",
-    answer_session_ids: ["s2"],
+    answer_session_ids: ["answer_4f2a_1"],
     haystack_dates: ["2023/05/01 (Mon) 10:00", "2023/05/02 (Tue) 10:00"],
-    haystack_session_ids: ["s1", "s2"],
+    haystack_session_ids: ["sharegpt_x1", "answer_4f2a_1"],
     haystack_sessions: [
       [{ role: "user", content: "pasta tips?" }, { role: "assistant", content: "Salt the water." }],
       [{ role: "user", content: "my sister is moving to Denver", has_answer: true }, { role: "assistant", content: "Big change!" }],
@@ -30,15 +30,17 @@ function load() {
   return loadLongMemEval(path);
 }
 
-test("the chats a builder reads carry no evidence labels", () => {
+test("the chats a builder reads carry no evidence labels, not even in their ids", () => {
   const [q] = load();
-  assert.doesNotMatch(JSON.stringify(q!.sessions), /has_answer/);
-  assert.doesNotMatch(JSON.stringify(q!.sessions), /answer_session_ids/);
+  // The benchmark's real ids name every evidence chat "answer_...".
+  assert.doesNotMatch(JSON.stringify(q!.sessions), /has_answer|answer_session_ids|answer_4f2a/);
+  assert.doesNotMatch(JSON.stringify(q!.sessions), /sharegpt/, "filler ids are replaced too, so ids carry no pattern");
 });
 
 test("the evidence is kept apart, pointing at the right chat and turn", () => {
   const [q] = load();
-  assert.deepEqual(q!.evidence, { sessions: ["s2"], turns: ["s2#0"] });
+  const id = q!.sessions[1]!.id;
+  assert.deepEqual(q!.evidence, { sessions: [id], turns: [`${id}#0`] });
 });
 
 test("a question with _abs on its id is an abstention question", () => {

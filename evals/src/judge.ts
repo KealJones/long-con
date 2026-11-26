@@ -28,8 +28,11 @@ export function judgePrompt(q: Question, response: string): string {
   }
 }
 
-/** Same rule as the benchmark's script: a "yes" anywhere in the reply passes. */
-export const passes = (judgeReply: string) => judgeReply.toLowerCase().includes("yes");
+/**
+ * Stricter than the benchmark's script, which passes a "yes" anywhere (so "no, yesterday..." would pass):
+ * the reply has to open with yes.
+ */
+export const passes = (judgeReply: string) => /^\W*yes\b/i.test(judgeReply);
 
 export async function judge(model: ModelClient, judgeModel: string, q: Question, response: string) {
   const res = await model.complete({

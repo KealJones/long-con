@@ -8,10 +8,10 @@ The first packet builder, for the evals. It works on plain sessions of turns, no
 
 | File | Job |
 | --- | --- |
-| `packet.ts` | `buildPacket`: gate, resolve, registers, search, fit, in that order. Whole segments only, oldest first, each with its date, confidence and why. |
+| `packet.ts` | `buildPacket`: gate, resolve, registers, search, fit, in that order. Whole segments only, oldest first, each with its date, confidence and why. Stops below the profile's confidence cutoff, so the packet is the smallest one that still has what's needed. |
 | `resolver.ts` | Rules for follow-ups like "multiply that by 32" or "the second one". Says unsure rather than guessing. |
 | `registers.ts` | Rules the user gave, recent results, recent answers, and answers the user rejected. |
-| `segments.ts`, `bm25.ts`, `text.ts` | Size-based segments, BM25 search, word handling. |
+| `segments.ts`, `bm25.ts`, `text.ts` | Segments capped per profile (a longer turn splits at paragraph breaks and is marked as part of one), BM25 search, word handling. |
 | `profiles.ts` | The Claude and small local profiles. |
 | `prompt.ts` | Fixed prompt order: system, packet, recent turns, message. |
 

@@ -24,10 +24,10 @@ const question: Question = {
   abstention: false,
   sessions: [
     ...Array.from({ length: 10 }, (_, i) => filler(i)),
-    { id: "fact", date: "2023/04/20 (Thu) 09:00", turns: [{ role: "user", content: "my sister is moving to Denver next month" }, { role: "assistant", content: "Exciting news for her!" }] },
+    { id: "answer_9c1e_1", date: "2023/04/20 (Thu) 09:00", turns: [{ role: "user", content: "my sister is moving to Denver next month" }, { role: "assistant", content: "Exciting news for her!" }] },
     ...Array.from({ length: 10 }, (_, i) => filler(i + 10)),
   ],
-  evidence: { sessions: ["fact"], turns: ["fact#0"] },
+  evidence: { sessions: ["answer_9c1e_1"], turns: ["answer_9c1e_1#0"] },
 };
 
 const allText = (req: ModelRequest) => JSON.stringify(req.messages);
@@ -62,9 +62,8 @@ const opts = (model: ModelClient) => ({
   model,
   reader: "claude-haiku-5-5",
   judgeModel: "claude-opus-5-5",
-  profile: PROFILES.claude,
-  compactAt: 1500,
-  maxToolRounds: 2,
+  // A short switch point and compaction threshold so this small history still takes the packet and compaction paths.
+  profile: { ...PROFILES.claude, switchAt: 500, compactAt: 1500, maxToolRounds: 2 },
   concurrency: 2,
   arms: ["full", "compaction", "packet", "bare"] as const,
 });
@@ -88,10 +87,10 @@ test("the judge sees the reader's answer, not the reference answer twice", async
   assert.match(judged[0]!, /Model Response: Your sister is moving to Denver\./);
 });
 
-test("no arm's reader ever sees the evidence labels", async () => {
+test("no arm's reader ever sees evidence labels or chat ids, which in the benchmark name the answer chats", async () => {
   const model = new StandIn();
   await runEval([question], { ...opts(model), arms: ["full", "compaction", "packet", "bare"] });
-  for (const c of model.calls.filter((c) => c.purpose !== "judge")) assert.doesNotMatch(allText(c), /fact#0|answer_session|has_answer/);
+  for (const c of model.calls.filter((c) => c.purpose !== "judge")) assert.doesNotMatch(allText(c), /answer_9c1e|answer_session|has_answer/);
 });
 
 test("a failed call counts as a wrong answer and is kept, never dropped", async () => {
@@ -99,4 +98,29 @@ test("a failed call counts as a wrong answer and is kept, never dropped", async 
   assert.equal(rows[0]!.questions, 1);
   assert.equal(rows[0]!.accuracy, 0);
   assert.equal(rows[0]!.errors, 1);
+});
+
+test("every arm's reader gets the same tools, and once searches run out it can only answer", async () => {
+  const model = new StandIn();
+  await runEval([question], { ...opts(model), arms: ["full", "compaction", "packet", "bare"] });
+  const readers = model.calls.filter((c) => c.purpose === "reader");
+  assert.ok(readers.every((c) => c.tools?.[0]?.name === "search_history"), "no arm reads without the search tool");
+
+  // A reader that never stops searching: the last round keeps the tool defined but allows no more calls.
+  const greedy = new (class extends StandIn {
+    async complete(req: ModelRequest): Promise<ModelResponse> {
+      if (req.purpose === "reader" && req.toolChoice !== "none") {
+        this.calls.push(req);
+        const tool = { id: `t${this.calls.length}`, name: "search_history", input: { query: "nothing useful" } };
+        return { text: "", toolCalls: [tool], content: [{ type: "tool_use", ...tool }], usage: { input: 100, output: 10 }, latencyMs: 1 };
+      }
+      return super.complete(req);
+    }
+  })();
+  const [answer] = await runEval([question], { ...opts(greedy), arms: ["bare"] });
+  const last = greedy.calls.filter((c) => c.purpose === "reader").at(-1)!;
+  assert.equal(answer!.toolCalls, 2, "it searched as many times as the profile allows");
+  assert.equal(last.toolChoice, "none");
+  assert.equal(last.tools?.[0]?.name, "search_history");
+  assert.equal(answer!.error, undefined);
 });

@@ -51,11 +51,11 @@ export function buildPacket({ history, message, profile, currentSessionId }: Bui
   const isRecent = (ref: TurnRef) => ref.sessionId === current?.id && ref.turn >= recentStart;
   // "It" points at something just said, so only results from the recent turns count.
   registers.results = registers.results.filter((r) => isRecent(r.from));
-  // Answers already riding along raw don't need repeating.
-  registers.recentAnswers = registers.recentAnswers.filter((a) => !isRecent(a.from));
+  // Only answers from this chat count, and ones already riding along raw don't need repeating.
+  registers.recentAnswers = registers.recentAnswers.filter((a) => a.from.sessionId === current?.id && !isRecent(a.from));
   const resolution = resolve(message, recentTurns, registers);
 
-  const head: string[] = [HISTORY_NOTICE(history.find((s) => s.date)?.date ?? "")];
+  const head: string[] = [HISTORY_NOTICE(earliestDate(history))];
   if (profile.trustNote) head.push(TRUST_NOTE);
   if (registers.rules.length) {
     head.push("", "Standing rules from the user, word for word:");
@@ -75,19 +75,24 @@ export function buildPacket({ history, message, profile, currentSessionId }: Bui
   const chosen: { segment: Segment; hit: Hit<Segment>; confidence: number }[] = [];
 
   if (gateOpen) {
-    const hits = search(history, resolution.query, profile.segmentTokens, current?.id, recentStart);
-    const top = hits[0]?.score ?? 1;
-    for (const hit of hits) {
-      const cost = estimateTokens(renderSegment(hit.item, registers.rejected, 1, hit.matched));
+    const seen = new Set<string>();
+    for (const { hit, confidence } of search(history, resolution.query, profile.segmentTokens, current?.id, recentStart)) {
+      // The budget is a ceiling, not a target: weak matches stay out even when there's room.
+      if (confidence < profile.minConfidence) continue;
+      // The same exchange saved twice only needs to come in once.
+      const text = hit.item.turns.map((t) => t.content).join("\n");
+      if (seen.has(text)) continue;
+      const cost = estimateTokens(renderSegment(hit.item, registers.rejected, confidence, hit.matched));
       // Whole units only: a unit that doesn't fit is skipped, never trimmed.
       if (cost > budget) continue;
+      seen.add(text);
       budget -= cost;
-      chosen.push({ segment: hit.item, hit, confidence: hit.score / top });
+      chosen.push({ segment: hit.item, hit, confidence });
     }
   }
 
   // Oldest first reads like the chat did, and keeps dates in order for "how long ago" questions.
-  chosen.sort((a, b) => order(history, a.segment) - order(history, b.segment));
+  chosen.sort((a, b) => order(history, a.segment).localeCompare(order(history, b.segment)));
   const body = chosen.map((c) => renderSegment(c.segment, registers.rejected, c.confidence, c.hit.matched));
   const text = [...head, ...(body.length ? ["", "Retrieved history, oldest first:", ...body] : [])].join("\n");
 
@@ -103,12 +108,16 @@ export function buildPacket({ history, message, profile, currentSessionId }: Bui
       start: segment.start,
       end: segment.end,
       confidence: round(confidence),
-      why: `matched ${hit.matched.slice(0, 4).join(", ")}`,
+      why: `matched ${hit.matched.slice(0, 3).join(", ")}`,
     })),
   };
 }
 
-function search(history: Session[], query: string, segmentTokens: number, currentId: string | undefined, recentStart: number): Hit<Segment>[] {
+/**
+ * Units ranked by fusing two BM25 rankings. Confidence is the unit's best score as a share of the top score
+ * in either ranking, so it says how close a unit comes to the best match.
+ */
+function search(history: Session[], query: string, segmentTokens: number, currentId: string | undefined, recentStart: number) {
   // Each unit is indexed two ways, all its words and the user's words alone, then the rankings are fused.
   const all = new Bm25<Segment>();
   const user = new Bm25<Segment>();
@@ -121,7 +130,10 @@ function search(history: Session[], query: string, segmentTokens: number, curren
     }
   }
   const words = contentWords(query);
-  return fuse(all.search(words), user.search(words));
+  const lists = [all.search(words), user.search(words)];
+  const share = new Map<Segment, number>();
+  for (const list of lists) for (const h of list) share.set(h.item, Math.max(share.get(h.item) ?? 0, h.score / list[0]!.score));
+  return fuse(...lists).map((hit) => ({ hit, confidence: share.get(hit.item)! }));
 }
 
 /** Reciprocal-rank fusion, keeping the matched words from both lists. */
@@ -141,8 +153,8 @@ function fuse<T>(...lists: Hit<T>[][]): Hit<T>[] {
 }
 
 function renderSegment(seg: Segment, rejected: Set<string>, confidence: number, matched: string[]): string {
-  const where = `${seg.date ?? "undated"} · chat ${seg.sessionId} · turns ${seg.start + 1}-${seg.end + 1}`;
-  const lines = [`### ${where} · confidence ${round(confidence)} · matched ${matched.slice(0, 4).join(", ")}`];
+  // No chat ids here: the date is the source the model can use, and ids can carry labels it shouldn't see.
+  const lines = [`### ${seg.date ?? "undated"} · confidence ${round(confidence)} · matched ${matched.slice(0, 3).join(", ")}${seg.partial ? " · part of a longer turn" : ""}`];
   seg.turns.forEach((turn, i) => {
     const key = refKey({ sessionId: seg.sessionId, turn: seg.start + i });
     lines.push(`${turn.role}: ${rejected.has(key) ? "[an answer the user rejected, left out]" : turn.content}`);
@@ -155,8 +167,14 @@ function label(history: Session[], ref: TurnRef): string {
   return date ? `said ${date}` : `chat ${ref.sessionId}`;
 }
 
-function order(history: Session[], seg: Segment): number {
-  return history.findIndex((s) => s.id === seg.sessionId) * 1e6 + seg.start;
+/** Sort key: date first (dates like "2023/05/20 (Sat) 10:19" sort as text), then place in the history. */
+function order(history: Session[], seg: Segment): string {
+  const at = history.findIndex((s) => s.id === seg.sessionId);
+  return `${seg.date ?? ""}|${String(at).padStart(6, "0")}|${String(seg.start).padStart(6, "0")}`;
+}
+
+function earliestDate(history: Session[]): string {
+  return history.map((s) => s.date).filter((d): d is string => !!d).sort()[0] ?? "";
 }
 
 const round = (n: number) => Math.round(n * 100) / 100;

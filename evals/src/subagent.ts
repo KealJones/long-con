@@ -1,0 +1,41 @@
+// A reader backend that runs on a Claude plan instead of an API key. The harness runs as usual, but each
+// model call it hasn't seen is written to a pending folder and counted as not answered yet. Subagents
+// answer the pending files; their answers go in the answers folder, keyed by the same hash, and the next
+// pass picks them up. Same prompts, byte for byte, as an API run. Cost and latency are not comparable.
+
+import { createHash } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import type { ModelClient, ModelRequest, ModelResponse } from "./model.ts";
+import { estimateTokens } from "@long-con/core";
+
+export class Pending extends Error {}
+
+export class SubagentModel implements ModelClient {
+  dir: string;
+  constructor(dir: string) {
+    this.dir = dir;
+    mkdirSync(join(dir, "pending"), { recursive: true });
+    mkdirSync(join(dir, "answers"), { recursive: true });
+  }
+
+  async complete(req: ModelRequest): Promise<ModelResponse> {
+    if (req.tools && req.toolChoice !== "none") throw new Error("The subagent backend can't run tools; use --no-tools.");
+    const prompt = render(req);
+    const key = `${req.purpose}-${createHash("sha256").update(req.model + prompt).digest("hex").slice(0, 16)}`;
+    const answer = join(this.dir, "answers", `${key}.txt`);
+    if (!existsSync(answer)) {
+      writeFileSync(join(this.dir, "pending", `${key}.txt`), prompt);
+      throw new Pending(`waiting on ${key}`);
+    }
+    const text = readFileSync(answer, "utf8").trim();
+    // Estimated, not billed: a subagent's real usage includes its own system prompt.
+    return { text, toolCalls: [], content: [{ type: "text", text }], usage: { input: estimateTokens(prompt), output: estimateTokens(text) }, latencyMs: 0 };
+  }
+}
+
+/** The request as one plain document a subagent reads: the system prompt, then each message in order. */
+function render(req: ModelRequest): string {
+  const body = req.messages.map((m) => `[${m.role}]\n${typeof m.content === "string" ? m.content : JSON.stringify(m.content)}`).join("\n\n");
+  return `[system]\n${req.system}\n\n${body}\n`;
+}

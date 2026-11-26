@@ -1,0 +1,94 @@
+# Paid LongMemEval run on the Anthropic API. Runs only when someone presses Run workflow:
+# no push, pull request or schedule trigger, so nothing spends by itself.
+name: Evals (paid)
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Model profile
+        type: choice
+        options: [claude, small-local]
+        default: claude
+      arms:
+        description: Arms, comma separated (full, compaction, packet, bare)
+        type: string
+        default: packet,bare
+      limit:
+        description: Questions, a stratified pick of the split (blank for the whole split)
+        type: string
+        default: "12"
+      split:
+        description: dev (50 tuning questions) or held-out (the other 450, for headline numbers)
+        type: choice
+        options: [dev, held-out]
+        default: dev
+      max_cost:
+        description: Max dollars. The run stops before any call if its estimate is higher.
+        type: string
+        default: "2"
+      reader:
+        description: Reader model
+        type: string
+        default: claude-haiku-5-5
+      judge:
+        description: Judge model
+        type: string
+        default: claude-opus-5-5
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evals
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Cache LongMemEval_S
+        uses: actions/cache@v4
+        with:
+          path: evals/data/longmemeval
+          key: longmemeval-s-d6f21ea9d60a0d56
+      - name: Fetch LongMemEval_S (checked by sha256)
+        run: evals/scripts/fetch-longmemeval.sh
+
+      - name: Run
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          PROFILE: ${{ inputs.profile }}
+          ARMS: ${{ inputs.arms }}
+          LIMIT: ${{ inputs.limit }}
+          SPLIT: ${{ inputs.split }}
+          MAX_COST: ${{ inputs.max_cost }}
+          READER: ${{ inputs.reader }}
+          JUDGE: ${{ inputs.judge }}
+        run: |
+          node --experimental-strip-types --no-warnings apps/cli/src/main.ts eval run \
+            --backend api --out evals/runs/actions \
+            --profile "$PROFILE" --arms "$ARMS" --split "$SPLIT" \
+            --reader "$READER" --judge "$JUDGE" --max-cost "$MAX_COST" \
+            ${LIMIT:+--limit "$LIMIT"}
+
+      - name: Job summary
+        if: always()
+        run: |
+          cat evals/runs/actions/summary.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null \
+            || echo "No summary, so the run stopped before answering. See the Run step's log." >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evals-${{ inputs.profile }}-${{ inputs.split }}-${{ github.run_number }}
+          path: evals/runs/actions
+          if-no-files-found: ignore

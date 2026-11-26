@@ -1,6 +1,7 @@
 // LongMemEval (Wu et al., ICLR 2025, MIT). Each question comes with its own haystack of past chats.
 // The evidence labels (has_answer, answer_session_ids) are kept apart from the chats, so nothing
-// the packet builder reads can see them.
+// the packet builder reads can see them. Chat ids are replaced too: the benchmark names every evidence
+// chat "answer_...", which would hand a reader the answer's location.
 
 import { readFileSync } from "node:fs";
 import type { Session } from "@long-con/core";
@@ -42,8 +43,10 @@ export function loadLongMemEval(path: string): Question[] {
   const raw = JSON.parse(readFileSync(path, "utf8")) as RawQuestion[];
   return raw.map((q) => {
     const turns: string[] = [];
+    const opaque = new Map<string, string>();
     const sessions = q.haystack_sessions.map((chat, i): Session => {
-      const id = q.haystack_session_ids[i]!;
+      const id = `chat-${i + 1}`;
+      opaque.set(q.haystack_session_ids[i]!, id);
       chat.forEach((t, j) => t.has_answer && turns.push(turnKey(id, j)));
       return { id, date: q.haystack_dates[i], turns: chat.map(({ role, content }) => ({ role, content })) };
     });
@@ -55,7 +58,7 @@ export function loadLongMemEval(path: string): Question[] {
       answer: String(q.answer),
       abstention: q.question_id.endsWith("_abs"),
       sessions,
-      evidence: { sessions: q.answer_session_ids, turns },
+      evidence: { sessions: q.answer_session_ids.map((sid) => opaque.get(sid)!).filter(Boolean), turns },
     };
   });
 }

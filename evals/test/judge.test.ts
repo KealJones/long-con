@@ -45,8 +45,11 @@ test("an unknown type fails loudly instead of being graded by the wrong rubric",
   assert.throws(() => judgePrompt(q("made-up"), "x"));
 });
 
-test("a yes anywhere passes and a no fails, as in the benchmark's script", () => {
+test("only a reply that opens with yes passes", () => {
   assert.equal(passes("Yes."), true);
   assert.equal(passes("yes"), true);
+  assert.equal(passes("**Yes**"), true);
   assert.equal(passes("No."), false);
+  assert.equal(passes("No, it said yesterday."), false, "a yes inside another word or after a no doesn't count");
+  assert.equal(passes("The eyes have it."), false);
 });

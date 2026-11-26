@@ -94,22 +94,34 @@ Rules that keep the numbers honest:
 ## Running it
 
 ```
-evals/scripts/fetch-longmemeval.sh      # LongMemEval_S, about 265 MB, checked by sha256
-npm run cli -- eval recall              # free: is the evidence in the packet?
-npm run cli -- eval estimate            # free: what a real run would cost
-npm run cli -- eval run                 # paid: needs ANTHROPIC_API_KEY, refuses past --max-cost (default $5)
-npm test                                # unit tests for the core and the harness
+evals/scripts/fetch-longmemeval.sh                        # LongMemEval_S, about 265 MB, checked by sha256
+npm run cli -- eval recall                                # free: is the evidence in the packet? Every profile
+npm run cli -- eval estimate --profile small-local        # free: what a real run would cost
+npm run cli -- eval run --limit 12 --no-tools --arms packet,bare   # on a Claude plan, through subagents
+npm test                                                  # unit tests for the core and the harness
 ```
 
-The dev slice is the 50 question ids in [slices/longmemeval-s-dev50.json](slices/longmemeval-s-dev50.json), stratified by question type with a fixed seed. The other 450 are held out. Real runs write every answer, judge verdict and token count to `evals/runs/<time>/`.
+Every setting comes from the model's profile in [packages/core/src/profiles.ts](../packages/core/src/profiles.ts): context window, switch threshold, packet ceiling, confidence cutoff, raw-turn window, segment cap, tools and search size. `--profile` picks one; `claude` is the default and `small-local` is sized for LFM3 1.7B in the browser.
 
-What the harness does today:
+The dev slice is the 50 question ids in [slices/longmemeval-s-dev50.json](slices/longmemeval-s-dev50.json), stratified by question type with a fixed seed. `--split held-out` runs the other 450, for headline numbers only. `--limit n` takes a stratified pick of either.
 
-- **Arms:** all four answer each question with the same system prompt and reader (Claude Haiku 5.5 by default). `full` gets every past chat. `compaction` folds chats into a running summary each time the transcript passes 30K tokens, written by the reader model. `packet` gets the core packet (Claude profile, 8K tokens) plus a search tool. `bare` gets only the left-out-history notice plus the same search tool. Each tool-using arm can search up to three times.
-- **Judge:** LongMemEval's own per-type judge prompts, word for word, read by Claude Opus 5.5 instead of the paper's GPT-4o. Scores compare across our arms, not with published numbers.
-- **Packet builder v1:** rule resolver, registers, BM25 over size-based segments (all words fused with the user's words only), whole segments fitted to the budget. No embeddings and no topic splitting yet.
+### Two ways to answer
 
-First results: [results/longmemeval-s-dev50-recall.md](results/longmemeval-s-dev50-recall.md) and [results/longmemeval-s-dev50-estimate.md](results/longmemeval-s-dev50-estimate.md).
+- **On a Claude plan (`--backend subagent`, the default):** each reader and judge prompt is written to `pending/` in the run's folder (default `evals/results/smoke/<profile>/`). A subagent answers each one from that file alone into `answers/` under the same name, and the same command run again picks the answers up: first the readers, then the judge, then the summary. Use it for iteration. It needs `--no-tools`, since a file can't run a search. Token counts are estimates of the prompt alone, and cost and latency don't compare with API runs.
+- **On the API (`--backend api`):** needs `ANTHROPIC_API_KEY` and refuses to start if the estimate passes `--max-cost` (default $5). Use it for headline numbers.
+
+### The paid run in GitHub Actions
+
+The **Evals (paid)** workflow in [.github/workflows/evals.yml](../.github/workflows/evals.yml) runs only when someone presses **Run workflow** on the repo's Actions tab. It reads the `ANTHROPIC_API_KEY` repository secret. Inputs: profile, arms, question count, split, max cost (default $2), reader and judge. The run stops before any call if its estimate is over the cap. The summary table lands on the run's page and every answer and verdict is attached as an artifact. Nothing is committed back.
+
+### What the harness does today
+
+- **Arms:** all four answer each question with the same system prompt and reader (Claude Haiku 5.5 by default). `full` gets every past chat. `compaction` folds chats into a running summary each time the transcript passes the profile's `compactAt`, written by the reader model. `packet` gets the core packet once history passes the profile's switch point (below it, the whole chat). `bare` gets only the left-out-history notice. Every arm gets the same search tool with the same number of rounds, or none with `--no-tools`.
+- **Judge:** LongMemEval's own per-type judge prompts, word for word, read by Claude Opus 5.5 instead of the paper's GPT-4o. A verdict passes only if it starts with "yes". Scores compare across our arms, not with published numbers.
+- **Packet builder v1:** rule resolver, registers, BM25 over segments capped per profile (all words fused with the user's words only). Weak matches below the profile's cutoff stay out, so the ceiling isn't a target. No embeddings and no topic splitting yet.
+- **No leaks:** LongMemEval's session ids name the evidence sessions, so the loader renames every session `chat-N` and packets show no ids at all.
+
+Results: [recall](results/longmemeval-s-dev50-recall.md), estimates for [claude](results/longmemeval-s-dev50-estimate-claude.md) and [small-local](results/longmemeval-s-dev50-estimate-small-local.md), and subagent smoke runs in [results/smoke/](results/smoke).
 
 ## Data stays out of git
 
