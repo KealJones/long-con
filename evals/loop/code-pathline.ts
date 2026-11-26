@@ -9,6 +9,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { PROFILES, type Profile } from "../../packages/core/src/profiles.ts";
 import { buildPacket } from "../../packages/core/src/packet.ts";
+import { splitOf } from "./split.ts";
 import { lookupSymbols, languageOf, SymbolIndex, type SymbolBudget, type SourceFile } from "../../packages/core/src/symbols.ts";
 
 interface LabeledPrompt {
@@ -38,13 +39,6 @@ const BUDGETS: Record<string, SymbolBudget> = {
   "small-local": { blockTokens: PROFILES.smallLocal.segmentTokens, packetTokens: PROFILES.smallLocal.packetTokens },
 };
 
-/** FNV-1a, so the split is fixed by each prompt's id. */
-function fnv1a(s: string): number {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193) >>> 0;
-  return h;
-}
-export const splitOf = (id: string) => (fnv1a(id) % 3 === 0 ? "held-out" : "dev");
 
 function parseGold(at: string): Gold {
   const m = at.match(/^(.*):(\d+)-(\d+)$/);
