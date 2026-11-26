@@ -4,6 +4,7 @@ Newest first. Each entry says what was decided and, where it matters, what it re
 
 ## 2026-11-26
 
+- **Interest notes:** expressed interests, preferences and changes to them are saved as dated notes (topic, value, date, source turn), newest wins with history kept, by a background noter after each turn plus a remember tool for explicit asks. Both paths are measured before either is kept.
 - **Minimal sufficient context:** the smallest packet that still has what's needed; the budget is a ceiling, not a target. The builder stops adding items below a per-profile confidence cutoff and drops duplicates and filler. Replaces filling every packet to its budget.
 - **Unit size capped per profile:** a turn too long for the cap splits at paragraph breaks and is marked as part of a longer turn. Replaces cutting only between exchanges, which let a single unit run to 12K tokens. Small units beat whole exchanges at every budget on the LongMemEval dev slice.
 - **Every eval setting comes from the profile:** context window, switch threshold, packet ceiling, cutoff, raw-turn window, unit cap, tools and search size. A small local profile is sized for LFM3 1.7B in the browser, with about 6K tokens of context.

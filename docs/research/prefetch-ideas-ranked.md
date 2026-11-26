@@ -23,12 +23,13 @@ Score = expected gain × confidence ÷ cost, roughly. Measurement and safety ite
 | 1 | P01 | Should-be-empty set and empty-rate metric | Both (measurement) | Low | kept |
 | 2 | P02 | Absolute relevance gate (normalized BM25, coverage, anchor) | small-local | Low | open |
 | 3 | P03 | Logistic gate on ~9 features, τ per profile | small-local | Low | open |
+| 3b | P31 | Interest notes: background noter plus remember tool (queued ahead of P04 on 2026-11-26) | Both | Medium | open |
 | 4 | P04 | Cross-encoder rerank of top 40-60 | small-local | Medium | open |
 | 5 | P05 | Zero-model contextual prefix in the index | Both | Low | open |
 | 6 | P06 | Tally mode for counting questions | Both | Low | open |
 | 7 | P07 | Event-date index and time-range boost | Both | Low | open |
 | 8 | P08 | Rule PRF plus entity second hop | Both | Low | open |
-| 9 | P09 | Preference spans with category keys | small-local | Low | open |
+| 9 | P09 | Preference spans with category keys | small-local | Low | folded into P31 |
 | 10 | P10 | Message-level dense channel with its own floor | Both | Medium | open |
 | 11 | P11 | Static embedder for small-local | small-local | Low | open |
 | 12 | P12 | URL to file with a line range | Both | Medium | dropped (retry with real pages) |
@@ -73,6 +74,14 @@ Score = expected gain × confidence ÷ cost, roughly. Measurement and safety ite
 - **Change:** fit ten weights (features in the survey's gate section) on the ~940 labeled top-20 candidates from the answerable dev questions, with leave-one-type-out cross-validation. Pick τ per profile: claude loses ≤2 points of recall, small-local ≤5.
 - **Measure:** AURC, gate AUROC, empty rate per tier, recall, tokens.
 - **Cost:** low; fit offline.
+
+### P31. Interest notes: background noter plus remember tool
+
+- **Why it's here:** asked for directly on 2026-11-26: any expressed interest, preference or change of one should be remembered, by the harness on its own or by the model through a tool. Queued ahead of P04. Folds in P09, which only marks preference sentences at query time.
+- **Hypothesis:** a dated note store (topic, value, date, source turn; newest wins, older values kept as history) lifts knowledge-update and preference all-evidence on both profiles at a fraction of the tokens, since one line can replace a 400-token segment. A rule-based noter catches most cases for free; a cheap-model noter catches more at some false-note cost.
+- **Change:** arm A, a free rule noter (first-person interest and change patterns, "my favorite", "obsessed with", "I've been loving", "switched to", "I'm into", "I prefer", "no longer") run after each saved turn. Arm B, a small-model noter on the same turns (paid or plan usage, each run under $1 and logged in the paid-runs ledger). Arm C, a remember tool the model calls mid-turn, measurable only in a reader run. The packet gets a short "Notes" section of the matching notes, newest value first, before retrieved history; the source turn stays reachable.
+- **Measure:** knowledge-update and preference rows (all-evidence counts the note's source turn), packet tokens, and note precision: on a hand-labeled sample of saved notes, the share that are real interest. Should-be-empty tiers must not gain false inclusions from notes. Dev has few preference questions, so extend to all knowledge-update and preference questions in LongMemEval_S as a dev-only set (e.g. 18bc8abd).
+- **Cost:** medium (arm A is free; arm B needs a small paid or plan-usage run).
 
 ### P04. Cross-encoder rerank of the top 40-60
 
