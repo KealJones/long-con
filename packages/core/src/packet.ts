@@ -7,11 +7,12 @@ import { buildRegisters, refKey } from "./registers.ts";
 import { resolve, type Resolution } from "./resolver.ts";
 import { segmentKey, splitIntoSegments, type KeyDenoise, type Segment } from "./segments.ts";
 import { extractNotes, groupNotes, groupWords, renderGroup, type Note } from "./notes.ts";
-import type { Profile } from "./profiles.ts";
+import type { PointerPick, Profile } from "./profiles.ts";
 import { isTallyQuestion, SEG_GATE, tallySearch } from "./tally.ts";
 import { unitProbability } from "./gate.ts";
 import { contentWords, estimateTokens, type Stemmer } from "./text.ts";
 import { lookupSymbols, type SymbolIndex, type SymbolItem } from "./symbols.ts";
+import { cosine, type Embed } from "./embed.ts";
 
 export interface BuildPacketInput {
   history: Session[];
@@ -24,6 +25,8 @@ export interface BuildPacketInput {
    * gets its path:line and signature, two or three get pointers, anything else gets no Code section.
    */
   code?: SymbolIndex;
+  /** A text embedder (embed.ts), for profiles that also judge units by cosine (profile.embedSim). Optional. */
+  embed?: Embed;
 }
 
 /** One retrieved unit of history in the packet, with the labels the model sees. */
@@ -64,7 +67,7 @@ export const HISTORY_NOTICE = (since: string, canSearch = true) =>
 export const TRUST_NOTE = (canSearch = true) =>
   `This packet is a best guess at what's relevant. Don't rely on anything in it that looks wrong${canSearch ? "; use the tools instead" : ""}.`;
 
-export function buildPacket({ history, message, profile, currentSessionId, code }: BuildPacketInput): Packet {
+export function buildPacket({ history, message, profile, currentSessionId, code, embed }: BuildPacketInput): Packet {
   const current = history.find((s) => s.id === currentSessionId);
   const recentStart = current ? Math.max(0, current.turns.length - profile.rawTurns) : 0;
   const recentTurns = current ? current.turns.slice(recentStart) : [];
@@ -99,7 +102,7 @@ export function buildPacket({ history, message, profile, currentSessionId, code 
   const symbols = code ? lookupSymbols(message, code, { blockTokens: 0, packetTokens: budget - estimateTokens(`\n\n${CODE}\n`), shape: "signature" }) : undefined;
   const codeLines = symbols?.text ? ["", CODE, symbols.text] : [];
   budget -= estimateTokens(codeLines.join("\n"));
-  const chosen: { segment: Segment; hit: Hit<Segment>; confidence: number; medium: boolean }[] = [];
+  const chosen: { segment: Segment; hit: Hit<Segment>; confidence: number; medium: boolean; p: number; sim?: number }[] = [];
   const pointed: { segment: Segment; hit: Hit<Segment>; confidence: number; query: string; line: string }[] = [];
   // A pointer is only worth its line when the reader can open it.
   const pointing = canSearch && profile.pointerGate > 0;
@@ -111,6 +114,10 @@ export function buildPacket({ history, message, profile, currentSessionId, code 
     const seen = new Set<string>();
     const { hits, idf } = searchUnits(history, resolution.query, profile.segmentTokens, current?.id, recentStart, profile.stemmer, profile.gateKey);
     idfOf = idf;
+    // Embedding gate: the message's cosine to a unit (whole, or its best turn) vetoes units under embedFloor and, when the
+    // weights carry one more entry than the search's features, is one more unit-gate feature.
+    const sim = embed && profile.embedSim ? unitSimilarity(embed, resolution.query, profile.embedSim) : undefined;
+    if (sim && hits.length && (profile.unitWeights?.length ?? 0) > hits[0]!.features.length + 1) for (const h of hits) h.features = [...h.features, sim(h.hit.item)];
     // The absolute bar asks whether history holds anything strong enough to answer at all. It judges the best unit
     // only: per unit, it cut the weaker second piece multi-session questions need (P02 dev sweep).
     const found = hits.some((h) => h.score >= profile.minScore);
@@ -152,6 +159,8 @@ export function buildPacket({ history, message, profile, currentSessionId, code 
       if (confidence < profile.minConfidence) continue;
       const p = features && gate > 0 ? probability(features) : 1;
       if (p < gate) continue;
+      const s = sim?.(hit.item);
+      if (s !== undefined && (profile.embedFloor ?? 0) > 0 && s < profile.embedFloor!) continue;
       // The same exchange saved twice only needs to come in once.
       const text = hit.item.turns.map((t) => t.content).join("\n");
       if (seen.has(text)) continue;
@@ -160,23 +169,30 @@ export function buildPacket({ history, message, profile, currentSessionId, code 
       if (cost > budget) continue;
       seen.add(text);
       budget -= cost;
-      chosen.push({ segment: hit.item, hit, confidence, medium: pointing && !tally && p < profile.pointerGate });
+      // A medium unit whose best turn reads very close to the message stays whole (pointerPromote).
+      const promoted = s !== undefined && profile.pointerPromote !== undefined && s >= profile.pointerPromote;
+      chosen.push({ segment: hit.item, hit, confidence, medium: pointing && !tally && p < profile.pointerGate && !promoted, p, sim: s });
     }
   }
 
   // Pointer tier (P15): the units above were picked exactly as before, at whole cost, so the pointer tier can't let in
-  // a unit that wouldn't have come in whole. Medium ones then shrink to a line, best first, up to what the reader can
-  // open; past that they drop. A unit shorter than its pointer stays whole.
-  let room = profile.maxPointers;
-  for (let i = 0; i < chosen.length; i++) {
-    const c = chosen[i]!;
-    if (!c.medium) continue;
-    const query = pointerQuery(c.segment, idfOf, profile.stemmer);
-    const line = renderPointer(c.segment, query);
-    if (estimateTokens(`\n${line}`) >= estimateTokens("\n" + renderSegment(c.segment, registers.rejected, c.confidence, c.hit.matched))) continue;
-    if (room-- > 0) pointed.push({ ...c, query, line });
-    chosen.splice(i--, 1);
-  }
+  // a unit that wouldn't have come in whole. Medium ones then shrink to a line, up to what the reader can
+  // open, in pointerPick order; past that they drop. A unit shorter than its pointer stays whole.
+  // A medium unit reading too far from the message drops instead of taking a pointer line (pointerFloor), even one
+  // shorter than its pointer.
+  const far = (c: (typeof chosen)[number]) => profile.pointerFloor !== undefined && c.sim !== undefined && c.sim < profile.pointerFloor;
+  const medium = chosen
+    .map((c, rank) => ({ c, rank, query: "", line: "" }))
+    .filter((m) => m.c.medium && !far(m.c))
+    .filter((m) => {
+      m.query = pointerQuery(m.c.segment, idfOf, profile.stemmer);
+      m.line = renderPointer(m.c.segment, m.query);
+      return estimateTokens(`\n${m.line}`) < estimateTokens("\n" + renderSegment(m.c.segment, registers.rejected, m.c.confidence, m.c.hit.matched));
+    });
+  const kept = pickPointers(medium.map((m) => ({ rank: m.rank, p: m.c.p, sim: m.c.sim })), profile.pointerPick ?? "rank", profile.maxPointers);
+  for (const m of medium) if (kept.has(m.rank)) pointed.push({ ...m.c, query: m.query, line: m.line });
+  const gone = new Set([...medium.map((m) => m.c), ...chosen.filter((c) => c.medium && far(c))]);
+  for (let i = chosen.length - 1; i >= 0; i--) if (gone.has(chosen[i]!)) chosen.splice(i, 1);
 
   // Oldest first reads like the chat did, and keeps dates in order for "how long ago" questions.
   chosen.sort((a, b) => order(history, a.segment).localeCompare(order(history, b.segment)));
@@ -209,6 +225,24 @@ export function buildPacket({ history, message, profile, currentSessionId, code 
     notes: shownNotes,
     code: symbols?.items ?? [],
   };
+}
+
+/**
+ * Which medium units become pointers (the rest drop): the first `cap` by search rank, by gate probability, by the
+ * embedding veto's best-turn cosine, or by the sum of their places in those two orders ("mix"). Returns the ranks kept.
+ * Without a cosine, "cosine" and "mix" fall back to rank.
+ */
+export function pickPointers(units: { rank: number; p: number; sim?: number }[], pick: PointerPick, cap: number): Set<number> {
+  const by = (f: (u: (typeof units)[number]) => number) => {
+    const place = new Map([...units].sort((a, b) => f(b) - f(a) || a.rank - b.rank).map((u, i) => [u.rank, i]));
+    return (u: (typeof units)[number]) => place.get(u.rank)!;
+  };
+  const hasSim = units.every((u) => u.sim !== undefined);
+  const gate = by((u) => u.p);
+  const cos = by((u) => u.sim ?? 0);
+  const key =
+    pick === "gate" ? gate : pick === "cosine" && hasSim ? cos : pick === "mix" && hasSim ? (u: (typeof units)[number]) => gate(u) + cos(u) : (u: (typeof units)[number]) => u.rank;
+  return new Set([...units].sort((a, b) => key(a) - key(b) || a.rank - b.rank).slice(0, Math.max(0, cap)).map((u) => u.rank));
 }
 
 /**
@@ -277,23 +311,66 @@ export function searchUnits(history: Session[], query: string, segmentTokens: nu
   return { hits, idf: (w: string) => all.idf(w) };
 }
 
+/** The message's cosine to a unit, memoized per unit: the whole unit's text, or its best turn's ("maxsim"). */
+export function unitSimilarity(embed: Embed, query: string, mode: "segment" | "maxsim") {
+  const q = embed(query);
+  const memo = new Map<Segment, number>();
+  return (seg: Segment): number => {
+    let s = memo.get(seg);
+    if (s === undefined) {
+      s = mode === "maxsim" ? Math.max(...seg.turns.map((t) => cosine(q, embed(t.content)))) : cosine(q, embed(seg.turns.map((t) => t.content).join("\n")));
+      memo.set(seg, s);
+    }
+    return s;
+  };
+}
+
+/** One search_history result: the unit, its labels, and whether the tool vouches for it. */
+export interface SearchResult {
+  segment: Segment;
+  confidence: number;
+  matched: string[];
+  /** False when the packet would have left the unit out; the tool then shows it marked low confidence. */
+  strong: boolean;
+  /** The query's cosine to the unit, when an embedder judged it. */
+  sim?: number;
+}
+
 /**
  * The search_history tool: the same fused search the packet uses, so a better ranking helps both. Where the packet
- * abstains, the tool still answers: a unit the packet would leave out comes back marked low confidence.
+ * abstains, the tool still answers: a unit the packet would leave out comes back marked low confidence. With an embedder,
+ * that includes the packet's embedding veto (embedFloor): on dev it marked no evidence hit low on either profile.
  */
-export function searchHistory(history: Session[], query: string, profile: Profile): string {
-  const { hits } = searchUnits(history, query, profile.segmentTokens, undefined, 0, profile.stemmer, profile.gateKey);
-  if (!hits.length) return "No matches.";
-  const found = hits.some((h) => h.score >= profile.minScore);
+export function searchHistory(history: Session[], query: string, profile: Profile, embed?: Embed): string {
+  const results = searchResults(history, query, profile, embed);
+  if (!results.length) return "No matches.";
   const rejected = buildRegisters(history, profile.recentAnswers).rejected;
-  return hits
-    .slice(0, profile.searchResults)
-    .map(({ hit, confidence, features }) => {
-      const strong = found && confidence >= profile.minConfidence && !(profile.unitGate > 0 && unitProbability(features, profile.unitWeights) < profile.unitGate);
-      const text = renderSegment(hit.item, rejected, confidence, hit.matched);
+  return results
+    .map(({ segment, confidence, matched, strong }) => {
+      const text = renderSegment(segment, rejected, confidence, matched);
       return strong ? text : text.replace("\n", " · low confidence, likely not what you asked about\n");
     })
     .join("\n\n");
+}
+
+/** The units search_history returns, best first, with their marks. */
+export function searchResults(history: Session[], query: string, profile: Profile, embed?: Embed): SearchResult[] {
+  const { hits } = searchUnits(history, query, profile.segmentTokens, undefined, 0, profile.stemmer, profile.gateKey);
+  return markResults(hits, profile, embed && profile.embedSim ? unitSimilarity(embed, query, profile.embedSim) : undefined);
+}
+
+/**
+ * The tool's marks over searchUnits hits, split out so an eval can sweep settings over one search. Order stays the
+ * search's: re-ranking the top 10 or 20 by a mix of confidence and cosine lost evidence on dev (evals/loop/search-tool.ts).
+ */
+export function markResults(hits: ReturnType<typeof searchUnits>["hits"], profile: Profile, sim?: (seg: Segment) => number): SearchResult[] {
+  const found = hits.some((h) => h.score >= profile.minScore);
+  return hits.slice(0, profile.searchResults).map(({ hit, confidence, features }) => {
+    const s = sim?.(hit.item);
+    const vetoed = s !== undefined && (profile.embedFloor ?? 0) > 0 && s < profile.embedFloor!;
+    const gated = profile.unitGate > 0 && unitProbability(features, profile.unitWeights) < profile.unitGate;
+    return { segment: hit.item, confidence, matched: hit.matched, strong: found && confidence >= profile.minConfidence && !gated && !vetoed, sim: s };
+  });
 }
 
 /** Reciprocal-rank fusion, keeping the matched words from both lists. */

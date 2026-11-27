@@ -1,0 +1,43 @@
+# Copies small static embedding models (model2vec, MIT) to a release on this repo, so cloud sessions that can't
+# reach huggingface.co can still fetch them. Free: no API calls. Runs only when someone presses Run workflow.
+name: Mirror embedding models
+
+on:
+  workflow_dispatch:
+    inputs:
+      models:
+        description: Hugging Face model ids, space-separated (MIT-licensed static embedders)
+        default: minishlab/potion-base-8M minishlab/potion-retrieval-32M
+
+permissions:
+  contents: write
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          MODELS: ${{ inputs.models }}
+        run: |
+          set -euo pipefail
+          tag=models-static-embedders
+          mkdir out
+          notes="Copies of static embedding models from huggingface.co, checked by sha256 in evals/scripts/fetch-embedders.sh."
+          for id in $MODELS; do
+            name="${id##*/}"
+            rev=$(curl -fsSL "https://huggingface.co/api/models/$id" | jq -r .sha)
+            license=$(curl -fsSL "https://huggingface.co/api/models/$id" | jq -r '.cardData.license // "unknown"')
+            [ "$license" = mit ] || { echo "$id is $license, not mit"; exit 1; }
+            for f in config.json tokenizer.json model.safetensors README.md; do
+              curl -fL --retry 3 -o "out/$name--$f" "https://huggingface.co/$id/resolve/$rev/$f"
+            done
+            notes="$notes
+          - $id at revision $rev (license $license)"
+          done
+          (cd out && sha256sum * | tee ../SHA256SUMS)
+          cp SHA256SUMS out/SHA256SUMS
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "Static embedding models mirror" --notes "$notes"
+          gh release edit "$tag" --notes "$notes"
+          gh release upload "$tag" out/* --clobber

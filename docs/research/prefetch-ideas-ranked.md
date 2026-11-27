@@ -24,31 +24,31 @@ Score = expected gain × confidence ÷ cost, roughly. Measurement and safety ite
 | 2 | P02 | Absolute relevance gate (normalized BM25, coverage, anchor) | small-local | Low | kept (score bar only) |
 | 3 | P03 | Logistic gate on ~9 features, τ per profile | small-local | Low | kept (run 3) |
 | 3b | P31 | Interest notes: background noter plus remember tool (queued ahead of P04 on 2026-11-26) | Both | Medium | rule noter kept (run 3); model noter and remember tool open |
-| 4 | P04 | Cross-encoder rerank of top 40-60 | small-local | Medium | open |
+| 4 | P04 | Cross-encoder rerank of top 40-60 | small-local | Medium | abstention floor kept as a static-embedder veto (run 11); rerank open |
 | 5 | P05 | Zero-model contextual prefix in the index | Both | Low | dropped (retry as tie-break) |
 | 6 | P06 | Tally mode for counting questions | Both | Low | kept (claude only) |
 | 7 | P07 | Event-date index and time-range boost | Both | Low | dropped (run 4) |
 | 8 | P08 | Rule PRF plus entity second hop | Both | Low | dropped |
 | 9 | P09 | Preference spans with category keys | small-local | Low | folded into P31 |
-| 10 | P10 | Message-level dense channel with its own floor | Both | Medium | open |
-| 11 | P11 | Static embedder for small-local | small-local | Low | open |
+| 10 | P10 | Message-level dense channel with its own floor | Both | Medium | not kept (run 12) |
+| 11 | P11 | Static embedder for small-local | small-local | Low | dense channel not kept (run 12); the embedder ships as the veto (run 11) |
 | 12 | P12 | URL to file with a line range | Both | Medium | dropped (retry with real pages) |
 | 13 | P13 | Identifier-exact `path:line` from a symbol index | Both | Medium | kept, wired as an optional source (run 6) |
 | 14 | P14 | Work-saved paired eval | Both (measurement) | Medium | open |
 | 15 | P15 | Pointer tier for medium confidence | small-local | Low | kept on claude, off on small-local (run 8) |
 | 16 | P16 | Fact keys and predicted questions at write time | small-local | Medium | open |
-| 17 | P17 | Fusion hygiene: RRF k, weights, BM25F, stemming | Both | Low | Porter kept for small-local (run 4); BM25F open |
+| 17 | P17 | Fusion hygiene: RRF k, weights, BM25F, stemming | Both | Low | Porter kept for small-local (run 4); BM25F not kept (run 10) |
 | 18 | P18 | Prefetched date arithmetic labels | small-local | Low | open |
 | 19 | P19 | "Searched, found nothing" line | Both | Low | open |
-| 20 | P20 | Working set plus depth-2 tree | Both | Low | not kept (run 7; needs a current-project signal) |
+| 20 | P20 | Working set plus depth-2 tree | Both | Low | not kept (run 7; current-project retry not kept, run 10) |
 | 21 | P21 | Code, non-memory and URL eval sets | Both (measurement) | Medium | code set grown (run 6), URL set kept (run 7) |
 | 22 | P22 | Novelty-gated web search | small-local | Medium | open |
 | 23 | P23 | Ratcheted raw window plus sticky tier | claude (cost) | Low | open |
-| 24 | P24 | Subject index and person cards | Both | Medium | open |
+| 24 | P24 | Subject index and person cards | Both | Medium | not kept (run 9; LongMemEval has too few person questions) |
 | 25 | P25 | Open-loop speculation between turns | Both | Medium | open |
 | 26 | P26 | Key denoising (SeCom) | Both | Low | kept on the gate only, claude (run 6) |
 | 27 | P27 | Conformal τ | Both | Low | blocked (needs ~100 empty prompts) |
-| 28 | P28 | Phrase graph plus PageRank, gated | claude | Medium | open |
+| 28 | P28 | Phrase graph plus PageRank, gated | claude | Medium | not kept (run 10) |
 | 29 | P29 | Source gate trained on packet misses | Both | Medium | blocked (needs real use) |
 | 30 | P30 | Citations as labels, per-user refit | Both | Low | blocked (needs real use) |
 

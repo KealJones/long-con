@@ -9,7 +9,8 @@ import { recallChart, type Series } from "./chart.ts";
 import { EstimatingModel } from "./estimate.ts";
 import { heldOutSplit, loadLongMemEval, stratifiedSlice, type Question } from "./longmemeval.ts";
 import { AnthropicModel, PRICES } from "./model.ts";
-import { packetRecall } from "./recall.ts";
+import { packetRecall, readableRecall } from "./recall.ts";
+import { embedderFor } from "./embedder.ts";
 import { bootstrap, runEval, summarize, summaryTable, writeSummary, type RunOptions } from "./run.ts";
 import { SubagentModel } from "./subagent.ts";
 
@@ -243,13 +244,15 @@ interface RecallRun {
   complete: boolean;
   turnRecallWithPointers?: number;
   completeWithPointers?: boolean;
+  readable?: boolean;
 }
 
 // Every LongMemEval_S history (about 140K tokens) is past both profiles' switch points, so the packet always runs.
 function recallRuns(questions: Question[], profile: Profile): RecallRun[] {
   return questions.map((q) => {
-    const packet = buildPacket({ history: q.sessions, message: q.question, profile });
-    return { q, tokens: packet.tokens, ...packetRecall(q, packet, profile.segmentTokens) };
+    const packet = buildPacket({ history: q.sessions, message: q.question, profile, embed: embedderFor(profile) });
+    const readable = profile.pointerGate > 0 ? readableRecall(q, packet, profile) : undefined;
+    return { q, tokens: packet.tokens, readable, ...packetRecall(q, packet, profile.segmentTokens) };
   });
 }
 
@@ -283,7 +286,7 @@ function readerInput(q: Question, profile: Profile): { first: number; withSearch
   const text = messages.map((m) => (typeof m.content === "string" ? m.content : JSON.stringify(m.content))).join("\n");
   const tool = profile.maxToolRounds > 0 ? JSON.stringify(SEARCH_TOOL) : "";
   const first = estimateTokens(SYSTEM + tool + text);
-  const search = profile.maxToolRounds > 0 ? estimateTokens(searchHistory(q.sessions, q.question, profile)) + 50 : 0;
+  const search = profile.maxToolRounds > 0 ? estimateTokens(searchHistory(q.sessions, q.question, profile, embedderFor(profile))) + 50 : 0;
   return { first, withSearch: first + search };
 }
 
@@ -310,6 +313,8 @@ function recallReport(dev: Question[], profiles: Profile[]): { report: string; c
     if (profile.pointerGate > 0) {
       const withPointers = mean(runs.map((r) => (r.completeWithPointers ? 1 : 0)));
       main.push(`| ${profile.name}: pointers as found | | | ${pct(mean(runs.map((r) => r.turnRecallWithPointers!)))} | ${pct(withPointers)} | | | |`);
+      // Strict version: the pointers needed fit the search rounds and each one's query brings its unit back.
+      main.push(`| ${profile.name}: readable (pointers open in ${profile.maxToolRounds} searches) | | | | ${pct(mean(runs.map((r) => (r.readable ? 1 : 0))))} | | | |`);
     }
 
     const base = bm25Runs(answerable, profile);
@@ -385,7 +390,7 @@ function recallReport(dev: Question[], profiles: Profile[]): { report: string; c
   const report = [
     `# Packet recall: LongMemEval_S dev slice`,
     "",
-    `${answerable.length} answerable questions of the ${dev.length}-question dev slice (${dev.length - answerable.length} abstention questions have no evidence to find). Full history averages ${fmt(fullTokens)} tokens per question. Builder: BM25 only (no embeddings yet), size-based segments. No model calls. "All evidence in packet" means every labeled evidence turn is in it.`,
+    `${answerable.length} answerable questions of the ${dev.length}-question dev slice (${dev.length - answerable.length} abstention questions have no evidence to find). Full history averages ${fmt(fullTokens)} tokens per question. Builder: BM25 search, size-based segments, ${profiles.every((p) => embedderFor(p)) ? "and a static-embedder veto on the units the gate keeps (embedModel in each profile)" : "and no embedding veto (model files not fetched; run evals/scripts/fetch-embedders.sh)"}. No model calls. "All evidence in packet" means every labeled evidence turn is in it.`,
     "",
     `These are tuning numbers, not results: the segment cap and the cutoff were picked on this same slice, so they flatter the builder. With ${answerable.length} questions, one question moves "All evidence in packet" by ${pct(1 / answerable.length)}. Intervals are 95% bootstraps over questions. Two limits: an evidence chat with no labeled turn isn't counted, and recall leaves out what a reader would find by searching.`,
     "",
