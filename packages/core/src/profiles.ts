@@ -1,5 +1,6 @@
 // Per-model settings. Defaults are starting points; the evals sweep them per model.
 
+import type { DenseSettings } from "./dense.ts";
 import type { KeyDenoise } from "./segments.ts";
 import type { Stemmer } from "./text.ts";
 
@@ -36,6 +37,8 @@ export interface Profile {
   stemmer: Stemmer;
   /** P26: denoise mode (segments.ts) for the text the absolute score and the gate judge; ranking keeps the full text. */
   gateKey?: KeyDenoise;
+  /** P10 dense channel (dense.ts). Runs only when this is set and the caller passes an embedder to buildPacket. */
+  dense?: DenseSettings;
   /** Recent turns of the current session that ride along raw, outside the packet. */
   rawTurns: number;
   /** Hard cap on one retrieved unit. A longer turn is split at paragraph breaks. */

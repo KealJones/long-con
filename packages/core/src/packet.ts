@@ -12,6 +12,8 @@ import { isTallyQuestion, SEG_GATE, tallySearch } from "./tally.ts";
 import { unitProbability } from "./gate.ts";
 import { contentWords, estimateTokens, type Stemmer } from "./text.ts";
 import { lookupSymbols, type SymbolIndex, type SymbolItem } from "./symbols.ts";
+import type { Embed } from "./embed.ts";
+import { denseScores, fuseDense, type Ranked } from "./dense.ts";
 
 export interface BuildPacketInput {
   history: Session[];
@@ -24,6 +26,8 @@ export interface BuildPacketInput {
    * gets its path:line and signature, two or three get pointers, anything else gets no Code section.
    */
   code?: SymbolIndex;
+  /** A text embedder (embed.ts); with profile.dense set, it adds the dense channel (dense.ts). Absent: lexical only. */
+  embed?: Embed;
 }
 
 /** One retrieved unit of history in the packet, with the labels the model sees. */
@@ -64,7 +68,7 @@ export const HISTORY_NOTICE = (since: string, canSearch = true) =>
 export const TRUST_NOTE = (canSearch = true) =>
   `This packet is a best guess at what's relevant. Don't rely on anything in it that looks wrong${canSearch ? "; use the tools instead" : ""}.`;
 
-export function buildPacket({ history, message, profile, currentSessionId, code }: BuildPacketInput): Packet {
+export function buildPacket({ history, message, profile, currentSessionId, code, embed }: BuildPacketInput): Packet {
   const current = history.find((s) => s.id === currentSessionId);
   const recentStart = current ? Math.max(0, current.turns.length - profile.rawTurns) : 0;
   const recentTurns = current ? current.turns.slice(recentStart) : [];
@@ -109,7 +113,7 @@ export function buildPacket({ history, message, profile, currentSessionId, code 
 
   if (gateOpen) {
     const seen = new Set<string>();
-    const { hits, idf } = searchUnits(history, resolution.query, profile.segmentTokens, current?.id, recentStart, profile.stemmer, profile.gateKey);
+    const { hits, idf, units } = searchUnits(history, resolution.query, profile.segmentTokens, current?.id, recentStart, profile.stemmer, profile.gateKey);
     idfOf = idf;
     // The absolute bar asks whether history holds anything strong enough to answer at all. It judges the best unit
     // only: per unit, it cut the weaker second piece multi-session questions need (P02 dev sweep).
@@ -138,7 +142,7 @@ export function buildPacket({ history, message, profile, currentSessionId, code 
     }
     // Counting questions take one small piece per matching user turn instead of whole segments (see tally.ts).
     const tally = found && profile.tallyPieces > 0 && isTallyQuestion(message);
-    const ranked: { hit: Hit<Segment>; confidence: number; features?: number[] }[] = !found
+    const lexical: Ranked[] = !found
       ? []
       : tally
         ? tallySearch(history, resolution.query, current?.id, recentStart, hits, profile.unitWeights, profile.stemmer).slice(0, profile.tallyPieces)
@@ -147,11 +151,23 @@ export function buildPacket({ history, message, profile, currentSessionId, code 
     const gate = tally ? profile.tallyGate : profile.unitGate;
     const probability = (f: number[]) =>
       !tally ? unitProbability(f, profile.unitWeights) : profile.tallyWeights ? unitProbability(f, profile.tallyWeights) : f[SEG_GATE]!;
-    for (const { hit, confidence, features } of ranked) {
+    // The lexical bar for one unit: its gate probability, or -1 when it stays out.
+    const lexicalP = ({ confidence, features, denseOnly }: Ranked) => {
       // The budget is a ceiling, not a target: weak matches stay out even when there's room.
-      if (confidence < profile.minConfidence) continue;
+      if (denseOnly || confidence < profile.minConfidence) return -1;
       const p = features && gate > 0 ? probability(features) : 1;
-      if (p < gate) continue;
+      return p < gate ? -1 : p;
+    };
+    // Dense channel (P10): reorders by a third RRF ranking, and lets a unit over the cosine floor in only when the lexical
+    // side already let one in, so it can't fill a packet the BM25 gate leaves empty. Not for tally pieces.
+    const dense = embed && profile.dense && found && !tally ? profile.dense : undefined;
+    const lexicalAny = lexical.some((r) => lexicalP(r) >= 0);
+    const ranked = dense ? fuseDense(lexical, denseScores(units, resolution.query, embed!, dense.unit), dense) : lexical;
+    for (const r of ranked) {
+      const { hit, confidence } = r;
+      const p = lexicalP(r);
+      const cos = r.cosine ?? -1;
+      if (p < 0 && !(dense && cos >= dense.floor && (lexicalAny || cos >= (dense.onlyFloor ?? Infinity)))) continue;
       // The same exchange saved twice only needs to come in once.
       const text = hit.item.turns.map((t) => t.content).join("\n");
       if (seen.has(text)) continue;
@@ -160,7 +176,8 @@ export function buildPacket({ history, message, profile, currentSessionId, code 
       if (cost > budget) continue;
       seen.add(text);
       budget -= cost;
-      chosen.push({ segment: hit.item, hit, confidence, medium: pointing && !tally && p < profile.pointerGate });
+      // A unit in by cosine alone comes in whole: it has no lexical probability to place it in the pointer band.
+      chosen.push({ segment: hit.item, hit, confidence, medium: pointing && !tally && p >= 0 && p < profile.pointerGate });
     }
   }
 
@@ -195,7 +212,7 @@ export function buildPacket({ history, message, profile, currentSessionId, code 
     start: segment.start,
     end: segment.end,
     confidence: round(confidence),
-    why: `matched ${hit.matched.slice(0, 3).join(", ")}`,
+    why: hit.matched.length ? `matched ${hit.matched.slice(0, 3).join(", ")}` : "similar in meaning",
   });
 
   return {
@@ -224,10 +241,12 @@ export function searchUnits(history: Session[], query: string, segmentTokens: nu
   // bar and the gate's absolute features) while ranking stays on the full text.
   const key = gateKey ? new Bm25<Segment>() : all;
   const length = new Map<Segment, number>();
+  const units: Segment[] = [];
   for (const session of history) {
     for (const seg of splitIntoSegments(session, segmentTokens)) {
       // Turns already riding along raw don't need retrieving.
       if (session.id === currentId && seg.end >= recentStart) continue;
+      units.push(seg);
       const words = contentWords(seg.turns.map((t) => t.content).join("\n"), stemmer);
       length.set(seg, words.length);
       all.add(seg, words);
@@ -274,7 +293,7 @@ export function searchUnits(history: Session[], query: string, segmentTokens: nu
     ];
     return { hit, confidence: share.get(hit.item)!, score: absolute.get(hit.item)!, features };
   });
-  return { hits, idf: (w: string) => all.idf(w) };
+  return { hits, idf: (w: string) => all.idf(w), units };
 }
 
 /**
@@ -347,7 +366,7 @@ function renderPointer(seg: Segment, query: string): string {
 
 function renderSegment(seg: Segment, rejected: Set<string>, confidence: number, matched: string[]): string {
   // No chat ids here: the date is the source the model can use, and ids can carry labels it shouldn't see.
-  const lines = [`### ${seg.date ?? "undated"} · confidence ${round(confidence)} · matched ${matched.slice(0, 3).join(", ")}${seg.partial ? " · part of a longer turn" : ""}`];
+  const lines = [`### ${seg.date ?? "undated"} · confidence ${round(confidence)} · ${matched.length ? `matched ${matched.slice(0, 3).join(", ")}` : "similar in meaning"}${seg.partial ? " · part of a longer turn" : ""}`];
   seg.turns.forEach((turn, i) => {
     const key = refKey({ sessionId: seg.sessionId, turn: seg.start + i });
     lines.push(`${turn.role}: ${rejected.has(key) ? "[an answer the user rejected, left out]" : turn.content}`);
