@@ -12,6 +12,7 @@ import { isTallyQuestion, SEG_GATE, tallySearch } from "./tally.ts";
 import { unitProbability } from "./gate.ts";
 import { contentWords, estimateTokens, type Stemmer } from "./text.ts";
 import { lookupSymbols, type SymbolIndex, type SymbolItem } from "./symbols.ts";
+import { graphSearch, isGraphQuestion } from "./phrasegraph.ts";
 
 export interface BuildPacketInput {
   history: Session[];
@@ -161,6 +162,36 @@ export function buildPacket({ history, message, profile, currentSessionId, code 
       seen.add(text);
       budget -= cost;
       chosen.push({ segment: hit.item, hit, confidence, medium: pointing && !tally && p < profile.pointerGate });
+    }
+    // P28: for aggregation and "what do I know about X" messages, a phrase-graph walk is fused with the BM25 rankings by
+    // RRF, and the best fused units the packet doesn't hold yet come in whole, up to graphUnits, behind the same bar.
+    if (found && profile.graphUnits > 0 && isGraphQuestion(message)) {
+      const walk = graphSearch(history, resolution.query, profile.segmentTokens, current?.id, recentStart, profile.stemmer);
+      const top = walk[0]?.score ?? 1;
+      const fused = new Map<string, { segment: Segment; hit?: Hit<Segment>; score: number; walk: number }>();
+      hits.forEach(({ hit }) => fused.set(unitKey(hit.item), { segment: hit.item, hit, score: hit.score, walk: 0 }));
+      walk.forEach(({ item, score }, rank) => {
+        const key = unitKey(item);
+        if (!fused.has(key)) fused.set(key, { segment: item, score: 0, walk: 0 });
+        const at = fused.get(key)!;
+        at.score += 1 / (60 + rank);
+        at.walk = score / top;
+      });
+      let room = profile.graphUnits;
+      for (const f of [...fused.values()].sort((a, b) => b.score - a.score)) {
+        if (room <= 0) break;
+        // Reached by the walk, and holding no turn the packet already has (a whole unit or a tally piece).
+        if (!f.walk || chosen.some((c) => c.segment.sessionId === f.segment.sessionId && c.segment.start <= f.segment.end && c.segment.end >= f.segment.start)) continue;
+        const text = f.segment.turns.map((t) => t.content).join("\n");
+        if (seen.has(text)) continue;
+        const hit = f.hit ?? { item: f.segment, score: 0, matched: ["related phrases"] };
+        const cost = estimateTokens("\n" + renderSegment(f.segment, registers.rejected, f.walk, hit.matched));
+        if (cost > budget) continue;
+        seen.add(text);
+        budget -= cost;
+        room--;
+        chosen.push({ segment: f.segment, hit, confidence: f.walk, medium: false });
+      }
     }
   }
 
@@ -370,4 +401,5 @@ function earliestDate(history: Session[]): string {
   return history.map((s) => s.date).filter((d): d is string => !!d).sort()[0] ?? "";
 }
 
+const unitKey = (s: Segment) => `${s.sessionId}#${s.start}-${s.end}`;
 const round = (n: number) => Math.round(n * 100) / 100;

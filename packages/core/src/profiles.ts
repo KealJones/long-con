@@ -36,6 +36,11 @@ export interface Profile {
   stemmer: Stemmer;
   /** P26: denoise mode (segments.ts) for the text the absolute score and the gate judge; ranking keeps the full text. */
   gateKey?: KeyDenoise;
+  /**
+   * P28 phrase graph: for aggregation and "what do I know about X" messages, up to this many units from a phrase-graph walk
+   * fused with BM25 (phrasegraph.ts) come in whole, behind the minScore bar. 0 turns it off.
+   */
+  graphUnits: number;
   /** Recent turns of the current session that ride along raw, outside the packet. */
   rawTurns: number;
   /** Hard cap on one retrieved unit. A longer turn is split at paragraph breaks. */
@@ -96,6 +101,8 @@ export const PROFILES = {
     // length; ranking keeps the full text. Same recall, fewer tokens, fewer false inclusions on every tier. Without
     // "fulllen" the shorter keys scored higher and tier 2 gained a unit. The bar stays (0.18 loses a question, 0.16 adds FI).
     gateKey: "boilerplate+fulllen+matched",
+    // P28 dev sweep: 2 units, fused or walk-only, found no new evidence and added false inclusions on tiers 2 and 3. Off.
+    graphUnits: 0,
     rawTurns: 6,
     // Small units beat whole exchanges at every budget on the dev slice (evals/results). 400 keeps a short
     // question and answer together; smaller still scored a little higher on a benchmark whose facts sit in user turns.
@@ -134,6 +141,7 @@ export const PROFILES = {
     minScore: 0.25,
     stemmer: "porter",
     // No gateKey: at 0.25 it added tokens and tier-3 false inclusions, and 0.26 loses a question (P26 gate-key sweep).
+    graphUnits: 0,
     rawTurns: 2,
     segmentTokens: 400,
     // Ungated, every cap that kept its recall gain added wrong pieces (P06). Behind the tally gate it holds recall with
