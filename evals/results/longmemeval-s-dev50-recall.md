@@ -12,7 +12,7 @@ These are tuning numbers, not results: the segment cap and the cutoff were picke
 | claude: pointers as found | | | 87.6% | 80.9% | | | |
 | claude: readable (pointers open in 3 searches) | | | | 80.9% | | | |
 | claude: plain BM25 top-k | 8,000 | 93.0% | 85.1% | 76.6% | 63.8% to 87.2% | 7,886 | 8,000 |
-| small-local | 2,500 | 77.8% | 72.2% | 66.0% | 53.2% to 78.7% | 1,351 | 2,497 |
+| small-local | 2,500 | 77.8% | 72.2% | 66.0% | 53.2% to 78.7% | 1,337 | 2,497 |
 | small-local: plain BM25 top-k | 2,500 | 85.9% | 72.5% | 59.6% | 44.7% to 72.3% | 2,476 | 2,499 |
 
 Packet against plain BM25 top-k on the same questions:
@@ -31,7 +31,7 @@ System prompt, search tool definition, packet and question; then the same plus o
 | Profile | Context window | First call, mean | First call, largest | With one search, mean | With one search, largest | Fits with room to answer |
 | --- | --- | --- | --- | --- | --- | --- |
 | claude | 200,000 | 3,524 | 8,145 | 4,349 | 9,006 | 50 of 50 |
-| small-local | 6,000 | 1,447 | 2,654 | 1,741 | 3,075 | 50 of 50 |
+| small-local | 6,000 | 1,434 | 2,654 | 1,729 | 3,075 | 50 of 50 |
 
 ## Recall against packet size
 
@@ -56,14 +56,14 @@ Smallest ceiling within 2 points of its own 8K score: fixed 8,000, adaptive 8,00
 
 | Budget ceiling | Fixed: all evidence | Fixed: mean tokens | Adaptive: all evidence | Adaptive: mean tokens |
 | --- | --- | --- | --- | --- |
-| 1,000 | 46.8% | 706 | 46.8% | 686 |
-| 1,500 | 53.2% | 970 | 55.3% | 946 |
-| 2,000 | 61.7% | 1,220 | 63.8% | 1,175 |
-| 2,500 | 63.8% | 1,421 | 66.0% | 1,351 |
-| 3,000 | 63.8% | 1,615 | 66.0% | 1,501 |
-| 4,000 | 66.0% | 1,897 | 66.0% | 1,711 |
-| 6,000 | 66.0% | 2,200 | 66.0% | 1,837 |
-| 8,000 | 66.0% | 2,340 | 66.0% | 1,837 |
+| 1,000 | 46.8% | 692 | 46.8% | 672 |
+| 1,500 | 53.2% | 956 | 55.3% | 933 |
+| 2,000 | 61.7% | 1,206 | 63.8% | 1,162 |
+| 2,500 | 63.8% | 1,407 | 66.0% | 1,337 |
+| 3,000 | 63.8% | 1,601 | 66.0% | 1,488 |
+| 4,000 | 66.0% | 1,883 | 66.0% | 1,697 |
+| 6,000 | 66.0% | 2,186 | 66.0% | 1,823 |
+| 8,000 | 66.0% | 2,326 | 66.0% | 1,823 |
 
 Smallest ceiling within 2 points of its own 8K score: fixed 4,000, adaptive 2,500.
 
@@ -84,8 +84,8 @@ Smallest ceiling within 2 points of its own 8K score: fixed 4,000, adaptive 2,50
 
 | Type | Questions | Evidence turns found | All evidence in packet | Mean packet tokens |
 | --- | --- | --- | --- | --- |
-| knowledge-update | 8 | 87.5% | 87.5% | 1,341 |
-| multi-session | 11 | 58.3% | 36.4% | 588 |
+| knowledge-update | 8 | 87.5% | 87.5% | 1,309 |
+| multi-session | 11 | 58.3% | 36.4% | 553 |
 | single-session-assistant | 6 | 100.0% | 100.0% | 2,004 |
 | single-session-preference | 3 | 16.7% | 0.0% | 960 |
 | single-session-user | 6 | 100.0% | 100.0% | 1,851 |
