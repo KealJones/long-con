@@ -2,6 +2,7 @@
 
 import type { Session } from "@long-con/core";
 import { MODELS, PROFILE, sendTurn } from "./chat.ts";
+import * as Voice from "./voice.ts";
 import * as GH from "./github.ts";
 import { FILES_KEY, resetShell } from "./tools.ts";
 import { dayName, topics } from "./topics.ts";
@@ -489,15 +490,19 @@ input.addEventListener("keydown", (event) => {
   }
 });
 
-form.addEventListener("submit", async (event) => {
+form.addEventListener("submit", (event) => {
   event.preventDefault();
-  const message = input.value.trim();
-  if (!message || busy) return;
+  void ask(input.value.trim());
+});
+
+/** Sends one message and shows the reply. Returns the reply, or null when nothing was sent or it failed. */
+async function ask(message: string, voice = false): Promise<string | null> {
+  if (!message || busy) return null;
   const apiKey = keyInput.value.trim();
   if (!apiKey) {
     setStatus("Add your Anthropic API key in Settings first.");
     settings.showModal();
-    return;
+    return null;
   }
   busy = true;
   setStatus("");
@@ -512,26 +517,75 @@ form.addEventListener("submit", async (event) => {
   try {
     const onStep = (label: string) => (presence.textContent = label.length > 40 ? label.slice(0, 39) + "…" : label);
     const model = modelSelect.value;
-    const result = await sendTurn(history, message, { apiKey, model, rawTurns: Number(rawSelect.value), onStep });
+    const result = await sendTurn(history, message, { apiKey, model, voice, rawTurns: Number(rawSelect.value), onStep });
     packets[keyOf(result.sessionId, result.turn)] = { text: result.packet, tokens: result.packetTokens, model, raw: result.rawTurns, ...(result.steps.length ? { steps: result.steps } : {}) };
     saveChat();
-    saveToGitHub();
+    if (!voice) saveToGitHub(); // A call saves once the reply has been spoken.
     pending.remove();
     showTyping(false);
     addTurn(result.sessionId, result.turn, "user", message, false);
     addTurn(result.sessionId, result.turn + 1, "assistant", result.answer, true);
     log.scrollTop = log.scrollHeight;
     if (app.classList.contains("side-open")) renderSidebar();
+    return result.answer;
   } catch (err) {
     pending.remove();
     showTyping(false);
     // Put the message back so nothing is lost.
     input.value = message;
     setStatus(err instanceof Error ? err.message : String(err));
+    return null;
   } finally {
     busy = false;
     sync();
   }
+}
+
+// Voice calls: tap the mic to start, tap again to hang up. Talking over a reply stops it.
+const callButton = $<HTMLButtonElement>("call");
+const voiceSelect = $<HTMLSelectElement>("voice");
+for (const [id, name] of Object.entries(Voice.VOICES)) voiceSelect.append(new Option(name, id));
+voiceSelect.value = localStorage.getItem("long-con:voice") ?? "af_heart";
+voiceSelect.addEventListener("change", () => localStorage.setItem("long-con:voice", voiceSelect.value));
+callButton.hidden = !Voice.canCall;
+let hangUp: (() => void) | null = null;
+const CALL_STATES = { loading: "getting ready…", listening: "listening…", thinking: "thinking…", speaking: "speaking…" };
+function endCall() {
+  hangUp?.();
+  hangUp = null;
+  callButton.setAttribute("aria-pressed", "false");
+  callButton.setAttribute("aria-label", "Start a voice call");
+  showTyping(false);
+}
+callButton.addEventListener("click", () => {
+  if (hangUp) return endCall();
+  if (!keyInput.value.trim()) {
+    setStatus("Add your Anthropic API key in Settings first.");
+    return settings.showModal();
+  }
+  callButton.setAttribute("aria-pressed", "true");
+  callButton.setAttribute("aria-label", "Hang up");
+  let note = "";
+  hangUp = Voice.startCall({
+    voice: () => voiceSelect.value,
+    ask: (text) => {
+      // A reply that was talked over stays whole; the note on this message says where they stopped hearing it.
+      const message = note ? `${note}\n\n${text}` : text;
+      note = "";
+      return ask(message, true);
+    },
+    interrupted: (n) => (note = n),
+    spoken: () => saveToGitHub(),
+    heard: (text) => {
+      input.value = text;
+      sync();
+    },
+    state: (s, detail) => {
+      presence.textContent = detail ? `${CALL_STATES[s]} ${detail}` : CALL_STATES[s];
+      presence.classList.add("typing");
+      if (s === "listening") input.value = "";
+    },
+  });
 });
 
 renderLog();

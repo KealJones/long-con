@@ -87,6 +87,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .hint { color: var(--muted); font-size: 0.8rem; margin: 8px 0 0; }
 .icon { border: 0; background: none; padding: 8px; border-radius: 50%; color: var(--accent); display: grid; place-items: center; }
 .icon:hover { background: var(--bg); }
+.icon[aria-pressed="true"] { background: var(--accent); color: var(--surface, #fff); }
 .days .icon { color: var(--muted); padding: 4px; }
 .days .icon svg { width: 16px; height: 16px; }
 .scrim { display: none; }

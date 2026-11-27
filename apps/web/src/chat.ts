@@ -13,6 +13,9 @@ export const MAX_ROUNDS = 12;
 export const SYSTEM =
   "You are a helpful assistant in a long-running chat with the user. Each message comes with a packet of what seemed relevant from your past chats with them. Use it when it helps. If it doesn't say and you don't know, say so instead of guessing. You also have tools: a bash shell whose /home files stay in this browser, a search of all your past chats, and web search and fetch. Write like you're texting a friend: plain and conversational, no headings or tables.";
 
+export const VOICE_NOTE =
+  "You're on a voice call: your reply is read aloud. Keep it short and spoken, with no lists, links, code or markdown.";
+
 export const MODELS = ["claude-sonnet-5-5", "claude-opus-5-5", "claude-haiku-5-5"];
 
 /** One session per local day, so retrieved history carries a date. The format sorts as text, like core expects. */
@@ -29,6 +32,8 @@ export interface TurnOptions {
   fetch?: typeof fetch;
   /** Where the shell keeps /home (localStorage when left out). */
   store?: ToolContext["store"];
+  /** On a voice call the reply is read aloud, so the model is asked to keep it short and speakable. */
+  voice?: boolean;
   /** How many of today's latest turns go word for word; the packet searches everything else. */
   rawTurns?: number;
   /** Called as each tool runs, for a live "typing" line. */
@@ -59,7 +64,7 @@ export async function sendTurn(history: Session[], message: string, opts: TurnOp
   // Always a packet, even on a short chat (the profile's switchAt would send it whole), since seeing it is the point.
   const profile = { ...PROFILE, rawTurns: opts.rawTurns ?? PROFILE.rawTurns };
   const packet = buildPacket({ history, message, profile, currentSessionId: today });
-  const prompt = assemblePrompt({ system: `${SYSTEM}\n\nToday is ${today}.`, packet: packet.text, recentTurns: packet.recentTurns, message });
+  const prompt = assemblePrompt({ system: `${SYSTEM}${opts.voice ? `\n\n${VOICE_NOTE}` : ""}\n\nToday is ${today}.`, packet: packet.text, recentTurns: packet.recentTurns, message });
 
   // A packet that found nothing older isn't sent at all: just today's latest turns and the message.
   const sent = packetEmpty(packet.text) ? "" : packet.text;
