@@ -7,7 +7,7 @@ import { costOf, decide, DEFAULT_PERMISSIONS, offeredTools, siteOf, spentLastHou
 import { runTool, toolDefs, type ToolContext } from "./tools.ts";
 
 // The "best guess" trust note is off here: the R&D loop's 50-question run found it about tripled searches and doubled tokens with no accuracy gain.
-export const PROFILE = { ...PROFILES.claude, trustNote: false };
+export const PROFILE = { ...PROFILES.claude, trustNote: false, topicTokens: 2000, notFound: true, answerFollows: true };
 /** Model calls per message at most; the last one gets no tools, so it has to answer. */
 export const MAX_ROUNDS = 12;
 
@@ -51,6 +51,8 @@ export interface TurnOptions {
   note?: string;
   /** Images and PDFs sent with this message. */
   attachments?: Attachment[];
+  /** Standing rules the user undid, word for word; the packet leaves them out. */
+  mutedRules?: string[];
 }
 
 /** A file sent with a message: base64 data, as the Messages API takes it. */
@@ -92,7 +94,7 @@ export async function sendTurn(history: Session[], message: string, opts: TurnOp
   // Always a packet, even on a short chat (the profile's switchAt would send it whole), since seeing it is the point.
   const profile = { ...PROFILE, rawTurns: opts.rawTurns ?? PROFILE.rawTurns };
   const searchable = opts.extraSessions?.length ? [...history, ...opts.extraSessions] : history;
-  const packet = buildPacket({ history: searchable, message, profile, currentSessionId: today });
+  const packet = buildPacket({ history: searchable, message, profile, currentSessionId: today, mutedRules: opts.mutedRules });
   // A packet that found nothing older isn't sent at all: just today's latest turns and the message.
   const found = packetEmpty(packet.text) ? "" : packet.text;
   const sent = [found, opts.note ?? ""].filter(Boolean).join("\n\n");
