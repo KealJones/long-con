@@ -15,6 +15,10 @@ export interface DenseSettings {
   unit: "message" | "segment";
   /** A unit at or over this cosine comes in even when no lexical unit did (still behind the minScore bar). Absent: never. */
   onlyFloor?: number;
+  /** A unit the lexical side lets in stays out when its cosine is under this. Absent: no veto. */
+  veto?: number;
+  /** Also run on counting questions, adding whole units after the tally pieces. */
+  tally?: boolean;
 }
 
 export interface Ranked {

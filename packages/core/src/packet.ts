@@ -159,13 +159,20 @@ export function buildPacket({ history, message, profile, currentSessionId, code,
       return p < gate ? -1 : p;
     };
     // Dense channel (P10): reorders by a third RRF ranking, and lets a unit over the cosine floor in only when the lexical
-    // side already let one in, so it can't fill a packet the BM25 gate leaves empty. Not for tally pieces.
-    const dense = embed && profile.dense && found && !tally ? profile.dense : undefined;
-    const lexicalAny = lexical.some((r) => lexicalP(r) >= 0);
-    const ranked = dense ? fuseDense(lexical, denseScores(units, resolution.query, embed!, dense.unit), dense) : lexical;
+    // side already let one in, so it can't fill a packet the BM25 gate leaves empty. On a counting question (dense.tally)
+    // whole units over the floor come after the tally pieces, best cosine first, since piece and unit scores don't fuse.
+    const dense = embed && profile.dense && found && (!tally || profile.dense.tally) ? profile.dense : undefined;
+    const cosines = dense ? denseScores(units, resolution.query, embed!, dense.unit) : undefined;
+    // With a veto set, a lexical unit far from the message in meaning stays out too.
+    const keptLexically = (r: Ranked) => {
+      const p = lexicalP(r);
+      return p >= 0 && !(dense?.veto !== undefined && cosines!.get(r.hit.item)! < dense.veto) ? p : -1;
+    };
+    const lexicalAny = lexical.some((r) => keptLexically(r) >= 0);
+    const ranked = !dense ? lexical : tally ? [...lexical, ...fuseDense([], cosines!, dense)] : fuseDense(lexical, cosines!, dense);
     for (const r of ranked) {
       const { hit, confidence } = r;
-      const p = lexicalP(r);
+      const p = keptLexically(r);
       const cos = r.cosine ?? -1;
       if (p < 0 && !(dense && cos >= dense.floor && (lexicalAny || cos >= (dense.onlyFloor ?? Infinity)))) continue;
       // The same exchange saved twice only needs to come in once.

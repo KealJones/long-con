@@ -58,4 +58,7 @@ test("the dense channel adds a unit only when the lexical side already let one i
   // Close in meaning to the moving chats, but nothing lexical clears the bar: the packet stays empty.
   const empty = buildPacket({ history, message: "my bike", profile, embed: fake });
   assert.equal(empty.segments.length, 0);
+  // A veto over every cosine drops the lexical units, and then nothing lexical is in, so no dense unit may be added either.
+  const vetoed = buildPacket({ history, message: "when is priya moving again", profile: { ...profile, dense: { ...profile.dense, veto: 2 } }, embed: fake });
+  assert.equal(vetoed.segments.length, 0);
 });

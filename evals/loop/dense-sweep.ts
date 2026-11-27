@@ -21,6 +21,8 @@ const { values } = parseArgs({
     floors: { type: "string", default: "0.5" },
     weights: { type: "string", default: "1" },
     "only-floors": { type: "string", default: "" },
+    vetoes: { type: "string" },
+    tally: { type: "boolean", default: false },
     out: { type: "string" },
   },
 });
@@ -29,10 +31,11 @@ const list = (s: string) => s.split(",").filter(Boolean).map(Number);
 const configs: { name: string; profile: Profile }[] = [{ name: "baseline", profile: base }];
 for (const floor of list(values.floors!))
   for (const weight of list(values.weights!))
-    for (const only of [undefined, ...list(values["only-floors"]!)]) {
-      const dense: DenseSettings = { floor, weight, unit: values.unit as DenseSettings["unit"], ...(only !== undefined ? { onlyFloor: only } : {}) };
-      configs.push({ name: `${values.unit} f${floor} w${weight}${only !== undefined ? ` only${only}` : ""}`, profile: { ...base, dense } });
-    }
+    for (const only of [undefined, ...list(values["only-floors"]!)])
+      for (const veto of values.vetoes ? list(values.vetoes) : [undefined]) {
+        const dense: DenseSettings = { floor, weight, unit: values.unit as DenseSettings["unit"], ...(only !== undefined ? { onlyFloor: only } : {}), ...(veto !== undefined ? { veto } : {}), ...(values.tally ? { tally: true } : {}) };
+        configs.push({ name: `${values.unit} f${floor} w${weight}${only !== undefined ? ` only${only}` : ""}${veto !== undefined ? ` veto${veto}` : ""}${values.tally ? " +tally" : ""}`, profile: { ...base, dense } });
+      }
 
 const dev = devQuestions(loadLongMemEval(DATA));
 const byId = new Map(dev.map((q) => [q.id, q]));
