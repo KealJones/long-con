@@ -12,7 +12,7 @@ import { isTallyQuestion, SEG_GATE, tallySearch } from "./tally.ts";
 import { unitProbability } from "./gate.ts";
 import { contentWords, estimateTokens, type Stemmer } from "./text.ts";
 import { lookupSymbols, type SymbolIndex, type SymbolItem } from "./symbols.ts";
-import { workingSet } from "./workingset.ts";
+import { workingSet, type ActiveWorkspace } from "./workingset.ts";
 
 export interface BuildPacketInput {
   history: Session[];
@@ -26,10 +26,11 @@ export interface BuildPacketInput {
    */
   code?: SymbolIndex;
   /**
-   * The workspace's file paths, relative to its root, when the caller has them. Files the message and the current
-   * session's latest turns name, paste or edit get a short tree of their folders; paths not in the list get nothing.
+   * The active workspace (root, name and file paths relative to the root), when the caller has one. Files the message
+   * and the current session's latest turns name, paste or edit get a short tree of their folders, once those turns tie
+   * them to this workspace (workingset.ts); paths not in the list get nothing.
    */
-  workspace?: string[];
+  workspace?: ActiveWorkspace;
 }
 
 /** One retrieved unit of history in the packet, with the labels the model sees. */

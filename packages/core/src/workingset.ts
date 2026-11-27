@@ -1,9 +1,20 @@
 // Working set plus a depth-2 tree (P20). The files the chat's recent turns named, pasted or edited, resolved
-// against the caller's workspace file list, and the folders around them: each one's own folder, its parent, and
-// the parent's other subfolders. Only paths that exist in the workspace are ever listed, so a file the chat
-// talked about that isn't there gets nothing rather than a made-up line.
+// against the caller's active workspace, and the folders around them: each one's own folder, its parent, and the
+// parent's other subfolders. Only paths that exist in the workspace are ever listed, so a file the chat talked about
+// that isn't there gets nothing rather than a made-up line.
+//
+// Long Con is one chat across projects, so a path counts only once the window ties it to the active workspace: a
+// turn names the workspace or writes a path under its root. A path into another checkout, or a relative path whose
+// top folder this workspace doesn't have, unties it until the next tie. A bare file name is never a tie.
 
 import { estimateTokens } from "./text.ts";
+
+/** The project the caller is working in: where it lives, what it's called, and its file paths relative to `root`. */
+export interface ActiveWorkspace {
+  root: string;
+  name: string;
+  files: string[];
+}
 
 export interface WorkingSet {
   /** Workspace paths the turns name, newest first. A folder ends in "/". */
@@ -21,35 +32,52 @@ const MAX_ITEMS = 8;
 export const WORKING_SET = "Files named in this chat (marked *) and the folders around them, from the workspace file list:";
 
 /**
- * Builds the section from `texts` (newest first: the message, then the recent turns) and the workspace's file
- * paths, relative to its root. The whole section, its title line included, stays within `maxTokens`.
+ * Builds the section from `texts` (newest first: the message, then the recent turns) and the active workspace.
+ * The whole section, its title line included, stays within `maxTokens`.
  */
-export function workingSet(texts: string[], workspace: string[], maxTokens: number): WorkingSet {
+export function workingSet(texts: string[], workspace: ActiveWorkspace, maxTokens: number): WorkingSet {
   const ws = indexWorkspace(workspace);
-  const hits: Resolved[] = [];
-  for (const text of texts) {
+  const named = nameMatcher(workspace);
+  let tied = false;
+  let items: string[] = [];
+  // Oldest first, so a later turn can leave the workspace or come back to it. Within one turn a tie wins.
+  for (const text of [...texts].reverse()) {
+    const tokens = text.split(/[^\w./@+~-]+/);
+    if (tokens.some((t) => leaves(t, ws))) tied = false;
+    if (named.test(text) || tokens.some((t) => ABSOLUTE.test(t) && underRoot(t, ws) !== undefined)) tied = true;
+    if (!tied) continue;
     // shortcut: a scan of every file per path-like token; index basenames if workspaces grow past a few thousand files.
-    for (const token of text.split(/[^\w./@+~-]+/)) {
-      const hit = resolvePath(token, ws);
-      if (hit) hits.push(hit);
-    }
+    items = [...tokens.map((t) => resolvePath(t, ws)).filter((p): p is string => !!p), ...items];
   }
-  // A bare name or a partial path ("style.css", "src/text.ts") is just as likely another project's file, so they
-  // count only when the chat also writes out a whole path in this workspace, which shows the chat is about it.
-  const items = hits.some((h) => h.whole) ? [...new Set(hits.map((h) => h.path))] : [];
+  items = [...new Set(items)];
   const lines = renderTree(items.slice(0, MAX_ITEMS), ws, maxTokens - estimateTokens(`${WORKING_SET}\n`));
   if (!lines.length) return { items, text: "", tokens: 0 };
   const text = [WORKING_SET, ...lines].join("\n");
   return { items, text, tokens: estimateTokens(text) };
 }
 
+/** The workspace's name or its root folder's name as words: "long-con" also matches "Long Con" and "longcon". */
+function nameMatcher({ root, name }: ActiveWorkspace): RegExp {
+  const words = (n: string) =>
+    n
+      .split(/[^A-Za-z0-9]+/)
+      .filter(Boolean)
+      .join("[-_ ]?");
+  const names = [...new Set([name, root.split("/").filter(Boolean).at(-1) ?? ""].map(words).filter(Boolean))];
+  return new RegExp(`(?<![\\w-])(?:${names.join("|")})(?![\\w-])`, "i");
+}
+
 interface Workspace {
+  /** The root with no trailing slash, and the same with the home folder written as "~". */
+  roots: string[];
   files: Set<string>;
   /** Folder path ("" is the root) to its files' and subfolders' names. */
   dirs: Map<string, { files: string[]; dirs: string[] }>;
 }
 
-function indexWorkspace(paths: string[]): Workspace {
+function indexWorkspace({ root, files: paths }: ActiveWorkspace): Workspace {
+  const base = root.replace(/\/+$/, "");
+  const roots = [...new Set([base, base.replace(/^\/(?:home|Users)\/[^/]+/, "~")])];
   const files = new Set(paths.map((p) => p.replace(/^\.\//, "")).filter(Boolean));
   const dirs = new Map<string, { files: string[]; dirs: string[] }>();
   const dir = (d: string) => dirs.get(d) ?? dirs.set(d, { files: [], dirs: [] }).get(d)!;
@@ -62,36 +90,54 @@ function indexWorkspace(paths: string[]): Workspace {
     }
   }
   for (const d of dirs.values()) d.files.sort(), d.dirs.sort();
-  return { files, dirs };
+  return { roots, files, dirs };
 }
 
-interface Resolved {
-  path: string;
-  /** Written out as the whole workspace path with a folder in it (diff, ./ and absolute forms too), not a bare name or a tail. */
-  whole: boolean;
+/** An absolute path: "/x" or "~/x", not a "//host" left from a URL. */
+const ABSOLUTE = /^(?:\/(?!\/)|~\/)/;
+
+/** The rest of an absolute path under the workspace root ("" for the root itself), or undefined. */
+function underRoot(token: string, ws: Workspace): string | undefined {
+  const path = token.replace(/\.+$/, "").replace(/\/+$/, "");
+  for (const root of ws.roots) if (path === root || path.startsWith(`${root}/`)) return path.slice(root.length + 1);
+  return undefined;
 }
 
 /**
- * One token of chat text to a workspace path, or nothing. Exact paths, a/ and b/ diff prefixes, ./ and absolute
- * paths ending in a workspace path with a folder in it are whole. A partial path or bare file name resolves only
- * when exactly one workspace file ends with it, so "index.ts" or "package.json" in a repo with several gets
- * nothing, root one included. A folder needs a slash and must match exactly; a top-level one ("docs/") isn't whole.
+ * Whether a token points into another project: an absolute path of two or more parts outside the root, a path
+ * climbing out with ../, or a relative file path whose top folder this workspace doesn't have and that is no tail of
+ * a workspace file ("lib/bm25.ts" in a repo with no lib/; "core/src/text.ts" stays).
  */
-function resolvePath(raw: string, ws: Workspace): Resolved | undefined {
+function leaves(raw: string, ws: Workspace): boolean {
+  if (ABSOLUTE.test(raw)) return /^~?\/[^/]+\/[\w.@-]/.test(raw) && underRoot(raw, ws) === undefined;
+  if (raw.startsWith("../")) return true;
+  const token = raw.replace(/\.+$/, "").replace(/^(?:\.\/|[ab]\/)/, "");
+  if (!/^[\w.@-]+\/[\w./@-]*\.[A-Za-z0-9]+$/.test(token)) return false;
+  return !ws.dirs.has(token.slice(0, token.indexOf("/"))) && ![...ws.files].some((p) => p.endsWith(`/${token}`));
+}
+
+/**
+ * One token of chat text to a workspace path, or nothing. Exact paths, a/ and b/ diff prefixes, ./ paths and
+ * absolute paths under the root resolve as written; an absolute path anywhere else never does. A partial path or
+ * bare file name resolves only when exactly one workspace file ends with it, so "index.ts" or "package.json" in a
+ * repo with several gets nothing, root one included. A folder needs a slash and must match exactly.
+ */
+function resolvePath(raw: string, ws: Workspace): string | undefined {
+  if (ABSOLUTE.test(raw)) {
+    const rest = underRoot(raw, ws);
+    if (!rest) return undefined;
+    if (ws.files.has(rest)) return rest;
+    return ws.dirs.has(rest) ? `${rest}/` : undefined;
+  }
   const rooted = /^(?:\.\/|[ab]\/)/.test(raw);
   const token = raw.replace(/\.+$/, "").replace(/^(?:\.\/|[ab]\/)/, "");
-  if (token.length < 3 || !/[./]/.test(token)) return;
+  if (token.length < 3 || !/[./]/.test(token)) return undefined;
   const folder = token.replace(/\/+$/, "");
-  if ((folder.includes("/") || token.endsWith("/")) && folder && ws.dirs.has(folder)) return { path: `${folder}/`, whole: folder.includes("/") };
-  if (!/\.[A-Za-z0-9]+$/.test(token)) return;
+  if ((folder.includes("/") || token.endsWith("/")) && folder && ws.dirs.has(folder)) return `${folder}/`;
+  if (!/\.[A-Za-z0-9]+$/.test(token)) return undefined;
   const ends = [...ws.files].filter((p) => p.endsWith(`/${token}`));
-  if (ws.files.has(token) && (rooted || token.includes("/") || !ends.length)) return { path: token, whole: rooted || token.includes("/") };
-  if (ws.files.has(token)) return;
-  if (ends.length === 1) return { path: ends[0]!, whole: false };
-  if (ends.length > 1) return;
-  // An absolute or prefixed path: the longest workspace path it ends with, if that path has a folder in it.
-  const under = [...ws.files].filter((p) => p.includes("/") && token.endsWith(`/${p}`)).sort((a, b) => b.length - a.length);
-  return under[0] ? { path: under[0], whole: true } : undefined;
+  if (ws.files.has(token)) return rooted || token.includes("/") || !ends.length ? token : undefined;
+  return ends.length === 1 ? ends[0] : undefined;
 }
 
 /**

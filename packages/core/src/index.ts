@@ -10,4 +10,4 @@ export type { Resolution } from "./resolver.ts";
 export { SymbolIndex, indexSource, identifiersIn, lookupSymbols, type SymbolDef, type SymbolItem, type SymbolKind, type SymbolLookup, type SymbolBudget, type SourceFile } from "./symbols.ts";
 export { UNIT_FEATURES, UNIT_WEIGHTS, unitProbability } from "./gate.ts";
 export { isTallyQuestion, tallySearch, TALLY_FEATURES } from "./tally.ts";
-export { workingSet, WORKING_SET, type WorkingSet } from "./workingset.ts";
+export { workingSet, WORKING_SET, type WorkingSet, type ActiveWorkspace } from "./workingset.ts";

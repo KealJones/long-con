@@ -1,0 +1,1556 @@
+{
+ "note": "P20 current-project set: hand-written chats that mix projects. Split by evals/loop/split.ts splitOf(id). tidepool is a made-up second project.",
+ "workspaces": {
+  "long-con": {
+   "root": "/home/user/long-con",
+   "name": "long-con",
+   "commit": "bbf0298"
+  },
+  "tidepool": {
+   "root": "/home/user/code/tidepool",
+   "name": "tidepool",
+   "files": [
+    "README.md",
+    "LICENSE",
+    ".gitignore",
+    "package.json",
+    "tsconfig.json",
+    "vite.config.ts",
+    "index.html",
+    "docs/plan.md",
+    "docs/architecture.md",
+    ".github/workflows/ci.yml",
+    "src/main.ts",
+    "src/cli.ts",
+    "src/feed.ts",
+    "src/render.ts",
+    "src/text.ts",
+    "src/chat.ts",
+    "src/style.css",
+    "test/feed.test.ts",
+    "test/chat.test.ts",
+    "scripts/deploy.sh",
+    "content/posts/hello.md",
+    "public/favicon.svg"
+   ]
+  }
+ },
+ "chats": [
+  {
+   "id": "mx-named-bm25-tool",
+   "kind": "named",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "in long-con, bm25 scores look flat on short docs"
+    ],
+    [
+     "assistant",
+     "Reading /home/user/long-con/packages/core/src/bm25.ts: b is 0.75 and k1 is 1.2, so length normalization is strong."
+    ]
+   ],
+   "message": "try b at 0.5 and rerun",
+   "gold": [
+    "packages/core/src/bm25.ts"
+   ],
+   "allowed": [
+    "packages/core/src/bm25.ts"
+   ]
+  },
+  {
+   "id": "mx-named-resolver-bare",
+   "kind": "named",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "long con question, the resolver drops pronouns way too early"
+    ],
+    [
+     "assistant",
+     "That's in resolver.ts. The first pass strips 'it' before the lookup runs."
+    ],
+    [
+     "user",
+     "yeah that's the one"
+    ]
+   ],
+   "message": "move that strip after the lookup",
+   "gold": [
+    "packages/core/src/resolver.ts"
+   ],
+   "allowed": [
+    "packages/core/src/resolver.ts"
+   ]
+  },
+  {
+   "id": "mx-named-tally-home",
+   "kind": "named",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "working in ~/long-con today. the tally gate feels too loose"
+    ],
+    [
+     "assistant",
+     "packages/core/src/tally.ts reads tallyGate from the profile; it's 0.002 on claude."
+    ]
+   ],
+   "message": "show me where tally.ts applies it",
+   "gold": [
+    "packages/core/src/tally.ts"
+   ],
+   "allowed": [
+    "packages/core/src/tally.ts"
+   ]
+  },
+  {
+   "id": "mx-named-readme-root",
+   "kind": "named",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "the Long Con README intro still says Swingset lol"
+    ],
+    [
+     "assistant",
+     "README.md line 1 is '# Swingset'. I'll change it to Long Con."
+    ]
+   ],
+   "message": "also fix the second paragraph while ur in there",
+   "gold": [
+    "README.md"
+   ],
+   "allowed": [
+    "README.md"
+   ]
+  },
+  {
+   "id": "mx-named-diff-segments",
+   "kind": "named",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "long-con: segments split mid sentence on long turns"
+    ],
+    [
+     "assistant",
+     "Here's the fix:\n\n```diff\n--- a/packages/core/src/segments.ts\n+++ b/packages/core/src/segments.ts\n@@ -40,7 +40,7 @@\n-  const parts = turn.content.split(/\\n/);\n+  const parts = turn.content.split(/\\n\\s*\\n/);\n```"
+    ],
+    [
+     "user",
+     "cool"
+    ]
+   ],
+   "message": "actually revert that, the old split was fine",
+   "gold": [
+    "packages/core/src/segments.ts"
+   ],
+   "allowed": [
+    "packages/core/src/segments.ts"
+   ]
+  },
+  {
+   "id": "mx-named-web-style",
+   "kind": "named",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "the long-con web app's style.css has dark mode colors wrong"
+    ],
+    [
+     "assistant",
+     "apps/web/src/style.css sets --bg under prefers-color-scheme but has no data-theme override."
+    ]
+   ],
+   "message": "add the override",
+   "gold": [
+    "apps/web/src/style.css"
+   ],
+   "allowed": [
+    "apps/web/src/style.css"
+   ]
+  },
+  {
+   "id": "mx-named-ci-abs",
+   "kind": "named",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "what node does ci use"
+    ],
+    [
+     "assistant",
+     "Read /home/user/long-con/.github/workflows/ci.yml: it runs npm test on node 22."
+    ]
+   ],
+   "message": "add node 24 to the matrix",
+   "gold": [
+    ".github/workflows/ci.yml"
+   ],
+   "allowed": [
+    ".github/workflows/ci.yml"
+   ]
+  },
+  {
+   "id": "mx-named-eval-recall",
+   "kind": "named",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "in the long con repo eval recall prints the readable row wrong"
+    ],
+    [
+     "assistant",
+     "evals/src/recall.ts formats that row with toFixed(0); the others use one decimal."
+    ]
+   ],
+   "message": "make it match the others",
+   "gold": [
+    "evals/src/recall.ts"
+   ],
+   "allowed": [
+    "evals/src/recall.ts"
+   ]
+  },
+  {
+   "id": "mx-named-long-window",
+   "kind": "named",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "ok long-con stuff. notes.ts pulls way too many interest notes"
+    ],
+    [
+     "assistant",
+     "packages/core/src/notes.ts keeps every 'I like' sentence, even hypotheticals."
+    ],
+    [
+     "user",
+     "what counts as hypothetical"
+    ],
+    [
+     "assistant",
+     "Sentences with 'would', 'if' or 'might' before the like."
+    ],
+    [
+     "user",
+     "hm ok"
+    ],
+    [
+     "assistant",
+     "Want me to filter those?"
+    ],
+    [
+     "user",
+     "wait first what does the coverage bar do"
+    ],
+    [
+     "assistant",
+     "noteCoverage is the share of the message's idf weight a note group must cover, 0.5 on both profiles."
+    ],
+    [
+     "user",
+     "ok that's fine"
+    ],
+    [
+     "assistant",
+     "So just the hypothetical filter then."
+    ]
+   ],
+   "message": "yeah do the filter",
+   "gold": [
+    "packages/core/src/notes.ts"
+   ],
+   "allowed": [
+    "packages/core/src/notes.ts"
+   ]
+  },
+  {
+   "id": "mx-named-cli-tail",
+   "kind": "named",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "long-con's eval cli ignores --profile"
+    ],
+    [
+     "assistant",
+     "apps/cli/src/main.ts passes args through, but cli.ts in evals/src reads the profile from an env var."
+    ]
+   ],
+   "message": "make cli.ts read the flag",
+   "gold": [
+    "evals/src/cli.ts"
+   ],
+   "allowed": [
+    "evals/src/cli.ts"
+   ]
+  },
+  {
+   "id": "mx-sib-bm25-tests",
+   "kind": "sibling",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "long-con: add an idf floor to packages/core/src/bm25.ts"
+    ],
+    [
+     "assistant",
+     "Added Math.max(idf, 0.01) in score()."
+    ]
+   ],
+   "message": "now add a test in the core test folder",
+   "gold": [
+    "packages/core/test/"
+   ],
+   "allowed": [
+    "packages/core/src/bm25.ts",
+    "packages/core/test/"
+   ]
+  },
+  {
+   "id": "mx-sib-packet-test",
+   "kind": "sibling",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "in long con the packet puts code before the working set, flip them"
+    ],
+    [
+     "assistant",
+     "Swapped codeLines and fileLines in /home/user/long-con/packages/core/src/packet.ts."
+    ]
+   ],
+   "message": "update the packet test so it checks the order",
+   "gold": [
+    "packages/core/test/packet.test.ts"
+   ],
+   "allowed": [
+    "packages/core/src/packet.ts",
+    "packages/core/test/packet.test.ts"
+   ]
+  },
+  {
+   "id": "mx-sib-web-chat",
+   "kind": "sibling",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "long-con web: rename .bubble to .msg in apps/web/src/style.css"
+    ],
+    [
+     "assistant",
+     "Renamed the selector in style.css."
+    ]
+   ],
+   "message": "and the chat view code that sets that class",
+   "gold": [
+    "apps/web/src/chat.ts"
+   ],
+   "allowed": [
+    "apps/web/src/style.css",
+    "apps/web/src/chat.ts"
+   ]
+  },
+  {
+   "id": "mx-sib-split-urlpages",
+   "kind": "sibling",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "change the split seed handling"
+    ],
+    [
+     "assistant",
+     "Edited /home/user/long-con/evals/loop/split.ts so splitOf takes an optional seed."
+    ]
+   ],
+   "message": "the url-pages scorer calls it too, update that call",
+   "gold": [
+    "evals/loop/url-pages.ts"
+   ],
+   "allowed": [
+    "evals/loop/split.ts",
+    "evals/loop/url-pages.ts"
+   ]
+  },
+  {
+   "id": "mx-sib-tally-profiles",
+   "kind": "sibling",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "long-con tally gate: packages/core/src/tally.ts uses the profile value right"
+    ],
+    [
+     "assistant",
+     "Yes, tallySearch reads profile.tallyGate."
+    ]
+   ],
+   "message": "then change the small-local number where it's set",
+   "gold": [
+    "packages/core/src/profiles.ts"
+   ],
+   "allowed": [
+    "packages/core/src/tally.ts",
+    "packages/core/src/profiles.ts"
+   ]
+  },
+  {
+   "id": "mx-sib-recall-test",
+   "kind": "sibling",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "Long Con: evals/src/recall.ts, round the readable row to one decimal"
+    ],
+    [
+     "assistant",
+     "Done, it uses toFixed(1) now."
+    ]
+   ],
+   "message": "fix the recall test to match",
+   "gold": [
+    "evals/test/recall.test.ts"
+   ],
+   "allowed": [
+    "evals/src/recall.ts",
+    "evals/test/recall.test.ts"
+   ]
+  },
+  {
+   "id": "mx-sib-plan-decisions",
+   "kind": "sibling",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "long-con's docs/plan.md should say P20 is retried"
+    ],
+    [
+     "assistant",
+     "Added a line under Next in docs/plan.md."
+    ]
+   ],
+   "message": "log the reason in the decisions doc too",
+   "gold": [
+    "docs/decisions.md"
+   ],
+   "allowed": [
+    "docs/plan.md",
+    "docs/decisions.md"
+   ]
+  },
+  {
+   "id": "mx-sib-ci-pages",
+   "kind": "sibling",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "bump node"
+    ],
+    [
+     "assistant",
+     "Set node 24 in /home/user/long-con/.github/workflows/ci.yml."
+    ]
+   ],
+   "message": "the pages workflow pins node too, bump it",
+   "gold": [
+    ".github/workflows/pages.yml"
+   ],
+   "allowed": [
+    ".github/workflows/ci.yml",
+    ".github/workflows/pages.yml"
+   ]
+  },
+  {
+   "id": "mx-sib-segments-gate",
+   "kind": "sibling",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "long-con: packages/core/src/segments.ts now caps units at 400 tokens"
+    ],
+    [
+     "assistant",
+     "Yes, segmentTokens comes from the profile."
+    ]
+   ],
+   "message": "the gate features read unit length too, check that file",
+   "gold": [
+    "packages/core/src/gate.ts"
+   ],
+   "allowed": [
+    "packages/core/src/segments.ts",
+    "packages/core/src/gate.ts"
+   ]
+  },
+  {
+   "id": "mx-sib-cli-package",
+   "kind": "sibling",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "long con cli entry is apps/cli/src/main.ts right"
+    ],
+    [
+     "assistant",
+     "Yes, it dispatches eval, chat and packet."
+    ]
+   ],
+   "message": "add a bin entry in that app's package.json",
+   "gold": [
+    "apps/cli/package.json"
+   ],
+   "allowed": [
+    "apps/cli/src/main.ts",
+    "apps/cli/package.json"
+   ]
+  },
+  {
+   "id": "mx-mix-plan-packet",
+   "kind": "mixed",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "in long-con, packet.ts adds the working set before the notes"
+    ],
+    [
+     "assistant",
+     "Yes, packages/core/src/packet.ts puts fileLines right after codeLines."
+    ],
+    [
+     "user",
+     "ok switching to tidepool for a sec, its docs/plan.md needs a next section"
+    ],
+    [
+     "assistant",
+     "Added '## Next' to tidepool's plan."
+    ]
+   ],
+   "message": "back to long-con, move the working set after the notes",
+   "gold": [
+    "packages/core/src/packet.ts"
+   ],
+   "allowed": [
+    "packages/core/src/packet.ts"
+   ]
+  },
+  {
+   "id": "mx-mix-ci-run",
+   "kind": "mixed",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "/home/user/code/tidepool/.github/workflows/ci.yml fails on the deploy step"
+    ],
+    [
+     "assistant",
+     "The deploy step needs the pages token in its env."
+    ],
+    [
+     "user",
+     "fixed. now in long-con evals/src/run.ts crashes on an empty slice"
+    ],
+    [
+     "assistant",
+     "run.ts reads slice.ids[0] without checking the length."
+    ]
+   ],
+   "message": "add the check",
+   "gold": [
+    "evals/src/run.ts"
+   ],
+   "allowed": [
+    "evals/src/run.ts"
+   ]
+  },
+  {
+   "id": "mx-mix-tsconfig-pkg",
+   "kind": "mixed",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "my blog's ./tsconfig.json has strict off, turn it on"
+    ],
+    [
+     "assistant",
+     "Set strict: true in the blog's tsconfig."
+    ],
+    [
+     "user",
+     "thx. long-con's root ./package.json needs a lint script"
+    ],
+    [
+     "assistant",
+     "Added 'lint': 'tsc --noEmit' to package.json."
+    ]
+   ],
+   "message": "wire that lint into the long-con ci",
+   "gold": [
+    "package.json"
+   ],
+   "allowed": [
+    "package.json"
+   ]
+  },
+  {
+   "id": "mx-mix-text",
+   "kind": "mixed",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "tidepool's src/text.ts slugify drops accents"
+    ],
+    [
+     "assistant",
+     "Use normalize('NFD') before the replace."
+    ],
+    [
+     "user",
+     "nice. long-con has packages/core/src/text.ts too, does its tokenizer fold accents"
+    ],
+    [
+     "assistant",
+     "contentWords lowercases but keeps accents."
+    ]
+   ],
+   "message": "make it fold them like the blog one",
+   "gold": [
+    "packages/core/src/text.ts"
+   ],
+   "allowed": [
+    "packages/core/src/text.ts"
+   ]
+  },
+  {
+   "id": "mx-mix-vite-gate",
+   "kind": "mixed",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "tidepool's vite.config.ts needs base set for gh pages"
+    ],
+    [
+     "assistant",
+     "Set base: '/tidepool/' in the config."
+    ],
+    [
+     "user",
+     "and for long-con, /home/user/long-con/packages/core/src/gate.ts has a stale comment"
+    ],
+    [
+     "assistant",
+     "Line 12 still says the weights are from run 2."
+    ]
+   ],
+   "message": "update it",
+   "gold": [
+    "packages/core/src/gate.ts"
+   ],
+   "allowed": [
+    "packages/core/src/gate.ts"
+   ]
+  },
+  {
+   "id": "mx-mix-back",
+   "kind": "mixed",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "tidepool's docs/plan.md says rss is done, it isn't"
+    ],
+    [
+     "assistant",
+     "Moved rss back under Todo."
+    ],
+    [
+     "user",
+     "ok back in long-con: packages/core/src/registers.ts recentAnswers"
+    ],
+    [
+     "assistant",
+     "It's 2 on claude and 1 on small-local."
+    ]
+   ],
+   "message": "drop claude to 1",
+   "gold": [
+    "packages/core/src/registers.ts"
+   ],
+   "allowed": [
+    "packages/core/src/registers.ts"
+   ]
+  },
+  {
+   "id": "mx-mix-same-turn",
+   "kind": "mixed",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "compare long-con's packages/core/src/bm25.ts with the bm25 in my search side project, lib/bm25.ts"
+    ],
+    [
+     "assistant",
+     "The side project floors idf at 0.01; long-con doesn't floor it."
+    ]
+   ],
+   "message": "port the floor into long-con's",
+   "gold": [
+    "packages/core/src/bm25.ts"
+   ],
+   "allowed": [
+    "packages/core/src/bm25.ts"
+   ]
+  },
+  {
+   "id": "mx-sw-index-html",
+   "kind": "switched",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "long-con web app: chat.ts scroll jumps on every token"
+    ],
+    [
+     "assistant",
+     "apps/web/src/chat.ts calls scrollIntoView on each token."
+    ],
+    [
+     "user",
+     "fix that later. different project now: my blog's index.html is missing og tags"
+    ],
+    [
+     "assistant",
+     "Add og:title and og:image to the head."
+    ]
+   ],
+   "message": "also add a twitter card meta",
+   "gold": [],
+   "allowed": [
+    "apps/web/src/chat.ts"
+   ]
+  },
+  {
+   "id": "mx-sw-abs-cli",
+   "kind": "switched",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "in long-con, cap the groups in notes.ts"
+    ],
+    [
+     "assistant",
+     "packages/core/src/notes.ts groupNotes has no cap yet; I'll add one."
+    ],
+    [
+     "user",
+     "cool. now /home/user/code/tidepool/src/cli.ts, the build command"
+    ],
+    [
+     "assistant",
+     "tidepool's build command skips drafts."
+    ]
+   ],
+   "message": "make cli.ts include drafts behind a flag",
+   "gold": [],
+   "allowed": [
+    "packages/core/src/notes.ts"
+   ]
+  },
+  {
+   "id": "mx-sw-rel-arch",
+   "kind": "switched",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "long-con: tally.ts drops counting words now right"
+    ],
+    [
+     "assistant",
+     "Yes, packages/core/src/tally.ts strips them before ranking pieces."
+    ],
+    [
+     "user",
+     "ok over in tidepool, src/feed.ts builds the rss wrong"
+    ],
+    [
+     "assistant",
+     "feed.ts sorts by updated date instead of published."
+    ]
+   ],
+   "message": "also fix docs/architecture.md there, it describes the old feed",
+   "gold": [],
+   "allowed": [
+    "packages/core/src/tally.ts"
+   ]
+  },
+  {
+   "id": "mx-sw-forget-name",
+   "kind": "switched",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "long-con: prompt.ts says 'packet' twice in the system line"
+    ],
+    [
+     "assistant",
+     "packages/core/src/prompt.ts repeats it; I'll trim one."
+    ],
+    [
+     "user",
+     "ok forget long-con for now, on my portfolio site the style.css grid breaks on mobile"
+    ],
+    [
+     "assistant",
+     "The grid uses fixed 300px columns; use minmax."
+    ]
+   ],
+   "message": "paste the fixed css",
+   "gold": [],
+   "allowed": [
+    "packages/core/src/prompt.ts"
+   ]
+  },
+  {
+   "id": "mx-sw-scraper-pkg",
+   "kind": "switched",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "/home/user/long-con/packages/core/src/chat.ts, where does it trim the history"
+    ],
+    [
+     "assistant",
+     "trimHistory near the top keeps the last 40 turns."
+    ],
+    [
+     "user",
+     "k. unrelated, the scraper repo's ./package.json start script has a typo"
+    ],
+    [
+     "assistant",
+     "It says 'nod index.js'."
+    ]
+   ],
+   "message": "fix ./package.json",
+   "gold": [],
+   "allowed": [
+    "packages/core/src/chat.ts"
+   ]
+  },
+  {
+   "id": "mx-sw-chat-test",
+   "kind": "switched",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "long con: evals/test/judge.test.ts is slow"
+    ],
+    [
+     "assistant",
+     "It builds the whole fixture per test."
+    ],
+    [
+     "user",
+     "meh. switching to my discord bot project, its test/chat.test.ts is flaky"
+    ],
+    [
+     "assistant",
+     "It waits on a real timer."
+    ]
+   ],
+   "message": "use fake timers in chat.test.ts",
+   "gold": [],
+   "allowed": [
+    "evals/test/judge.test.ts"
+   ]
+  },
+  {
+   "id": "mx-sw-vite-abs",
+   "kind": "switched",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "long-con: apps/web/src/main.ts mounts twice in dev"
+    ],
+    [
+     "assistant",
+     "StrictMode double-invokes the effect in main.ts."
+    ],
+    [
+     "user",
+     "fine. /home/user/code/scraper/vite.config.ts now, the proxy is wrong"
+    ],
+    [
+     "assistant",
+     "The proxy target points at port 3000; the api runs on 8080."
+    ]
+   ],
+   "message": "fix the target in vite.config.ts",
+   "gold": [],
+   "allowed": [
+    "apps/web/src/main.ts"
+   ]
+  },
+  {
+   "id": "mx-sw-garden-plan",
+   "kind": "switched",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "Long Con docs: add the P20 retry to docs/research/iteration-log.md"
+    ],
+    [
+     "assistant",
+     "Added a run 10 entry for it."
+    ],
+    [
+     "user",
+     "great. now my garden app, its plan.md is a mess"
+    ],
+    [
+     "assistant",
+     "It mixes dates and features in one list."
+    ]
+   ],
+   "message": "split plan.md into dates and features",
+   "gold": [],
+   "allowed": [
+    "docs/research/iteration-log.md"
+   ]
+  },
+  {
+   "id": "mx-sw-other-repo-ci",
+   "kind": "switched",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "/home/user/long-con/evals/loop/empty-rate.ts takes forever"
+    ],
+    [
+     "assistant",
+     "It builds every tier on every history; --tier1-histories caps it."
+    ],
+    [
+     "user",
+     "ok. other repo question: my blog's .github/workflows/ci.yml caches nothing"
+    ],
+    [
+     "assistant",
+     "There's no actions/cache step."
+    ]
+   ],
+   "message": "add the cache step to .github/workflows/ci.yml",
+   "gold": [],
+   "allowed": [
+    "evals/loop/empty-rate.ts"
+   ]
+  },
+  {
+   "id": "mx-sw-diff-readme",
+   "kind": "switched",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "long-con: symbols.ts misses arrow functions"
+    ],
+    [
+     "assistant",
+     "packages/core/src/symbols.ts only looks at function declarations."
+    ],
+    [
+     "user",
+     "later. dotfiles repo, update the readme install line"
+    ],
+    [
+     "assistant",
+     "```diff\n--- a/README.md\n+++ b/README.md\n@@ -1,3 +1,3 @@\n-curl -L dots.sh | sh\n+git clone https://example.com/dots && ./dots/install\n```"
+    ]
+   ],
+   "message": "also mention the macOS step in README.md",
+   "gold": [],
+   "allowed": [
+    "packages/core/src/symbols.ts"
+   ]
+  },
+  {
+   "id": "mx-sw-model",
+   "kind": "switched",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "in long-con, evals/src/estimate.ts prices are old"
+    ],
+    [
+     "assistant",
+     "estimate.ts reads prices from evals/src/model.ts."
+    ],
+    [
+     "user",
+     "unrelated: model.ts in my ml repo loads the weights twice"
+    ],
+    [
+     "assistant",
+     "load() runs in the constructor and again in init()."
+    ]
+   ],
+   "message": "cache it in model.ts",
+   "gold": [],
+   "allowed": [
+    "evals/src/estimate.ts",
+    "evals/src/model.ts"
+   ]
+  },
+  {
+   "id": "mx-sw-old-checkout",
+   "kind": "switched",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "long-con's packages/core/src/gate.ts has new weights"
+    ],
+    [
+     "assistant",
+     "UNIT_WEIGHTS were refit in run 5."
+    ],
+    [
+     "user",
+     "what did /home/user/long-con-old/packages/core/src/packet.ts do for the gate back then"
+    ],
+    [
+     "assistant",
+     "That checkout used a single minScore check in packet.ts."
+    ]
+   ],
+   "message": "show me that old packet.ts check",
+   "gold": [],
+   "allowed": [
+    "packages/core/src/gate.ts"
+   ]
+  },
+  {
+   "id": "mx-mix-scraper-then-lc",
+   "kind": "mixed",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "scraper's cli.ts exits 0 on errors"
+    ],
+    [
+     "assistant",
+     "main() never sets process.exitCode."
+    ],
+    [
+     "user",
+     "ok and long-con's evals/src/cli.ts has the same bug"
+    ],
+    [
+     "assistant",
+     "It catches and logs without setting the exit code."
+    ]
+   ],
+   "message": "fix the long-con one",
+   "gold": [
+    "evals/src/cli.ts"
+   ],
+   "allowed": [
+    "evals/src/cli.ts"
+   ]
+  },
+  {
+   "id": "mx-mix-blog-style-lc-chat",
+   "kind": "mixed",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "blog: style.css dark mode is too dark"
+    ],
+    [
+     "assistant",
+     "--bg is #000; try #111."
+    ],
+    [
+     "user",
+     "cool. long-con side: /home/user/long-con/apps/web/src/chat.ts renders markdown twice"
+    ],
+    [
+     "assistant",
+     "render() runs on each token and again at the end."
+    ]
+   ],
+   "message": "only render once at the end",
+   "gold": [
+    "apps/web/src/chat.ts"
+   ],
+   "allowed": [
+    "apps/web/src/chat.ts"
+   ]
+  },
+  {
+   "id": "mx-mix-two-plans",
+   "kind": "mixed",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "garden app plan.md is done for now"
+    ],
+    [
+     "assistant",
+     "Okay."
+    ],
+    [
+     "user",
+     "long-con's docs/plan.md though needs the run 10 picks"
+    ],
+    [
+     "assistant",
+     "Next still lists P13 and P26."
+    ]
+   ],
+   "message": "replace those with the run 10 picks",
+   "gold": [
+    "docs/plan.md"
+   ],
+   "allowed": [
+    "docs/plan.md"
+   ]
+  },
+  {
+   "id": "mx-tp-named",
+   "kind": "named",
+   "active": "tidepool",
+   "turns": [
+    [
+     "user",
+     "tidepool: posts come out in the wrong order"
+    ],
+    [
+     "assistant",
+     "/home/user/code/tidepool/src/feed.ts sorts by updated date."
+    ]
+   ],
+   "message": "sort by published in feed.ts",
+   "gold": [
+    "src/feed.ts"
+   ],
+   "allowed": [
+    "src/feed.ts"
+   ]
+  },
+  {
+   "id": "mx-tp-sib-deploy",
+   "kind": "sibling",
+   "active": "tidepool",
+   "turns": [
+    [
+     "user",
+     "in tidepool src/feed.ts now writes rss.xml"
+    ],
+    [
+     "assistant",
+     "Yes, feed.ts writes it to dist/."
+    ]
+   ],
+   "message": "make the deploy script copy it",
+   "gold": [
+    "scripts/deploy.sh"
+   ],
+   "allowed": [
+    "src/feed.ts",
+    "scripts/deploy.sh"
+   ]
+  },
+  {
+   "id": "mx-tp-sw-text",
+   "kind": "switched",
+   "active": "tidepool",
+   "turns": [
+    [
+     "user",
+     "in tidepool, src/render.ts escapes html twice"
+    ],
+    [
+     "assistant",
+     "render.ts calls escape() in the template and again in the helper."
+    ],
+    [
+     "user",
+     "also long-con's packages/core/src/text.ts has an estimateTokens off by one"
+    ],
+    [
+     "assistant",
+     "It rounds down on the last partial word."
+    ]
+   ],
+   "message": "fix the text.ts one first",
+   "gold": [],
+   "allowed": [
+    "src/render.ts"
+   ]
+  },
+  {
+   "id": "mx-tp-empty-plan",
+   "kind": "empty",
+   "active": "tidepool",
+   "turns": [
+    [
+     "user",
+     "/home/user/long-con/docs/plan.md is stale"
+    ],
+    [
+     "assistant",
+     "Its Next section still lists P13."
+    ]
+   ],
+   "message": "update plan.md with the run 9 picks",
+   "gold": [],
+   "allowed": []
+  },
+  {
+   "id": "mx-tp-empty-bare",
+   "kind": "empty",
+   "active": "tidepool",
+   "turns": [
+    [
+     "user",
+     "long con's src/text.ts and README.md both need the new name"
+    ],
+    [
+     "assistant",
+     "Both still say Swingset."
+    ]
+   ],
+   "message": "do text.ts first",
+   "gold": [],
+   "allowed": []
+  },
+  {
+   "id": "mx-empty-style",
+   "kind": "empty",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "my portfolio's style.css has a media query that never fires"
+    ],
+    [
+     "assistant",
+     "Check the units; em queries use the browser's default size."
+    ]
+   ],
+   "message": "paste a fixed style.css",
+   "gold": [],
+   "allowed": []
+  },
+  {
+   "id": "mx-empty-cli",
+   "kind": "empty",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "cli.ts in my scraper exits 0 on errors"
+    ],
+    [
+     "assistant",
+     "main() catches and logs but never sets the exit code."
+    ]
+   ],
+   "message": "make cli.ts exit 1",
+   "gold": [],
+   "allowed": []
+  },
+  {
+   "id": "mx-empty-plan",
+   "kind": "empty",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "plan.md for the garden app is a mess"
+    ],
+    [
+     "assistant",
+     "It mixes dates and features in one list."
+    ]
+   ],
+   "message": "reorganize plan.md by month",
+   "gold": [],
+   "allowed": []
+  },
+  {
+   "id": "mx-empty-docs-plan",
+   "kind": "empty",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "in the other repo docs/plan.md lists done items as todo"
+    ],
+    [
+     "assistant",
+     "Three items under Todo are already merged."
+    ]
+   ],
+   "message": "move them to a done section in docs/plan.md",
+   "gold": [],
+   "allowed": []
+  },
+  {
+   "id": "mx-empty-ci",
+   "kind": "empty",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "my blog's .github/workflows/ci.yml runs twice per push"
+    ],
+    [
+     "assistant",
+     "It triggers on both push and pull_request for the same branch."
+    ]
+   ],
+   "message": "dedupe the triggers in .github/workflows/ci.yml",
+   "gold": [],
+   "allowed": []
+  },
+  {
+   "id": "mx-empty-pkg",
+   "kind": "empty",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "./package.json in the scraper has the wrong node engine"
+    ],
+    [
+     "assistant",
+     "engines.node says >=16."
+    ]
+   ],
+   "message": "bump ./package.json to 22",
+   "gold": [],
+   "allowed": []
+  },
+  {
+   "id": "mx-empty-abs-arch",
+   "kind": "empty",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "/home/user/code/scraper/docs/architecture.md describes the old queue"
+    ],
+    [
+     "assistant",
+     "It still talks about the Redis queue."
+    ]
+   ],
+   "message": "rewrite that section for sqlite",
+   "gold": [],
+   "allowed": []
+  },
+  {
+   "id": "mx-empty-diff-tsconfig",
+   "kind": "empty",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "dotfiles repo, turn on noUncheckedIndexedAccess"
+    ],
+    [
+     "assistant",
+     "```diff\n--- a/tsconfig.json\n+++ b/tsconfig.json\n@@ -3,6 +3,7 @@\n     \"strict\": true,\n+    \"noUncheckedIndexedAccess\": true,\n```"
+    ]
+   ],
+   "message": "revert that, too noisy",
+   "gold": [],
+   "allowed": []
+  },
+  {
+   "id": "mx-empty-old-checkout",
+   "kind": "empty",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "/home/user/long-con-old/packages/core/src/packet.ts had a simpler gate"
+    ],
+    [
+     "assistant",
+     "That checkout's packet.ts used a single minScore check."
+    ]
+   ],
+   "message": "what did the old gate look like exactly",
+   "gold": [],
+   "allowed": []
+  },
+  {
+   "id": "mx-empty-vite",
+   "kind": "empty",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "side project: the dev server ignores the port in vite.config.ts"
+    ],
+    [
+     "assistant",
+     "Make sure it's under server.port."
+    ]
+   ],
+   "message": "still on 5173, fix vite.config.ts",
+   "gold": [],
+   "allowed": []
+  },
+  {
+   "id": "mx-empty-notes",
+   "kind": "empty",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "my notes app's notes.ts crashes on empty input"
+    ],
+    [
+     "assistant",
+     "parse() calls lines[0].trim() without a check."
+    ]
+   ],
+   "message": "guard notes.ts",
+   "gold": [],
+   "allowed": []
+  },
+  {
+   "id": "mx-empty-model",
+   "kind": "empty",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "model.ts in my ml repo loads the weights twice"
+    ],
+    [
+     "assistant",
+     "load() runs in the constructor and again in init()."
+    ]
+   ],
+   "message": "cache it in model.ts",
+   "gold": [],
+   "allowed": []
+  },
+  {
+   "id": "mx-empty-chat-test",
+   "kind": "empty",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "test/chat.test.ts in the bot project times out"
+    ],
+    [
+     "assistant",
+     "It awaits a real 5 second timer."
+    ]
+   ],
+   "message": "shorten it",
+   "gold": [],
+   "allowed": []
+  },
+  {
+   "id": "mx-empty-index",
+   "kind": "empty",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "in my other monorepo packages/core/src/index.ts exports way too much"
+    ],
+    [
+     "assistant",
+     "It re-exports every internal module."
+    ]
+   ],
+   "message": "trim packages/core/src/index.ts to the public api",
+   "gold": [],
+   "allowed": []
+  },
+  {
+   "id": "mx-empty-nocode",
+   "kind": "empty",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "need a name for the cat"
+    ],
+    [
+     "assistant",
+     "Biscuit, Miso, or Pixel?"
+    ]
+   ],
+   "message": "something shorter",
+   "gold": [],
+   "allowed": []
+  },
+  {
+   "id": "mx-empty-judge",
+   "kind": "empty",
+   "active": "long-con",
+   "turns": [
+    [
+     "user",
+     "judge.ts in the grading tool gives everyone a B"
+    ],
+    [
+     "assistant",
+     "The rubric weights sum to more than 1."
+    ]
+   ],
+   "message": "normalize them in judge.ts",
+   "gold": [],
+   "allowed": []
+  }
+ ]
+}

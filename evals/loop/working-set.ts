@@ -80,7 +80,7 @@ function score(chats: Chat[], profile: Profile, verbose: boolean): Score {
     const history: Session[] = [{ id: "chat", turns: c.turns.map(([role, content]) => ({ role, content })) }];
     const input = { history, message: c.message, profile, currentSessionId: "chat" };
     const before = buildPacket(input);
-    const after = buildPacket({ ...input, workspace });
+    const after = buildPacket({ ...input, workspace: { root: "/home/user/long-con", name: "long-con", files: workspace } });
     const section = sectionOf(after.text);
     const listed = listedPaths(section);
     const wrong = listed.filter((p) => !exists(p));

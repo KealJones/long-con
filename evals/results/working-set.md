@@ -1,5 +1,7 @@
 # Working set plus depth-2 tree (P20)
 
+> **Superseded by the current-project retry** (`working-set-mixed.md`): `workspace` is now `{ root, name, files }`, and paths count only once the window ties them to it, so the whole-path rule below is gone. On this set, whose chats never name the repo, dev now gets named earlier 0/7 and nearby 1/13 on both profiles, should-be-empty 20/20. The rest of this page is the first try.
+
 `buildPacket` takes an optional `workspace`: the caller's file paths, relative to the workspace root. Paths in the message and the current session's latest turns (20 on claude, 8 on small-local) are resolved against it. The section lists folder lines (`dir/: names`, working-set names marked `*`): each item's folder, then its parent, then the parent's other subfolders, while they fit under the profile's cap (300 tokens on claude, 150 on small-local, title line included). No paths, no workspace, or nothing fitting means no section.
 
 Resolution rules:
