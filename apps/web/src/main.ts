@@ -9,6 +9,17 @@ import * as Voice from "./voice.ts";
 import * as GH from "./github.ts";
 import { FILES_KEY, resetShell } from "./tools.ts";
 import { dayName, topics } from "./topics.ts";
+import { loadEmbedder } from "./embedder.ts";
+import type { Embed } from "@long-con/core";
+
+// The evals' embedding veto runs here too. Loading starts now; a send waits for it, and a failed load is retried next send.
+let embedReady: Promise<Embed | undefined> | null = null;
+const embedder = () =>
+  (embedReady ??= loadEmbedder(PROFILE).catch((err) => {
+    embedReady = null;
+    throw new Error(`Couldn't load the search model: ${err instanceof Error ? err.message : err}`);
+  }));
+embedder().catch(() => {});
 
 /** Per user turn: the packet it went with, the model, and the tools the answer used. */
 type Packets = GH.Packets;
@@ -644,7 +655,7 @@ async function ask(message: string, voice = false): Promise<string | null> {
     const model = modelSelect.value;
     const today = dayLabel(new Date());
     const result = await sendTurn(history, message, {
-      apiKey, model, voice, rawTurns: Number(rawSelect.value), onStep,
+      apiKey, model, voice, rawTurns: Number(rawSelect.value), onStep, embed: await embedder(),
       permissions: perms, approve: approver(log), spend,
       extraSessions: T.threadSessions(threads), note: T.threadsNote(threads, today),
       attachments: files,
@@ -828,7 +839,7 @@ threadForm.addEventListener("submit", async (event) => {
   try {
     const wasWrapped = !!t.wrap;
     await T.sendThreadTurn(t, history, threads, message, {
-      apiKey, model: modelSelect.value, permissions: perms, approve: approver(threadLog), spend, attachments: files,
+      apiKey, model: modelSelect.value, permissions: perms, approve: approver(threadLog), spend, attachments: files, embed: await embedder(),
       onStep: (label) => (threadPresence.textContent = label.length > 40 ? label.slice(0, 39) + "…" : label),
     });
     if (!threads.includes(t)) threads.push(t);

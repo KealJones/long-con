@@ -23,7 +23,7 @@ Three packet variants run only when `--arms` names them. Each changes one thing,
 | Arm | What changes from `packet` |
 | --- | --- |
 | `packet-tools` | The retrieved units arrive as if the model had searched for them itself: an assistant `search_history` call with the builder's query, then a `tool_result` holding the units, before the question. The head (left-out notice, trust note, registers) stays a short `<packet>` block first, since it describes the context rather than being a search hit, and the user's standing rules shouldn't read as tool output. Same words, order and token count otherwise. A closed gate shows no call; an open one that kept nothing shows "No matches.", the tool's own empty result |
-| `packet-notrust` | No "best guess" trust note (`trustNote: false`) |
+| `packet-notrust` | No "best guess" trust note (`trustNote: false`). The claude profile has it off since 2026-11-27, matching the web chat, so on claude this is the same as `packet` |
 | `packet-norules` | No standing-rules register (`standingRules: false`). On the dev slice, 21 of 50 packets carry one on both profiles |
 
 ## Metrics

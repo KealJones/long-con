@@ -135,7 +135,8 @@ export const PROFILES = {
     noteCoverage: 0.5,
     recentAnswers: 2,
     gate: true,
-    trustNote: true,
+    // Off, as in the web chat: one setup for every entry point.
+    trustNote: false,
     maxToolRounds: 3,
     searchResults: 3,
     answerTokens: 4000,

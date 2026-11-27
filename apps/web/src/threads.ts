@@ -67,12 +67,12 @@ export async function sendThreadTurn(thread: Thread, history: Session[], others:
   const searchable = [...history, ...threadSessions(others.filter((o) => o.id !== thread.id))];
   // No session is "current", so the whole main chat is searchable; the thread's own turns go word for word instead.
   const profile = { ...PROFILE, rawTurns: 0 };
-  const packet = buildPacket({ history: searchable, message, profile });
+  const packet = buildPacket({ history: searchable, message, profile, embed: opts.embed });
   const sent = packetEmpty(packet.text) ? "" : packet.text;
   const prompt = assemblePrompt({ system: threadSystem(thread, today), packet: sent, recentTurns: thread.turns, message });
   const messages: unknown[] = sent ? [...prompt.messages] : prompt.messages.slice(1);
   withAttachments(messages, opts.attachments);
-  const { answer, steps } = await runModel(prompt.system, messages, opts, { history: searchable, profile, store: opts.store, fetch: opts.fetch });
+  const { answer, steps } = await runModel(prompt.system, messages, opts, { history: searchable, profile, store: opts.store, fetch: opts.fetch, embed: opts.embed });
   if (!thread.title) thread.title = clip(message.replace(/\s+/g, " "), 60);
   // Talking again in a wrapped thread reopens it; the next wrap-up writes a new record.
   delete thread.wrap;

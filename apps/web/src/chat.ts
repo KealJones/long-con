@@ -1,13 +1,14 @@
 // One chat turn: build the packet from history, send it to Claude, and add both turns to history.
 // No DOM here, so the test can run it in Node with a fake fetch.
 
-import { assemblePrompt, buildPacket, PROFILES, type Session } from "@long-con/core";
+import { assemblePrompt, buildPacket, PROFILES, type Embed, type Session } from "@long-con/core";
 import { packetEmpty } from "./github.ts";
 import { costOf, decide, DEFAULT_PERMISSIONS, offeredTools, siteOf, spentLastHour, type Permissions, type Spend, type Usage } from "./permissions.ts";
 import { runTool, toolDefs, type ToolContext } from "./tools.ts";
 
 // The "best guess" trust note is off here: the R&D loop's 50-question run found it about tripled searches and doubled tokens with no accuracy gain.
-export const PROFILE = { ...PROFILES.claude, trustNote: false };
+// The same profile the evals use, so every entry point runs the same packet.
+export const PROFILE = PROFILES.claude;
 /** Model calls per message at most; the last one gets no tools, so it has to answer. */
 export const MAX_ROUNDS = 12;
 
@@ -47,6 +48,8 @@ export interface TurnOptions {
   spend?: { log: Spend[]; record: (s: Spend) => void };
   /** More history the packet may search, like side threads. */
   extraSessions?: Session[];
+  /** The profile's embedder (embedder.ts), for the packet's and the search tool's embedding veto. */
+  embed?: Embed;
   /** A note added to the end of the packet, like the list of open side threads. */
   note?: string;
   /** Images and PDFs sent with this message. */
@@ -92,14 +95,14 @@ export async function sendTurn(history: Session[], message: string, opts: TurnOp
   // Always a packet, even on a short chat (the profile's switchAt would send it whole), since seeing it is the point.
   const profile = { ...PROFILE, rawTurns: opts.rawTurns ?? PROFILE.rawTurns };
   const searchable = opts.extraSessions?.length ? [...history, ...opts.extraSessions] : history;
-  const packet = buildPacket({ history: searchable, message, profile, currentSessionId: today });
+  const packet = buildPacket({ history: searchable, message, profile, currentSessionId: today, embed: opts.embed });
   // A packet that found nothing older isn't sent at all: just today's latest turns and the message.
   const found = packetEmpty(packet.text) ? "" : packet.text;
   const sent = [found, opts.note ?? ""].filter(Boolean).join("\n\n");
   const prompt = assemblePrompt({ system: `${SYSTEM}${opts.voice ? `\n\n${VOICE_NOTE}` : ""}\n\nToday is ${today}.`, packet: sent, recentTurns: packet.recentTurns, message });
   const messages: unknown[] = sent ? [...prompt.messages] : prompt.messages.slice(1);
   withAttachments(messages, opts.attachments);
-  const { answer, steps } = await runModel(prompt.system, messages, opts, { history: searchable, profile, store: opts.store, fetch: opts.fetch });
+  const { answer, steps } = await runModel(prompt.system, messages, opts, { history: searchable, profile, store: opts.store, fetch: opts.fetch, embed: opts.embed });
 
   let session = history.find((s) => s.id === today);
   if (!session) history.push((session = { id: today, date: today, turns: [] }));
