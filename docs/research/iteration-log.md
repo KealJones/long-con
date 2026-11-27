@@ -4,7 +4,15 @@ One entry per idea tried by the hourly packet R&D loop. Newest run first. Number
 
 ## Run 10: 2026-11-26, 7:18 PM Arizona
 
-Baseline is main at bbf0298 (builder as in run 9). Dev numbers only, tuning-grade. FI is false inclusions per prompt, retrieved tokens in brackets. No paid runs. Nothing changed main's packets this run. A claude stemmer fix was still running when this was written and gets its own entry.
+Baseline is main at bbf0298 (builder as in run 9). Dev numbers only, tuning-grade. FI is false inclusions per prompt, retrieved tokens in brackets. No paid runs. Nothing changed main's packets this run. 
+
+### Suffix stemmer made idempotent (claude): not kept
+
+- **Sources:** [Harman 1991, "How effective is suffixing?"](https://ideas.repec.org/a/bla/jamest/v42y1991i1p7-15.html), [Snowball introduction](https://snowballstem.org/texts/introduction.html); P28's miss analysis above.
+- **Tried:** claude's `suffix()` applies its rules until the word stops changing, so "weddings" and "wedding" share a stem. On the dev vocabulary (49,709 words) 406 words change stem and 203 join another class; most merges are right (settings/setting, meetings/meet), some carry the old -ing rule's errors (evenings/even, ratings/rat). small-local (Porter) packets byte-identical.
+- **Numbers (claude):** all-evidence whole / pointers / readable unchanged at 78.7 / 80.9 / 80.9%; evidence turns 86.5 → 87.2% (the weddings question finds 2 of its 3 turns); tokens 3,949 → 3,974; FI t1 7.09 → 7.21, t1t 4.99 → 5.06, t2 9.52 unchanged, t3 7.17 → 7.23.
+- **Why not kept:** no new question and more FI on three tiers. Branch `loop/suffix-stemmer-fix` (5e0e7e0).
+- **Side finding:** a claude bar of 0.175 instead of 0.17 keeps all three recall rows on dev and cuts FI to 6.83 / 4.34 / 9.44 / 6.47, with or without the fix. It sits one notch from a cliff (0.18 loses a question), and grouped CV of "highest bar that keeps recall" loses that question in its fold, so it isn't taken without a held-out check.
 
 ### P28. Phrase graph plus personalized PageRank, gated: not kept
 
