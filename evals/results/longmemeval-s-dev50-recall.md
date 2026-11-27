@@ -1,6 +1,6 @@
 # Packet recall: LongMemEval_S dev slice
 
-47 answerable questions of the 50-question dev slice (3 abstention questions have no evidence to find). Full history averages 139,782 tokens per question. Builder: BM25 only (no embeddings yet), size-based segments. No model calls. "All evidence in packet" means every labeled evidence turn is in it.
+47 answerable questions of the 50-question dev slice (3 abstention questions have no evidence to find). Full history averages 139,782 tokens per question. Builder: BM25 search, size-based segments, and a static-embedder veto on the units the gate keeps (embedModel in each profile). No model calls. "All evidence in packet" means every labeled evidence turn is in it.
 
 These are tuning numbers, not results: the segment cap and the cutoff were picked on this same slice, so they flatter the builder. With 47 questions, one question moves "All evidence in packet" by 2.1%. Intervals are 95% bootstraps over questions. Two limits: an evidence chat with no labeled turn isn't counted, and recall leaves out what a reader would find by searching.
 
@@ -8,11 +8,11 @@ These are tuning numbers, not results: the segment cap and the cutoff were picke
 
 | Profile | Budget ceiling | Evidence chats found | Evidence turns found | All evidence in packet | 95% interval | Mean packet tokens | Largest packet |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| claude | 8,000 | 92.1% | 86.5% | 78.7% | 66.0% to 89.4% | 3,949 | 7,978 |
+| claude | 8,000 | 92.1% | 86.5% | 78.7% | 66.0% to 89.4% | 3,139 | 7,914 |
 | claude: pointers as found | | | 87.6% | 80.9% | | | |
 | claude: readable (pointers open in 3 searches) | | | | 80.9% | | | |
 | claude: plain BM25 top-k | 8,000 | 93.0% | 85.1% | 76.6% | 63.8% to 87.2% | 7,886 | 8,000 |
-| small-local | 2,500 | 77.8% | 72.2% | 66.0% | 53.2% to 78.7% | 1,425 | 2,497 |
+| small-local | 2,500 | 77.8% | 72.2% | 66.0% | 53.2% to 78.7% | 1,280 | 2,481 |
 | small-local: plain BM25 top-k | 2,500 | 85.9% | 72.5% | 59.6% | 44.7% to 72.3% | 2,476 | 2,499 |
 
 Packet against plain BM25 top-k on the same questions:
@@ -41,14 +41,14 @@ System prompt, search tool definition, packet and question; then the same plus o
 
 | Budget ceiling | Fixed: all evidence | Fixed: mean tokens | Adaptive: all evidence | Adaptive: mean tokens |
 | --- | --- | --- | --- | --- |
-| 1,000 | 51.1% | 872 | 51.1% | 844 |
-| 1,500 | 61.7% | 1,270 | 63.8% | 1,205 |
-| 2,000 | 68.1% | 1,667 | 70.2% | 1,574 |
-| 2,500 | 68.1% | 2,038 | 70.2% | 1,891 |
-| 3,000 | 72.3% | 2,377 | 74.5% | 2,163 |
-| 4,000 | 74.5% | 3,032 | 76.6% | 2,635 |
-| 6,000 | 74.5% | 4,205 | 76.6% | 3,398 |
-| 8,000 | 76.6% | 5,433 | 78.7% | 3,949 |
+| 1,000 | 51.1% | 851 | 51.1% | 817 |
+| 1,500 | 61.7% | 1,220 | 63.8% | 1,153 |
+| 2,000 | 68.1% | 1,583 | 70.2% | 1,485 |
+| 2,500 | 72.3% | 1,917 | 74.5% | 1,765 |
+| 3,000 | 74.5% | 2,197 | 76.6% | 1,990 |
+| 4,000 | 74.5% | 2,806 | 76.6% | 2,401 |
+| 6,000 | 74.5% | 3,919 | 76.6% | 2,903 |
+| 8,000 | 80.9% | 4,706 | 78.7% | 3,139 |
 
 Smallest ceiling within 2 points of its own 8K score: fixed 8,000, adaptive 8,000.
 
@@ -56,16 +56,16 @@ Smallest ceiling within 2 points of its own 8K score: fixed 8,000, adaptive 8,00
 
 | Budget ceiling | Fixed: all evidence | Fixed: mean tokens | Adaptive: all evidence | Adaptive: mean tokens |
 | --- | --- | --- | --- | --- |
-| 1,000 | 46.8% | 719 | 46.8% | 699 |
-| 1,500 | 53.2% | 1,014 | 55.3% | 980 |
-| 2,000 | 57.4% | 1,270 | 59.6% | 1,219 |
-| 2,500 | 63.8% | 1,500 | 66.0% | 1,425 |
-| 3,000 | 63.8% | 1,731 | 66.0% | 1,614 |
-| 4,000 | 63.8% | 2,117 | 66.0% | 1,890 |
-| 6,000 | 66.0% | 2,606 | 66.0% | 2,140 |
-| 8,000 | 66.0% | 2,872 | 66.0% | 2,191 |
+| 1,000 | 46.8% | 686 | 46.8% | 677 |
+| 1,500 | 55.3% | 943 | 57.4% | 925 |
+| 2,000 | 63.8% | 1,160 | 63.8% | 1,130 |
+| 2,500 | 66.0% | 1,323 | 66.0% | 1,280 |
+| 3,000 | 66.0% | 1,472 | 66.0% | 1,407 |
+| 4,000 | 66.0% | 1,699 | 66.0% | 1,578 |
+| 6,000 | 66.0% | 1,928 | 66.0% | 1,696 |
+| 8,000 | 66.0% | 2,013 | 66.0% | 1,696 |
 
-Smallest ceiling within 2 points of its own 8K score: fixed 6,000, adaptive 2,500.
+Smallest ceiling within 2 points of its own 8K score: fixed 2,500, adaptive 2,500.
 
 ## By question type
 
@@ -73,20 +73,20 @@ Smallest ceiling within 2 points of its own 8K score: fixed 6,000, adaptive 2,50
 
 | Type | Questions | Evidence turns found | All evidence in packet | Mean packet tokens |
 | --- | --- | --- | --- | --- |
-| knowledge-update | 8 | 93.8% | 87.5% | 3,490 |
-| multi-session | 11 | 72.7% | 54.5% | 1,280 |
-| single-session-assistant | 6 | 100.0% | 100.0% | 3,079 |
-| single-session-preference | 3 | 83.3% | 66.7% | 5,853 |
-| single-session-user | 6 | 100.0% | 100.0% | 4,545 |
-| temporal-reasoning | 13 | 82.1% | 76.9% | 6,176 |
+| knowledge-update | 8 | 93.8% | 87.5% | 3,377 |
+| multi-session | 11 | 72.7% | 54.5% | 936 |
+| single-session-assistant | 6 | 100.0% | 100.0% | 2,785 |
+| single-session-preference | 3 | 83.3% | 66.7% | 5,587 |
+| single-session-user | 6 | 100.0% | 100.0% | 3,023 |
+| temporal-reasoning | 13 | 82.1% | 76.9% | 4,510 |
 
 ### small-local
 
 | Type | Questions | Evidence turns found | All evidence in packet | Mean packet tokens |
 | --- | --- | --- | --- | --- |
-| knowledge-update | 8 | 87.5% | 87.5% | 1,367 |
-| multi-session | 11 | 58.3% | 36.4% | 644 |
-| single-session-assistant | 6 | 100.0% | 100.0% | 2,129 |
+| knowledge-update | 8 | 87.5% | 87.5% | 1,324 |
+| multi-session | 11 | 58.3% | 36.4% | 522 |
+| single-session-assistant | 6 | 100.0% | 100.0% | 1,997 |
 | single-session-preference | 3 | 16.7% | 0.0% | 960 |
-| single-session-user | 6 | 100.0% | 100.0% | 1,991 |
-| temporal-reasoning | 13 | 61.5% | 61.5% | 1,643 |
+| single-session-user | 6 | 100.0% | 100.0% | 1,782 |
+| temporal-reasoning | 13 | 61.5% | 61.5% | 1,405 |

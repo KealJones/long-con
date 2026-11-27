@@ -12,6 +12,7 @@ import { isTallyQuestion, SEG_GATE, tallySearch } from "./tally.ts";
 import { unitProbability } from "./gate.ts";
 import { contentWords, estimateTokens, type Stemmer } from "./text.ts";
 import { lookupSymbols, type SymbolIndex, type SymbolItem } from "./symbols.ts";
+import { cosine, type Embed } from "./embed.ts";
 
 export interface BuildPacketInput {
   history: Session[];
@@ -24,6 +25,8 @@ export interface BuildPacketInput {
    * gets its path:line and signature, two or three get pointers, anything else gets no Code section.
    */
   code?: SymbolIndex;
+  /** A text embedder (embed.ts), for profiles that also judge units by cosine (profile.embedSim). Optional. */
+  embed?: Embed;
 }
 
 /** One retrieved unit of history in the packet, with the labels the model sees. */
@@ -64,7 +67,7 @@ export const HISTORY_NOTICE = (since: string, canSearch = true) =>
 export const TRUST_NOTE = (canSearch = true) =>
   `This packet is a best guess at what's relevant. Don't rely on anything in it that looks wrong${canSearch ? "; use the tools instead" : ""}.`;
 
-export function buildPacket({ history, message, profile, currentSessionId, code }: BuildPacketInput): Packet {
+export function buildPacket({ history, message, profile, currentSessionId, code, embed }: BuildPacketInput): Packet {
   const current = history.find((s) => s.id === currentSessionId);
   const recentStart = current ? Math.max(0, current.turns.length - profile.rawTurns) : 0;
   const recentTurns = current ? current.turns.slice(recentStart) : [];
@@ -111,6 +114,10 @@ export function buildPacket({ history, message, profile, currentSessionId, code 
     const seen = new Set<string>();
     const { hits, idf } = searchUnits(history, resolution.query, profile.segmentTokens, current?.id, recentStart, profile.stemmer, profile.gateKey);
     idfOf = idf;
+    // Embedding gate: the message's cosine to a unit (whole, or its best turn) vetoes units under embedFloor and, when the
+    // weights carry one more entry than the search's features, is one more unit-gate feature.
+    const sim = embed && profile.embedSim ? unitSimilarity(embed, resolution.query, profile.embedSim) : undefined;
+    if (sim && hits.length && (profile.unitWeights?.length ?? 0) > hits[0]!.features.length + 1) for (const h of hits) h.features = [...h.features, sim(h.hit.item)];
     // The absolute bar asks whether history holds anything strong enough to answer at all. It judges the best unit
     // only: per unit, it cut the weaker second piece multi-session questions need (P02 dev sweep).
     const found = hits.some((h) => h.score >= profile.minScore);
@@ -152,6 +159,7 @@ export function buildPacket({ history, message, profile, currentSessionId, code 
       if (confidence < profile.minConfidence) continue;
       const p = features && gate > 0 ? probability(features) : 1;
       if (p < gate) continue;
+      if (sim && (profile.embedFloor ?? 0) > 0 && sim(hit.item) < profile.embedFloor!) continue;
       // The same exchange saved twice only needs to come in once.
       const text = hit.item.turns.map((t) => t.content).join("\n");
       if (seen.has(text)) continue;
@@ -275,6 +283,20 @@ export function searchUnits(history: Session[], query: string, segmentTokens: nu
     return { hit, confidence: share.get(hit.item)!, score: absolute.get(hit.item)!, features };
   });
   return { hits, idf: (w: string) => all.idf(w) };
+}
+
+/** The message's cosine to a unit, memoized per unit: the whole unit's text, or its best turn's ("maxsim"). */
+export function unitSimilarity(embed: Embed, query: string, mode: "segment" | "maxsim") {
+  const q = embed(query);
+  const memo = new Map<Segment, number>();
+  return (seg: Segment): number => {
+    let s = memo.get(seg);
+    if (s === undefined) {
+      s = mode === "maxsim" ? Math.max(...seg.turns.map((t) => cosine(q, embed(t.content)))) : cosine(q, embed(seg.turns.map((t) => t.content).join("\n")));
+      memo.set(seg, s);
+    }
+    return s;
+  };
 }
 
 /**

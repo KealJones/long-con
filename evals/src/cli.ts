@@ -10,6 +10,7 @@ import { EstimatingModel } from "./estimate.ts";
 import { heldOutSplit, loadLongMemEval, stratifiedSlice, type Question } from "./longmemeval.ts";
 import { AnthropicModel, PRICES } from "./model.ts";
 import { packetRecall, readableRecall } from "./recall.ts";
+import { embedderFor } from "./embedder.ts";
 import { bootstrap, runEval, summarize, summaryTable, writeSummary, type RunOptions } from "./run.ts";
 import { SubagentModel } from "./subagent.ts";
 
@@ -249,7 +250,7 @@ interface RecallRun {
 // Every LongMemEval_S history (about 140K tokens) is past both profiles' switch points, so the packet always runs.
 function recallRuns(questions: Question[], profile: Profile): RecallRun[] {
   return questions.map((q) => {
-    const packet = buildPacket({ history: q.sessions, message: q.question, profile });
+    const packet = buildPacket({ history: q.sessions, message: q.question, profile, embed: embedderFor(profile) });
     const readable = profile.pointerGate > 0 ? readableRecall(q, packet, profile) : undefined;
     return { q, tokens: packet.tokens, readable, ...packetRecall(q, packet, profile.segmentTokens) };
   });
@@ -389,7 +390,7 @@ function recallReport(dev: Question[], profiles: Profile[]): { report: string; c
   const report = [
     `# Packet recall: LongMemEval_S dev slice`,
     "",
-    `${answerable.length} answerable questions of the ${dev.length}-question dev slice (${dev.length - answerable.length} abstention questions have no evidence to find). Full history averages ${fmt(fullTokens)} tokens per question. Builder: BM25 only (no embeddings yet), size-based segments. No model calls. "All evidence in packet" means every labeled evidence turn is in it.`,
+    `${answerable.length} answerable questions of the ${dev.length}-question dev slice (${dev.length - answerable.length} abstention questions have no evidence to find). Full history averages ${fmt(fullTokens)} tokens per question. Builder: BM25 search, size-based segments, and a static-embedder veto on the units the gate keeps (embedModel in each profile). No model calls. "All evidence in packet" means every labeled evidence turn is in it.`,
     "",
     `These are tuning numbers, not results: the segment cap and the cutoff were picked on this same slice, so they flatter the builder. With ${answerable.length} questions, one question moves "All evidence in packet" by ${pct(1 / answerable.length)}. Intervals are 95% bootstraps over questions. Two limits: an evidence chat with no labeled turn isn't counted, and recall leaves out what a reader would find by searching.`,
     "",

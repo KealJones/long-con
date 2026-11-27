@@ -20,6 +20,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { buildPacket, estimateTokens, PROFILES, profileByName, type Packet, type PacketSegment, type Profile, type Session } from "@long-con/core";
 import { evidenceGroups, loadLongMemEval, type Question } from "../src/longmemeval.ts";
+import { embedderFor } from "../src/embedder.ts";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");
 export const DATA = join(ROOT, "evals/data/longmemeval/longmemeval_s_cleaned.json");
@@ -226,7 +227,10 @@ export function runProbe(
 
 // Same call as `eval recall`: no current session, so nothing rides along raw. The switch point isn't applied, since
 // the point is what the packet would hold; every LongMemEval_S history is past both profiles' switch points anyway.
-const defaultBuild = (profile: Profile) => (p: Probe) => buildPacket({ history: p.history, message: p.message, profile });
+const defaultBuild = (profile: Profile) => {
+  const embed = embedderFor(profile);
+  return (p: Probe) => buildPacket({ history: p.history, message: p.message, profile, embed });
+};
 
 export const TIER_ORDER: TierName[] = ["tier1-off-history", "tier1t-time-phrases", "tier2-cross-history", "tier3-evidence-ablated", "tier4-abstention", "answerable"];
 

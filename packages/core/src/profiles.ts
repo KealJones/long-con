@@ -54,6 +54,12 @@ export interface Profile {
    * when the absolute bar already let history in. 0 turns notes off.
    */
   noteCoverage: number;
+  /** The model2vec model the embedding gate was tuned with; the caller loads it and passes `embed` to buildPacket. */
+  embedModel?: string;
+  /** Which cosine the embedding gate uses when the caller passes an embedder: the whole unit's, or its best turn's. Absent: off. */
+  embedSim?: "segment" | "maxsim";
+  /** Embedding veto: a unit the gate kept stays out when its cosine to the message is under this. 0 or absent: off. */
+  embedFloor?: number;
   /** How many of the model's own latest answers in this chat go in the registers. */
   recentAnswers: number;
   /** Whether a per-turn gate can skip retrieval for messages that need none, like "thanks". */
@@ -96,6 +102,13 @@ export const PROFILES = {
     // length; ranking keeps the full text. Same recall, fewer tokens, fewer false inclusions on every tier. Without
     // "fulllen" the shorter keys scored higher and tier 2 gained a unit. The bar stays (0.18 loses a question, 0.16 adds FI).
     gateKey: "boilerplate+fulllen+matched",
+    // Embedding veto (evals/loop/embed-gate.ts dev sweep): a gate-kept unit whose best turn's cosine to the message is
+    // under 0.25 stays out. Every recall row holds, about 21% fewer tokens, 33-52% fewer false inclusions per tier; 0.3
+    // loses two questions. potion-base-8M beat potion-retrieval-32M here (32M lost a preference question above 0.09).
+    // Only applies when the caller passes `embed`; without one, packets are unchanged.
+    embedModel: "potion-base-8M",
+    embedSim: "maxsim",
+    embedFloor: 0.25,
     rawTurns: 6,
     // Small units beat whole exchanges at every budget on the dev slice (evals/results). 400 keeps a short
     // question and answer together; smaller still scored a little higher on a benchmark whose facts sit in user turns.
@@ -134,6 +147,11 @@ export const PROFILES = {
     minScore: 0.25,
     stemmer: "porter",
     // No gateKey: at 0.25 it added tokens and tier-3 false inclusions, and 0.26 loses a question (P26 gate-key sweep).
+    // Embedding veto, as on claude but with potion-retrieval-32M: 0.2 holds every recall row with 10% fewer tokens and
+    // 47-66% fewer false inclusions per tier; 0.22 loses two questions. potion-base-8M needed 0.35 and lost a turn there.
+    embedModel: "potion-retrieval-32M",
+    embedSim: "maxsim",
+    embedFloor: 0.2,
     rawTurns: 2,
     segmentTokens: 400,
     // Ungated, every cap that kept its recall gain added wrong pieces (P06). Behind the tally gate it holds recall with
