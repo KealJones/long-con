@@ -8,7 +8,7 @@ These are tuning numbers, not results: the segment cap and the cutoff were picke
 
 | Profile | Budget ceiling | Evidence chats found | Evidence turns found | All evidence in packet | 95% interval | Mean packet tokens | Largest packet |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| claude | 8,000 | 92.1% | 86.5% | 78.7% | 66.0% to 89.4% | 3,567 | 7,972 |
+| claude | 8,000 | 92.1% | 86.5% | 78.7% | 66.0% to 89.4% | 3,561 | 7,972 |
 | claude: pointers as found | | | 87.6% | 80.9% | | | |
 | claude: readable (pointers open in 3 searches) | | | | 80.9% | | | |
 | claude: plain BM25 top-k | 8,000 | 93.0% | 85.1% | 76.6% | 63.8% to 87.2% | 7,886 | 8,000 |
@@ -30,7 +30,7 @@ System prompt, search tool definition, packet and question; then the same plus o
 
 | Profile | Context window | First call, mean | First call, largest | With one search, mean | With one search, largest | Fits with room to answer |
 | --- | --- | --- | --- | --- | --- | --- |
-| claude | 200,000 | 3,530 | 8,145 | 4,355 | 9,006 | 50 of 50 |
+| claude | 200,000 | 3,524 | 8,145 | 4,348 | 9,006 | 50 of 50 |
 | small-local | 6,000 | 1,447 | 2,654 | 1,741 | 3,075 | 50 of 50 |
 
 ## Recall against packet size
@@ -41,14 +41,14 @@ System prompt, search tool definition, packet and question; then the same plus o
 
 | Budget ceiling | Fixed: all evidence | Fixed: mean tokens | Adaptive: all evidence | Adaptive: mean tokens |
 | --- | --- | --- | --- | --- |
-| 1,000 | 51.1% | 862 | 51.1% | 828 |
-| 1,500 | 61.7% | 1,242 | 63.8% | 1,180 |
-| 2,000 | 68.1% | 1,648 | 70.2% | 1,549 |
-| 2,500 | 68.1% | 2,003 | 70.2% | 1,865 |
-| 3,000 | 72.3% | 2,305 | 74.5% | 2,098 |
-| 4,000 | 74.5% | 2,963 | 76.6% | 2,572 |
-| 6,000 | 74.5% | 4,182 | 76.6% | 3,245 |
-| 8,000 | 76.6% | 5,255 | 78.7% | 3,567 |
+| 1,000 | 51.1% | 858 | 51.1% | 825 |
+| 1,500 | 61.7% | 1,237 | 63.8% | 1,178 |
+| 2,000 | 68.1% | 1,644 | 70.2% | 1,548 |
+| 2,500 | 68.1% | 1,996 | 70.2% | 1,863 |
+| 3,000 | 72.3% | 2,298 | 74.5% | 2,095 |
+| 4,000 | 74.5% | 2,951 | 76.6% | 2,568 |
+| 6,000 | 74.5% | 4,167 | 76.6% | 3,240 |
+| 8,000 | 76.6% | 5,239 | 78.7% | 3,561 |
 
 Smallest ceiling within 2 points of its own 8K score: fixed 8,000, adaptive 8,000.
 
@@ -73,12 +73,12 @@ Smallest ceiling within 2 points of its own 8K score: fixed 4,000, adaptive 2,50
 
 | Type | Questions | Evidence turns found | All evidence in packet | Mean packet tokens |
 | --- | --- | --- | --- | --- |
-| knowledge-update | 8 | 93.8% | 87.5% | 3,538 |
-| multi-session | 11 | 72.7% | 54.5% | 1,116 |
+| knowledge-update | 8 | 93.8% | 87.5% | 3,530 |
+| multi-session | 11 | 72.7% | 54.5% | 1,111 |
 | single-session-assistant | 6 | 100.0% | 100.0% | 2,919 |
-| single-session-preference | 3 | 83.3% | 66.7% | 5,761 |
-| single-session-user | 6 | 100.0% | 100.0% | 3,863 |
-| temporal-reasoning | 13 | 82.1% | 76.9% | 5,316 |
+| single-session-preference | 3 | 83.3% | 66.7% | 5,742 |
+| single-session-user | 6 | 100.0% | 100.0% | 3,851 |
+| temporal-reasoning | 13 | 82.1% | 76.9% | 5,311 |
 
 ### small-local
 

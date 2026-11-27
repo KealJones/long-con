@@ -7,7 +7,7 @@ import { buildRegisters, refKey } from "./registers.ts";
 import { resolve, type Resolution } from "./resolver.ts";
 import { segmentKey, splitIntoSegments, type KeyDenoise, type Segment } from "./segments.ts";
 import { extractNotes, groupNotes, groupWords, renderGroup, type Note } from "./notes.ts";
-import type { Profile } from "./profiles.ts";
+import type { PointerPick, Profile } from "./profiles.ts";
 import { isTallyQuestion, SEG_GATE, tallySearch } from "./tally.ts";
 import { unitProbability } from "./gate.ts";
 import { contentWords, estimateTokens, type Stemmer } from "./text.ts";
@@ -102,7 +102,7 @@ export function buildPacket({ history, message, profile, currentSessionId, code,
   const symbols = code ? lookupSymbols(message, code, { blockTokens: 0, packetTokens: budget - estimateTokens(`\n\n${CODE}\n`), shape: "signature" }) : undefined;
   const codeLines = symbols?.text ? ["", CODE, symbols.text] : [];
   budget -= estimateTokens(codeLines.join("\n"));
-  const chosen: { segment: Segment; hit: Hit<Segment>; confidence: number; medium: boolean }[] = [];
+  const chosen: { segment: Segment; hit: Hit<Segment>; confidence: number; medium: boolean; p: number; sim?: number }[] = [];
   const pointed: { segment: Segment; hit: Hit<Segment>; confidence: number; query: string; line: string }[] = [];
   // A pointer is only worth its line when the reader can open it.
   const pointing = canSearch && profile.pointerGate > 0;
@@ -159,7 +159,8 @@ export function buildPacket({ history, message, profile, currentSessionId, code,
       if (confidence < profile.minConfidence) continue;
       const p = features && gate > 0 ? probability(features) : 1;
       if (p < gate) continue;
-      if (sim && (profile.embedFloor ?? 0) > 0 && sim(hit.item) < profile.embedFloor!) continue;
+      const s = sim?.(hit.item);
+      if (s !== undefined && (profile.embedFloor ?? 0) > 0 && s < profile.embedFloor!) continue;
       // The same exchange saved twice only needs to come in once.
       const text = hit.item.turns.map((t) => t.content).join("\n");
       if (seen.has(text)) continue;
@@ -168,23 +169,29 @@ export function buildPacket({ history, message, profile, currentSessionId, code,
       if (cost > budget) continue;
       seen.add(text);
       budget -= cost;
-      chosen.push({ segment: hit.item, hit, confidence, medium: pointing && !tally && p < profile.pointerGate });
+      // A medium unit whose best turn reads very close to the message stays whole (pointerPromote).
+      const promoted = s !== undefined && profile.pointerPromote !== undefined && s >= profile.pointerPromote;
+      chosen.push({ segment: hit.item, hit, confidence, medium: pointing && !tally && p < profile.pointerGate && !promoted, p, sim: s });
     }
   }
 
   // Pointer tier (P15): the units above were picked exactly as before, at whole cost, so the pointer tier can't let in
-  // a unit that wouldn't have come in whole. Medium ones then shrink to a line, best first, up to what the reader can
-  // open; past that they drop. A unit shorter than its pointer stays whole.
-  let room = profile.maxPointers;
-  for (let i = 0; i < chosen.length; i++) {
-    const c = chosen[i]!;
-    if (!c.medium) continue;
-    const query = pointerQuery(c.segment, idfOf, profile.stemmer);
-    const line = renderPointer(c.segment, query);
-    if (estimateTokens(`\n${line}`) >= estimateTokens("\n" + renderSegment(c.segment, registers.rejected, c.confidence, c.hit.matched))) continue;
-    if (room-- > 0) pointed.push({ ...c, query, line });
-    chosen.splice(i--, 1);
-  }
+  // a unit that wouldn't have come in whole. Medium ones then shrink to a line, up to what the reader can
+  // open, in pointerPick order; past that they drop. A unit shorter than its pointer stays whole.
+  // A medium unit reading too far from the message drops instead of taking a pointer line (pointerFloor).
+  const far = (c: (typeof chosen)[number]) => profile.pointerFloor !== undefined && c.sim !== undefined && c.sim < profile.pointerFloor;
+  const medium = chosen
+    .map((c, rank) => ({ c, rank, query: "", line: "" }))
+    .filter((m) => m.c.medium && !far(m.c))
+    .filter((m) => {
+      m.query = pointerQuery(m.c.segment, idfOf, profile.stemmer);
+      m.line = renderPointer(m.c.segment, m.query);
+      return estimateTokens(`\n${m.line}`) < estimateTokens("\n" + renderSegment(m.c.segment, registers.rejected, m.c.confidence, m.c.hit.matched));
+    });
+  const kept = pickPointers(medium.map((m) => ({ rank: m.rank, p: m.c.p, sim: m.c.sim })), profile.pointerPick ?? "rank", profile.maxPointers);
+  for (const m of medium) if (kept.has(m.rank)) pointed.push({ ...m.c, query: m.query, line: m.line });
+  const gone = new Set([...medium.map((m) => m.c), ...chosen.filter((c) => c.medium && far(c))]);
+  for (let i = chosen.length - 1; i >= 0; i--) if (gone.has(chosen[i]!)) chosen.splice(i, 1);
 
   // Oldest first reads like the chat did, and keeps dates in order for "how long ago" questions.
   chosen.sort((a, b) => order(history, a.segment).localeCompare(order(history, b.segment)));
@@ -217,6 +224,24 @@ export function buildPacket({ history, message, profile, currentSessionId, code,
     notes: shownNotes,
     code: symbols?.items ?? [],
   };
+}
+
+/**
+ * Which medium units become pointers (the rest drop): the first `cap` by search rank, by gate probability, by the
+ * embedding veto's best-turn cosine, or by the sum of their places in those two orders ("mix"). Returns the ranks kept.
+ * Without a cosine, "cosine" and "mix" fall back to rank.
+ */
+export function pickPointers(units: { rank: number; p: number; sim?: number }[], pick: PointerPick, cap: number): Set<number> {
+  const by = (f: (u: (typeof units)[number]) => number) => {
+    const place = new Map([...units].sort((a, b) => f(b) - f(a) || a.rank - b.rank).map((u, i) => [u.rank, i]));
+    return (u: (typeof units)[number]) => place.get(u.rank)!;
+  };
+  const hasSim = units.every((u) => u.sim !== undefined);
+  const gate = by((u) => u.p);
+  const cos = by((u) => u.sim ?? 0);
+  const key =
+    pick === "gate" ? gate : pick === "cosine" && hasSim ? cos : pick === "mix" && hasSim ? (u: (typeof units)[number]) => gate(u) + cos(u) : (u: (typeof units)[number]) => u.rank;
+  return new Set([...units].sort((a, b) => key(a) - key(b) || a.rank - b.rank).slice(0, Math.max(0, cap)).map((u) => u.rank));
 }
 
 /**
