@@ -4,17 +4,19 @@ One entry per idea tried by the hourly packet R&D loop. Newest run first. Number
 
 ## Write-time registers (stacked on PR 1): 2026-11-26
 
-Baseline is 425801d. Dev only, tuning-grade; one question is 2.1 points. No paid runs. These changes target follow-ups LongMemEval can't test ("go", "do all that", "multiply it by 32", "thanks!!", "you forgot"), so the bar here is no harm: recall and false inclusions at least as good, tokens about flat.
+Baseline is 3631d2a (PR 1 with main merged in: embedding veto, pointer floor). Dev only, tuning-grade; one question is 2.1 points. No paid runs. These changes target follow-ups LongMemEval can't test ("go", "do all that", "multiply it by 32", "thanks!!", "you forgot"), so the bar here is no harm: recall and false inclusions at least as good, tokens about flat.
 
 | | claude | small-local |
 | --- | --- | --- |
 | All evidence, default budget | 78.7 → 78.7% | 66.0 → 66.0% |
-| All evidence at a 1,500 ceiling, fixed / adaptive | 61.7 / 63.8 → 63.8 / 66.0% | 53.2 / 55.3 → 57.4 / 59.6% |
-| Mean packet tokens | 3,949 → 3,965 | 1,425 → 1,421 |
-| Tier 1 / 1t / 2 / 3 FI | 7.09 / 4.99 / 9.52 / 7.17 → 7.06 / 4.94 / 9.48 / 7.17 | 1.43 / 0.21 / 1.18 / 1.00 → 1.42 / 0.21 / 1.18 / 1.00 |
+| All evidence at a 1,500 ceiling, fixed / adaptive | 61.7 / 63.8 → 63.8 / 66.0% | 53.2 / 55.3 → 55.3 / 57.4% |
+| Mean packet tokens | 3,561 → 3,578 | 1,351 → 1,348 |
+| Tier 1 / 1t / 2 / 3 FI | 4.55 / 2.97 / 7.26 / 5.70 → 4.53 / 2.95 / 7.22 / 5.68 | 1.07 / 0.13 / 0.98 / 0.70 → unchanged |
+
+The same comparison against 425801d, before the merge, came out the same way.
 
 - **Kept:** act cues tagged at write time (offers, acks, bundles, corrections, updates, rules), a typed results register, update links, the "check before repeating" note on old price and version answers, and small talk closing the gate. The low-ceiling gain most likely comes from the rules fix: "remember to" no longer pins pasted advice, which freed room. Not checked turn by turn.
-- **Not kept as a default:** pulling in the answer unit after a question hit. claude tokens 3,949 → 4,335 and tier 1 FI 7.09 → 8.05 for no recall change at the default ceiling. It's behind `answerFollows`, on in the web app only, where questions about the assistant's own answers are common and LongMemEval's are rare (95% of its evidence turns are user turns).
+- **Not kept as a default:** pulling in the answer unit after a question hit. On 425801d it took claude tokens 3,949 → 4,335 and tier 1 FI 7.09 → 8.05 for no recall change at the default ceiling. It's behind `answerFollows`, on in the web app only, where questions about the assistant's own answers are common and LongMemEval's are rare (95% of its evidence turns are user turns).
 - **Can't be measured here:** the topic window and the not-found line (LongMemEval asks in a fresh session, and its should-be-empty tiers aren't phrased as questions about the past). Both are on in the web app only, and wait for the pain-mined set.
 ## Run 13: 2026-11-27, 1:17 AM Arizona
 
