@@ -65,6 +65,12 @@
         <main id="log" class="log" aria-live="polite"></main>
 
         <form id="form" class="composer">
+          <div id="reader" class="reader" hidden>
+            <span id="reader-state">Reading aloud</span>
+            <button type="button" id="reader-pause">Pause</button>
+            <button type="button" id="reader-restart">Restart</button>
+            <button type="button" id="reader-stop">Stop</button>
+          </div>
           <p id="status" class="status" role="status"></p>
           <div class="pill">
             <textarea id="input" rows="1" placeholder="Text Long Con" aria-label="Message"></textarea>
@@ -74,6 +80,11 @@
           </div>
         </form>
       </div>
+    </div>
+
+    <div id="menu" class="menu" role="menu" hidden>
+      <button type="button" role="menuitem" data-act="read">Read aloud</button>
+      <button type="button" role="menuitem" data-act="copy">Copy</button>
     </div>
 
     <dialog id="settings" aria-labelledby="settings-title">

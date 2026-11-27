@@ -557,6 +557,57 @@ function endCall() {
   callButton.setAttribute("aria-label", "Start a voice call");
   showTyping(false);
 }
+// Long-press a message (right-click on a computer) for its menu. A "Branch from here" item can join it later.
+const menu = $("menu");
+const reader = $("reader");
+const readerState = $("reader-state");
+const readerPause = $<HTMLButtonElement>("reader-pause");
+let menuText = "";
+let reading: Voice.Reader | null = null;
+function openMenu(bubble: HTMLElement, x: number, y: number) {
+  menuText = bubble.innerText;
+  menu.hidden = false;
+  menu.style.left = `${Math.max(8, Math.min(x, innerWidth - menu.offsetWidth - 8))}px`;
+  menu.style.top = `${Math.max(8, Math.min(y, innerHeight - menu.offsetHeight - 8))}px`;
+  (menu.querySelector("button") as HTMLButtonElement).focus();
+}
+const closeMenu = () => (menu.hidden = true);
+let press: { timer: ReturnType<typeof setTimeout>; x: number; y: number } | undefined;
+log.addEventListener("pointerdown", (e) => {
+  const bubble = (e.target as HTMLElement).closest<HTMLElement>(".row:not(.typing-row) .bubble");
+  if (!bubble || e.pointerType === "mouse") return;
+  press = { x: e.clientX, y: e.clientY, timer: setTimeout(() => openMenu(bubble, e.clientX, e.clientY), 500) };
+});
+const cancelPress = () => press && clearTimeout(press.timer);
+log.addEventListener("pointerup", cancelPress);
+log.addEventListener("pointercancel", cancelPress);
+log.addEventListener("pointermove", (e) => press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 10 && cancelPress());
+log.addEventListener("contextmenu", (e) => {
+  const bubble = (e.target as HTMLElement).closest<HTMLElement>(".row:not(.typing-row) .bubble");
+  if (!bubble) return;
+  e.preventDefault();
+  openMenu(bubble, e.clientX, e.clientY);
+});
+document.addEventListener("pointerdown", (e) => !menu.contains(e.target as Node) && closeMenu());
+document.addEventListener("keydown", (e) => e.key === "Escape" && closeMenu());
+log.addEventListener("scroll", closeMenu);
+menu.addEventListener("click", (e) => {
+  const act = (e.target as HTMLElement).closest<HTMLElement>("[data-act]")?.dataset.act;
+  closeMenu();
+  if (act === "copy") void navigator.clipboard.writeText(menuText);
+  if (act === "read") {
+    if (hangUp) endCall();
+    reading = Voice.readAloud(menuText, voiceSelect.value, (s) => {
+      reader.hidden = s === "done";
+      readerState.textContent = s === "loading" ? "Loading the voice…" : s === "paused" ? "Paused" : "Reading aloud";
+      readerPause.textContent = s === "paused" ? "Resume" : "Pause";
+    });
+  }
+});
+readerPause.addEventListener("click", () => (readerPause.textContent === "Pause" ? reading?.pause() : reading?.resume()));
+$("reader-restart").addEventListener("click", () => reading?.restart());
+$("reader-stop").addEventListener("click", () => reading?.stop());
+
 callButton.addEventListener("click", () => {
   if (hangUp) return endCall();
   if (!keyInput.value.trim()) {

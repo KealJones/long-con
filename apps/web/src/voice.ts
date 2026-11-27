@@ -104,6 +104,7 @@ const BARGE_MS = 300;
 
 /** Starts a call. Must run inside the tap, so iPhone lets audio play. Returns the hang-up function. */
 export function startCall(opts: CallOptions): () => void {
+  stopReading();
   const stop = new AbortController();
   const signal = stop.signal;
   const audio = new AudioContext();
@@ -267,4 +268,84 @@ function listen(signal: AbortSignal, heard: (text: string) => void): Promise<str
     signal.addEventListener("abort", () => rec.abort(), { once: true });
     rec.start();
   });
+}
+
+// ---- Reading one message aloud ----
+
+export type ReadState = "loading" | "playing" | "paused" | "done";
+export interface Reader {
+  pause(): void;
+  resume(): void;
+  restart(): void;
+  stop(): void;
+}
+let reading: Reader | null = null;
+export const stopReading = () => reading?.stop();
+
+/** Reads one message with the call's voice. Must run inside the tap. Starting another stops this one. */
+export function readAloud(text: string, voice: string, state: (s: ReadState) => void): Reader {
+  stopReading();
+  const parts = sentences(speakable(text));
+  const ctx = new AudioContext();
+  void ctx.resume();
+  const builtin = voice === "builtin";
+  // Made once, so pause and restart don't make them again.
+  const made: Promise<AudioBuffer | null>[] = [];
+  const make = (i: number) =>
+    (made[i] ??= loadKokoro(() => {}).then(async (tts) => {
+      if (!tts) return null;
+      const a = await tts.generate(parts[i]!, { voice });
+      const b = ctx.createBuffer(1, a.audio.length, a.sampling_rate);
+      b.copyToChannel(a.audio as Float32Array<ArrayBuffer>, 0);
+      return b;
+    }));
+  let run = 0;
+  let src: AudioBufferSourceNode | null = null;
+
+  async function go(me: number) {
+    state(builtin ? "playing" : "loading");
+    for (let i = 0; i < parts.length && me === run; i++) {
+      const buffer = builtin ? null : await make(i).catch(() => null);
+      if (me !== run) return;
+      if (i + 1 < parts.length && !builtin) void make(i + 1).catch(() => {});
+      if (ctx.state !== "suspended") state("playing");
+      await new Promise<void>((done) => {
+        if (buffer) {
+          src = ctx.createBufferSource();
+          src.buffer = buffer;
+          src.connect(ctx.destination);
+          src.onended = () => done();
+          src.start();
+        } else {
+          const u = new SpeechSynthesisUtterance(parts[i]!);
+          u.onend = u.onerror = () => done();
+          speechSynthesis.speak(u);
+        }
+      });
+    }
+    if (me === run) {
+      state("done");
+      if (reading === reader) reading = null;
+    }
+  }
+  const halt = () => {
+    run++;
+    if (src) (src.onended = null), src.stop();
+    src = null;
+    speechSynthesis.cancel();
+  };
+  const reader: Reader = {
+    pause: () => (speechSynthesis.pause(), void ctx.suspend(), state("paused")),
+    resume: () => (speechSynthesis.resume(), void ctx.resume(), state("playing")),
+    restart: () => (halt(), void ctx.resume(), void go(run)),
+    stop: () => {
+      halt();
+      void ctx.close();
+      if (reading === reader) reading = null;
+      state("done");
+    },
+  };
+  reading = reader;
+  void go(run);
+  return reader;
 }
