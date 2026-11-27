@@ -9,7 +9,7 @@ import { recallChart, type Series } from "./chart.ts";
 import { EstimatingModel } from "./estimate.ts";
 import { heldOutSplit, loadLongMemEval, stratifiedSlice, type Question } from "./longmemeval.ts";
 import { AnthropicModel, PRICES } from "./model.ts";
-import { packetRecall } from "./recall.ts";
+import { packetRecall, readableRecall } from "./recall.ts";
 import { bootstrap, runEval, summarize, summaryTable, writeSummary, type RunOptions } from "./run.ts";
 import { SubagentModel } from "./subagent.ts";
 
@@ -243,13 +243,15 @@ interface RecallRun {
   complete: boolean;
   turnRecallWithPointers?: number;
   completeWithPointers?: boolean;
+  readable?: boolean;
 }
 
 // Every LongMemEval_S history (about 140K tokens) is past both profiles' switch points, so the packet always runs.
 function recallRuns(questions: Question[], profile: Profile): RecallRun[] {
   return questions.map((q) => {
     const packet = buildPacket({ history: q.sessions, message: q.question, profile });
-    return { q, tokens: packet.tokens, ...packetRecall(q, packet, profile.segmentTokens) };
+    const readable = profile.pointerGate > 0 ? readableRecall(q, packet, profile) : undefined;
+    return { q, tokens: packet.tokens, readable, ...packetRecall(q, packet, profile.segmentTokens) };
   });
 }
 
@@ -310,6 +312,8 @@ function recallReport(dev: Question[], profiles: Profile[]): { report: string; c
     if (profile.pointerGate > 0) {
       const withPointers = mean(runs.map((r) => (r.completeWithPointers ? 1 : 0)));
       main.push(`| ${profile.name}: pointers as found | | | ${pct(mean(runs.map((r) => r.turnRecallWithPointers!)))} | ${pct(withPointers)} | | | |`);
+      // Strict version: the pointers needed fit the search rounds and each one's query brings its unit back.
+      main.push(`| ${profile.name}: readable (pointers open in ${profile.maxToolRounds} searches) | | | | ${pct(mean(runs.map((r) => (r.readable ? 1 : 0))))} | | | |`);
     }
 
     const base = bm25Runs(answerable, profile);
