@@ -312,6 +312,12 @@ function listen(signal: AbortSignal, heard: (text: string) => void): Promise<str
 
 // ---- Reading one message aloud ----
 
+/**
+ * Whether reading can start without stalling later: with `ready` seconds of speech made, `left` seconds still to make,
+ * and `rate` seconds it takes to make one second, the rest must land before playback catches up (10% to spare).
+ */
+export const canStart = (ready: number, left: number, rate: number) => ready >= left * (rate - 1) * 1.1;
+
 export type ReadState = "loading" | "playing" | "paused" | "done";
 export interface Reader {
   pause(): void;
@@ -346,6 +352,18 @@ export function readAloud(text: string, voice: string, state: (s: ReadState) => 
     state(builtin ? "playing" : "loading");
     // Queue every sentence now, so the worker never sits idle while one plays (that idling was the gap between sentences).
     if (!builtin) parts.forEach((_, i) => void make(i).catch(() => {}));
+    // A phone can make speech slower than it plays it, so hold off until the rest will be ready in time.
+    if (!builtin && (await loadKokoro(() => {}))) {
+      const t0 = performance.now();
+      const total = parts.join("").length;
+      for (let i = 0, ready = 0, chars = 0; i < parts.length && me === run; i++) {
+        const b = await make(i).catch(() => null);
+        if (!b) break;
+        ready += b.duration;
+        chars += parts[i]!.length;
+        if (canStart(ready, ((total - chars) / chars) * ready, (performance.now() - t0) / 1000 / ready)) break;
+      }
+    }
     for (let i = 0; i < parts.length && me === run; i++) {
       const buffer = builtin ? null : await make(i).catch(() => null);
       if (me !== run) return;
