@@ -3,6 +3,17 @@
 import type { KeyDenoise } from "./segments.ts";
 import type { Stemmer } from "./text.ts";
 
+/** P17 BM25F field settings: the user field's weight (the assistant field's is 1) and each field's length normalization. */
+export interface FieldWeights {
+  user: number;
+  bUser: number;
+  bAssistant: number;
+  /** Diagnostic: BM25F orders the units but relative confidence stays the two rankings' best share. */
+  keepShare?: boolean;
+  /** Diagnostic: BM25F joins the two rankings as a third RRF list instead of replacing them (confidence unchanged). */
+  fuse?: boolean;
+}
+
 export interface Profile {
   name: string;
   /** The model's whole context window in tokens: prompt, packet, recent turns, tool results and answer. */
@@ -36,6 +47,8 @@ export interface Profile {
   stemmer: Stemmer;
   /** P26: denoise mode (segments.ts) for the text the absolute score and the gate judge; ranking keeps the full text. */
   gateKey?: KeyDenoise;
+  /** P17: rank units with one BM25F index instead of fusing the all-words and user-words rankings. Off when absent; no profile sets it (dev sweep lost recall on both). */
+  fields?: FieldWeights;
   /** Recent turns of the current session that ride along raw, outside the packet. */
   rawTurns: number;
   /** Hard cap on one retrieved unit. A longer turn is split at paragraph breaks. */

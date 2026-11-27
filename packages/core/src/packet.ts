@@ -2,12 +2,12 @@
 // Order of work follows docs/architecture.md: gate, resolve, registers, search, filter, fit.
 
 import type { Session, Turn, TurnRef } from "./chat.ts";
-import { Bm25, type Hit } from "./bm25.ts";
+import { Bm25, Bm25F, type Hit } from "./bm25.ts";
 import { buildRegisters, refKey } from "./registers.ts";
 import { resolve, type Resolution } from "./resolver.ts";
 import { segmentKey, splitIntoSegments, type KeyDenoise, type Segment } from "./segments.ts";
 import { extractNotes, groupNotes, groupWords, renderGroup, type Note } from "./notes.ts";
-import type { Profile } from "./profiles.ts";
+import type { FieldWeights, Profile } from "./profiles.ts";
 import { isTallyQuestion, SEG_GATE, tallySearch } from "./tally.ts";
 import { unitProbability } from "./gate.ts";
 import { contentWords, estimateTokens, type Stemmer } from "./text.ts";
@@ -109,7 +109,7 @@ export function buildPacket({ history, message, profile, currentSessionId, code 
 
   if (gateOpen) {
     const seen = new Set<string>();
-    const { hits, idf } = searchUnits(history, resolution.query, profile.segmentTokens, current?.id, recentStart, profile.stemmer, profile.gateKey);
+    const { hits, idf } = searchUnits(history, resolution.query, profile.segmentTokens, current?.id, recentStart, profile.stemmer, profile.gateKey, profile.fields);
     idfOf = idf;
     // The absolute bar asks whether history holds anything strong enough to answer at all. It judges the best unit
     // only: per unit, it cut the weaker second piece multi-session questions need (P02 dev sweep).
@@ -216,13 +216,26 @@ export function buildPacket({ history, message, profile, currentSessionId, code 
  * in either ranking, so it says how close a unit comes to the best match. Score is its best score as a share of
  * the most any unit could score on the query: absolute, so a weak best match shows as weak. Features feed the unit gate (gate.ts).
  */
-export function searchUnits(history: Session[], query: string, segmentTokens: number, currentId?: string, recentStart = 0, stemmer: Stemmer = "suffix", gateKey: KeyDenoise = "") {
+export function searchUnits(
+  history: Session[],
+  query: string,
+  segmentTokens: number,
+  currentId?: string,
+  recentStart = 0,
+  stemmer: Stemmer = "suffix",
+  gateKey: KeyDenoise = "",
+  fields?: FieldWeights,
+) {
   // Each unit is indexed two ways, all its words and the user's words alone, then the rankings are fused.
   const all = new Bm25<Segment>();
   const user = new Bm25<Segment>();
   // P26 gate keys: with gateKey set, a third all-words index on the denoised text feeds the absolute score (the minScore
   // bar and the gate's absolute features) while ranking stays on the full text.
   const key = gateKey ? new Bm25<Segment>() : all;
+  // P17 BM25F (no profile sets it: every dev setting lost recall, evals/results/p17-bm25f-sweep.md): one fielded index
+  // (user, assistant) orders the units and sets their relative confidence;
+  // the two plain rankings still feed the bar and the gate's features, so neither needs refitting.
+  const fielded = fields ? new Bm25F<Segment>([fields.user, 1], [fields.bUser, fields.bAssistant]) : undefined;
   const length = new Map<Segment, number>();
   for (const session of history) {
     for (const seg of splitIntoSegments(session, segmentTokens)) {
@@ -232,7 +245,9 @@ export function searchUnits(history: Session[], query: string, segmentTokens: nu
       length.set(seg, words.length);
       all.add(seg, words);
       if (key !== all) key.add(seg, contentWords(segmentKey(session, seg, gateKey, (t) => contentWords(t, stemmer)), stemmer), gateKey.includes("fulllen") ? words.length : undefined);
-      user.add(seg, contentWords(seg.turns.filter((t) => t.role === "user").map((t) => t.content).join("\n"), stemmer));
+      const userWords = contentWords(seg.turns.filter((t) => t.role === "user").map((t) => t.content).join("\n"), stemmer);
+      user.add(seg, userWords);
+      fielded?.add(seg, [userWords, contentWords(seg.turns.filter((t) => t.role !== "user").map((t) => t.content).join("\n"), stemmer)]);
     }
   }
   const words = contentWords(query, stemmer);
@@ -258,7 +273,9 @@ export function searchUnits(history: Session[], query: string, segmentTokens: nu
   const top5 = lists.map((l) => new Set(l.slice(0, 5).map((h) => h.item)));
   const agreement = [...top5[0]!].filter((x) => top5[1]!.has(x)).length / 5;
   const idfAll = terms.reduce((a, t) => a + all.idf(t), 0) || 1;
-  const hits = fuse(...lists).map((hit) => {
+  const ranked = !fielded ? fuse(...lists) : fields?.fuse ? fuse(...lists, fielded.search(words)) : fielded.search(words);
+  const topField = ranked[0]?.score ?? 1;
+  const hits = ranked.map((hit) => {
     const rank = (i: number) => (ranks[i]!.has(hit.item) ? 1 / (1 + ranks[i]!.get(hit.item)!) : 0);
     const features = [
       absolute.get(hit.item)!,
@@ -272,7 +289,7 @@ export function searchUnits(history: Session[], query: string, segmentTokens: nu
       Math.log(1 + (length.get(hit.item) ?? 0)),
       Math.log(1 + terms.length),
     ];
-    return { hit, confidence: share.get(hit.item)!, score: absolute.get(hit.item)!, features };
+    return { hit, confidence: fielded && !fields?.keepShare && !fields?.fuse ? hit.score / topField : share.get(hit.item)!, score: absolute.get(hit.item)!, features };
   });
   return { hits, idf: (w: string) => all.idf(w) };
 }
@@ -282,7 +299,7 @@ export function searchUnits(history: Session[], query: string, segmentTokens: nu
  * abstains, the tool still answers: a unit the packet would leave out comes back marked low confidence.
  */
 export function searchHistory(history: Session[], query: string, profile: Profile): string {
-  const { hits } = searchUnits(history, query, profile.segmentTokens, undefined, 0, profile.stemmer, profile.gateKey);
+  const { hits } = searchUnits(history, query, profile.segmentTokens, undefined, 0, profile.stemmer, profile.gateKey, profile.fields);
   if (!hits.length) return "No matches.";
   const found = hits.some((h) => h.score >= profile.minScore);
   const rejected = buildRegisters(history, profile.recentAnswers).rejected;

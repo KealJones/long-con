@@ -37,7 +37,7 @@ Score = expected gain × confidence ÷ cost, roughly. Measurement and safety ite
 | 14 | P14 | Work-saved paired eval | Both (measurement) | Medium | open |
 | 15 | P15 | Pointer tier for medium confidence | small-local | Low | kept on claude, off on small-local (run 8) |
 | 16 | P16 | Fact keys and predicted questions at write time | small-local | Medium | open |
-| 17 | P17 | Fusion hygiene: RRF k, weights, BM25F, stemming | Both | Low | Porter kept for small-local (run 4); BM25F open |
+| 17 | P17 | Fusion hygiene: RRF k, weights, BM25F, stemming | Both | Low | Porter kept for small-local (run 4); BM25F not kept (run 9) |
 | 18 | P18 | Prefetched date arithmetic labels | small-local | Low | open |
 | 19 | P19 | "Searched, found nothing" line | Both | Low | open |
 | 20 | P20 | Working set plus depth-2 tree | Both | Low | not kept (run 7; needs a current-project signal) |
@@ -180,7 +180,8 @@ Score = expected gain × confidence ÷ cost, roughly. Measurement and safety ite
 
 - **Hypothesis:** 0-2 points total. If none moves, freeze the lexical side.
 - **Change:** one run each: RRF k ∈ {10, 20, 60}; 0.7/0.3 weighted RRF; BM25F with up-weighted user words instead of two rankings; Porter stemming; k1/b at 0.9/0.4. Also each ranking alone versus fused.
-- **Run 4:** Porter kept for small-local at bar 0.25 (+1 question, fewer tokens and false inclusions). RRF k, weights and k1/b moved nothing. BM25F untested.
+- **Run 4:** Porter kept for small-local at bar 0.25 (+1 question, fewer tokens and false inclusions). RRF k, weights and k1/b moved nothing.
+- **Run 9:** BM25F (user and assistant fields, user weight 1 to 5, per-field b) not kept: replacing the fusion lost 1 to 9 dev questions across both profiles, and adding it as a third RRF list lost the pointer-only find on claude and a question on small-local (`evals/results/p17-bm25f-sweep.md`). The user-words ranking needs its own vote; freeze the lexical side.
 - **Measure:** recall, tokens.
 - **Cost:** low.
 
