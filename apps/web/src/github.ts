@@ -35,10 +35,12 @@ export type Packets = Record<string, { text: string; tokens: number; steps?: Ste
 /** The packet always opens with the history notice; a packet of that line alone found nothing. */
 export const packetEmpty = (text: string) => !text.includes("\n");
 
-/** "packet · 58 tokens · plus the last 6 turns sent raw", or "empty packet · …" when it found nothing. */
+/** "packet · 58 tokens · plus the last 6 turns sent raw", or "no packet · 0 tokens · …" when it found nothing and none was sent. */
 export function packetLabel(p: Packets[string]): string {
   const raw = p.raw === undefined ? "" : p.raw ? ` · plus the last ${p.raw} ${p.raw === 1 ? "turn" : "turns"} sent raw` : " · no turns sent raw";
-  return `${packetEmpty(p.text) ? "empty packet, nothing older matched" : `packet · ${p.tokens} tokens`}${raw}`;
+  // Older turns saved a notice-only packet that was still sent; newer ones save "" for none sent.
+  const head = !p.text ? "no packet · 0 tokens" : packetEmpty(p.text) ? "empty packet, nothing older matched" : `packet · ${p.tokens} tokens`;
+  return head + raw;
 }
 
 export interface Env {

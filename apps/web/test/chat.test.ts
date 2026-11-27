@@ -54,13 +54,16 @@ test("a turn sends system, packet, then the message, and saves both turns", asyn
   ]);
 });
 
-test("today's turns ride along raw after the packet", async () => {
+test("with nothing older to find, no packet is sent, only today's turns raw", async () => {
   const history: Session[] = [];
   await sendTurn(history, "hi", { apiKey: "k", model: "m", now, fetch: fakeApi("hello").fetch });
   const api = fakeApi("ok");
-  await sendTurn(history, "again", { apiKey: "k", model: "m", now, fetch: api.fetch });
+  const result = await sendTurn(history, "again", { apiKey: "k", model: "m", now, fetch: api.fetch });
   const { messages } = JSON.parse(String(api.calls[0]!.init.body));
-  assert.deepEqual(messages.slice(1).map((m: { content: string }) => m.content), ["hi", "hello", "again"]);
+  assert.deepEqual(messages.map((m: { content: string }) => m.content), ["hi", "hello", "again"]);
+  assert.equal(result.packet, "");
+  assert.equal(result.packetTokens, 0);
+  assert.equal(result.rawTurns, 2);
   assert.equal(history.length, 1);
   assert.equal(history[0]!.turns.length, 4);
 });

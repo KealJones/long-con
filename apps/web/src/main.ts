@@ -412,7 +412,7 @@ function addTurn(sessionId: string, turn: number, role: "user" | "assistant", co
   row.append(bubble);
   const packet = packets[keyOf(sessionId, role === "user" ? turn : turn - 1)];
   if (packet && role === "user") {
-    row.append(...peek(`<path d="M21 16V8l-9-5-9 5v8l9 5 9-5zM3.3 7L12 12l8.7-5M12 22V12"/>`, GH.packetLabel(packet), packet.text));
+    row.append(...peek(`<path d="M21 16V8l-9-5-9 5v8l9 5 9-5zM3.3 7L12 12l8.7-5M12 22V12"/>`, GH.packetLabel(packet), packet.text || "Nothing older matched, so no packet went to the model, only today's latest turns and your message."));
   }
   if (packet?.steps?.length && role === "assistant") {
     const n = packet.steps.length;

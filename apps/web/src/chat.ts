@@ -2,6 +2,7 @@
 // No DOM here, so the test can run it in Node with a fake fetch.
 
 import { assemblePrompt, buildPacket, PROFILES, type Session } from "@long-con/core";
+import { packetEmpty } from "./github.ts";
 import { runTool, toolDefs, type ToolContext } from "./tools.ts";
 
 // The "best guess" trust note is off here: the R&D loop's 50-question run found it about tripled searches and doubled tokens with no accuracy gain.
@@ -57,8 +58,10 @@ export async function sendTurn(history: Session[], message: string, opts: TurnOp
   const packet = buildPacket({ history, message, profile: PROFILE, currentSessionId: today });
   const prompt = assemblePrompt({ system: `${SYSTEM}\n\nToday is ${today}.`, packet: packet.text, recentTurns: packet.recentTurns, message });
 
+  // A packet that found nothing older isn't sent at all: just today's latest turns and the message.
+  const sent = packetEmpty(packet.text) ? "" : packet.text;
   const doFetch = opts.fetch ?? fetch;
-  const messages: unknown[] = [...prompt.messages];
+  const messages: unknown[] = sent ? [...prompt.messages] : prompt.messages.slice(1);
   const steps: Step[] = [];
   const toolCtx: ToolContext = { history, profile: PROFILE, store: opts.store, fetch: opts.fetch };
   let body: { content?: Block[]; stop_reason?: string } | null = null;
@@ -104,7 +107,7 @@ export async function sendTurn(history: Session[], message: string, opts: TurnOp
   let session = history.find((s) => s.id === today);
   if (!session) history.push((session = { id: today, date: today, turns: [] }));
   session.turns.push({ role: "user", content: message }, { role: "assistant", content: answer });
-  return { answer, packet: packet.text, packetTokens: packet.tokens, rawTurns: packet.recentTurns.length, sessionId: today, turn: session.turns.length - 2, steps };
+  return { answer, packet: sent, packetTokens: sent ? packet.tokens : 0, rawTurns: packet.recentTurns.length, sessionId: today, turn: session.turns.length - 2, steps };
 }
 
 interface Block {

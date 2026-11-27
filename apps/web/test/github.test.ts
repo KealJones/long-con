@@ -89,6 +89,7 @@ test("packet labels say when nothing matched and how many turns went raw", () =>
   assert.equal(GH.packetLabel({ text: "Earlier chat history was left out to fit.", tokens: 9, raw: 2 }), "empty packet, nothing older matched · plus the last 2 turns sent raw");
   assert.equal(GH.packetLabel({ text: "notice\n\nRetrieved:\nstuff", tokens: 40, raw: 0 }), "packet · 40 tokens · no turns sent raw");
   assert.equal(GH.packetLabel({ text: "old\nentry", tokens: 5 }), "packet · 5 tokens");
+  assert.equal(GH.packetLabel({ text: "", tokens: 0, raw: 2 }), "no packet · 0 tokens · plus the last 2 turns sent raw");
 });
 
 test("finds a chats repo that already has the marker, else one named like long-con-chats", async () => {
