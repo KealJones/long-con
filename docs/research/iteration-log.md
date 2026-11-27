@@ -4,7 +4,7 @@ One entry per idea tried by the hourly packet R&D loop. Newest run first. Number
 
 ## Run 13: 2026-11-27, 1:17 AM Arizona
 
-Main went c806fb3 → this entry. An embedding re-rank inside tally mode and the veto-floor CV check (run 12) get their own entries when their agents finish.
+Main went c806fb3 → c198760. The veto-floor CV check (from run 12) gets its own entry when its agent finishes.
 
 ### Search tool marks hits with the packet's embedding veto (shared search): kept
 
@@ -17,6 +17,14 @@ Main went c806fb3 → this entry. An embedding re-rank inside tally mode and the
 - **Review (fresh Opus 5.5):** valid with notes. The metric and the tool share `markResults`; floor 0 reproduces the old marking; labels are used only for scoring; dev only. Notes: with the model files missing, reader runs fall back to the old marking with only a warning while the metric throws; a long evidence turn split into parts counts each part as evidence (shared with existing metrics, fair before and after).
 - **Kept:** branch `loop/search-tool-embed`, merged. apps/web's tool isn't wired yet.
 - **Next ideas:** a fitted gate probability as the tool's strong/low cut; a reader run to see whether the marks change answers.
+
+### Embedding cosine inside tally mode: not kept
+
+- **Sources:** [Bruch et al. 2022](https://arxiv.org/abs/2210.11934); arXiv 2606.04194 (skimmed); the run 12 dense-channel entry's next idea.
+- **Tried:** `rankTallyPieces` in tally.ts: (a) re-rank tally pieces by a mix of BM25 place and best-turn cosine (`tallyMix`, 0-1); (b) a cosine floor on pieces (`tallyFloor`); (c) a cosine bar on how many pieces count (`tallyBar`). New sweeps `evals/loop/tally-cosine.ts` (with tally-subset rows) and `tally-cosine-cv.ts` (grouped 5-fold CV).
+- **Findings:** the mix changes nothing on either profile at any setting: counting packets never fill their budget (the tally subset averages 821 tokens on claude, 455 on small-local), so order never decides what gets in. No tier 1 or 1t prompt trips the tally check; 12 tier 2 and 11 tier 3 prompts do. claude floor 0.25 holds every row (tally-trip t3 FI 5.55 → 4.00) but 0.3 loses a multi-session question, and CV picks 0.3 in one fold and loses it there (76.6% against 78.7%). small-local bar 0.35 (two steps back from its edge at 0.45) holds every row with tokens 1,351 → 1,337, FI t2 0.98 → 0.88 and t3 0.70 → 0.66, t1 and t1t unchanged, precision 26.6 → 27.4%.
+- **Why not kept:** claude fails CV, and the small-local gain is about five fewer pieces over 50 tier 2 prompts and 1% fewer tokens, inside noise, for three new options; the CV picker there ignored turns and chose 0.5 in 4 of 5 folds. Branch `loop/tally-cosine` (ab30e77).
+- **Next ideas:** the missed multi-session evidence is a lexical miss, not an order or budget problem, so tally recall needs more candidates in the pool (cosine-only pieces behind the bar), not a better order.
 
 ## Run 12: 2026-11-26, 10:17 PM Arizona (ran through the 11:18 wake)
 
