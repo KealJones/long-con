@@ -2,9 +2,38 @@
 
 One entry per idea tried by the hourly packet R&D loop. Newest run first. Numbers are dev unless marked held-out. Backlog: [prefetch-ideas-ranked.md](prefetch-ideas-ranked.md).
 
+## Run 10: 2026-11-26, 7:18 PM Arizona
+
+Baseline is main at bbf0298 (builder as in run 9). Dev numbers only, tuning-grade. FI is false inclusions per prompt, retrieved tokens in brackets. No paid runs. Nothing changed main's packets this run. A claude stemmer fix was still running when this was written and gets its own entry.
+
+### P28. Phrase graph plus personalized PageRank, gated: not kept
+
+- **Sources:** [HippoRAG](https://arxiv.org/abs/2405.14831), [HippoRAG 2](https://arxiv.org/abs/2502.14802).
+- **Tried:** `phrasegraph.ts`, a rule-based phrase chunker (content words and adjacent pairs) and a phrase-to-unit graph walked by personalized PageRank from the message's phrases (seeds weighted by specificity, damping 0.5, 10 iterations, phrases in over 5% of units dropped as hubs), fused with the BM25 rankings by RRF. Only for messages a rule written before scoring marks as aggregation ("what do I know", "so far", "across all", counting words): 9 of 13 multi-session dev questions, no single-session ones. Up to 2 extra units come in whole, behind the score bar.
+- **Numbers:** no new evidence on either profile, and every per-type row unchanged. claude tokens 3,949 → 4,107, t2 FI 9.52 → 9.76, t3 7.17 → 7.47, precision 11.4 → 11.0%. small-local tokens 1,425 → 1,569, t2 FI 1.18 → 1.34, t3 1.00 → 1.13, precision 24.9 → 23.0%. A walk-only variant did the same.
+- **Why not kept:** every multi-session evidence turn claude misses shares no word with the question, and the walk ranks those turns 70th to 400th of about 480. Without model-written triples or synonym edges, a word graph sees what BM25 already sees. Branch `loop/p28-phrase-graph` (fa9de0c, off by default).
+- **Next:** the suffix stemmer splits "weddings" from "wedding", which causes two of one question's misses; the rest need meaning (an embedding channel, once a model can be downloaded).
+
+### P17. BM25F with up-weighted user words: not kept (run 9 idea, finished in run 10)
+
+- **Sources:** [Robertson, Zaragoza and Taylor 2004](https://ir.webis.de/anthology/2004.cikm_conference-2004.6), [Pérez-Iglesias et al.](https://arxiv.org/abs/0911.5046).
+- **Tried:** a `Bm25F` index (user and assistant fields, each with its own length normalization and weight, summed before one saturation) to order units, three ways: replacing the two-ranking RRF, replacing it but keeping today's confidence, and as a third RRF list. Sweep: user weight 1 to 5, b user 0.3 to 0.75, b assistant 0.3 to 1.0. The bar and unit gate kept their features, so nothing was refit. Results in `evals/results/p17-bm25f-sweep.md` on the branch.
+- **Numbers (best of each):** replacing (3 : 0.75 : 0.5) cut claude FI (t1 7.09 → 6.77, t3 7.17 → 6.49) but lost a whole question and both pointer finds (78.7 / 80.9 → 76.6 / 76.6%); small-local lost 4 or more questions at every setting (66.0 → 57.4% at its best replace). As a third list, claude held whole recall but lost the pointer find and added FI on every tier; small-local stayed one question short.
+- **Why not kept:** a loss on both profiles. One saturation lets a long assistant answer that repeats the query words max out a unit whether or not the user turn matches; RRF gives the user-word ranking its own vote. The lexical side looks done. Branch `loop/p17-bm25f` (0eecf39).
+- **Next:** pick pointers by gate probability instead of rank, so the 3-pointer cap is less order-sensitive; an embedding list (P04/P10) once a model can be downloaded.
+
+### P20 retry. Working set with a current-project signal: not kept
+
+- **Sources:** [Agentless](https://arxiv.org/html/2407.01489v2), [LocAgent](https://arxiv.org/pdf/2503.09089), [Cline multi-root workspaces](https://docs.cline.bot/features/multiroot-workspace.md), a Cursor forum thread on multi-root path links.
+- **Tried:** the caller names the active workspace (root, name, files). A path from the chat counts only after a turn ties the window to it (its name, its root folder's name, or an absolute path under its root); a path outside it, a `../` path, or a top folder the workspace lacks unties it until the next tie. Absolute paths outside the root never resolve. New hand-written set `evals/sets/working-set-mixed/` (63 chats, 34 dev and 29 held out by the shared hash split, held-out not run), with a wrong-items metric. Memory packets byte-identical to main on both profiles.
+- **Numbers (dev, first try → retry):** named earlier 4/6 → 5/6 (small-local 3/6 → 4/6), nearby 4/4, mixed window 7/7, should-be-empty 6/12 → 12/12, wrong items 15 → 3, section tokens 168 → 176. On the run 7 set, whose chats never name the repo: named earlier 5/7 → 0/7, nearby 13/13 → 1/13.
+- **Review (Opus 5.5):** valid with fixes; every number reproduced, byte-identity confirmed with a separate hash. But 15 of the 17 tied dev chats tie by naming the repo in a user turn, so those rows show the resolver works once tied, not that ties happen. 9 of the 12 should-be-empty chats can't get a section by construction. Items from before an untie are kept, so all 5 dev switched chats still carry a stale section of about 188 tokens while the user is on another project, which no metric scored. The claim that tool output ties real windows is untested, since turns carry text only.
+- **Why not kept:** recall on windows that don't name the workspace collapses, and switched chats keep a stale section, a false inclusion. Branch `loop/p20-current-project` (1ad4bef).
+- **Next:** an untie drops what came before it; seed the tie from the session's own working directory (the caller knows it); pass the user's other workspace names so a switch said in words unties; score stale sections as wrong items.
+
 ## Run 9: 2026-11-26, 5:18 PM Arizona (ran through the 6:17 wake)
 
-Baseline is main at 826beb2 (P15 pointer tier on claude). Dev numbers only, tuning-grade; one question is 2.1 points. FI is false inclusions per prompt, retrieved tokens in brackets. No paid runs. BM25F (P17) was still running when this was written and gets its own entry.
+Baseline is main at 826beb2 (P15 pointer tier on claude). Dev numbers only, tuning-grade; one question is 2.1 points. FI is false inclusions per prompt, retrieved tokens in brackets. No paid runs. BM25F (P17) finished in run 10.
 
 ### P15 follow-ups: readable recall row kept (measurement); pointer grid changes nothing
 

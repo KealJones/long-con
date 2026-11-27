@@ -37,10 +37,10 @@ Score = expected gain × confidence ÷ cost, roughly. Measurement and safety ite
 | 14 | P14 | Work-saved paired eval | Both (measurement) | Medium | open |
 | 15 | P15 | Pointer tier for medium confidence | small-local | Low | kept on claude, off on small-local (run 8) |
 | 16 | P16 | Fact keys and predicted questions at write time | small-local | Medium | open |
-| 17 | P17 | Fusion hygiene: RRF k, weights, BM25F, stemming | Both | Low | Porter kept for small-local (run 4); BM25F open |
+| 17 | P17 | Fusion hygiene: RRF k, weights, BM25F, stemming | Both | Low | Porter kept for small-local (run 4); BM25F not kept (run 10) |
 | 18 | P18 | Prefetched date arithmetic labels | small-local | Low | open |
 | 19 | P19 | "Searched, found nothing" line | Both | Low | open |
-| 20 | P20 | Working set plus depth-2 tree | Both | Low | not kept (run 7; needs a current-project signal) |
+| 20 | P20 | Working set plus depth-2 tree | Both | Low | not kept (run 7; current-project retry not kept, run 10) |
 | 21 | P21 | Code, non-memory and URL eval sets | Both (measurement) | Medium | code set grown (run 6), URL set kept (run 7) |
 | 22 | P22 | Novelty-gated web search | small-local | Medium | open |
 | 23 | P23 | Ratcheted raw window plus sticky tier | claude (cost) | Low | open |
@@ -48,7 +48,7 @@ Score = expected gain × confidence ÷ cost, roughly. Measurement and safety ite
 | 25 | P25 | Open-loop speculation between turns | Both | Medium | open |
 | 26 | P26 | Key denoising (SeCom) | Both | Low | kept on the gate only, claude (run 6) |
 | 27 | P27 | Conformal τ | Both | Low | blocked (needs ~100 empty prompts) |
-| 28 | P28 | Phrase graph plus PageRank, gated | claude | Medium | open |
+| 28 | P28 | Phrase graph plus PageRank, gated | claude | Medium | not kept (run 10) |
 | 29 | P29 | Source gate trained on packet misses | Both | Medium | blocked (needs real use) |
 | 30 | P30 | Citations as labels, per-user refit | Both | Low | blocked (needs real use) |
 
