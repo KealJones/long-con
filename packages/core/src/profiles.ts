@@ -103,12 +103,13 @@ export const PROFILES = {
     // "fulllen" the shorter keys scored higher and tier 2 gained a unit. The bar stays (0.18 loses a question, 0.16 adds FI).
     gateKey: "boilerplate+fulllen+matched",
     // Embedding veto (evals/loop/embed-gate.ts dev sweep): a gate-kept unit whose best turn's cosine to the message is
-    // under 0.25 stays out. Every recall row holds, about 21% fewer tokens, 33-52% fewer false inclusions per tier; 0.3
-    // loses two questions. potion-base-8M beat potion-retrieval-32M here (32M lost a preference question above 0.09).
+    // under 0.2 stays out. Every recall row holds, 10% fewer tokens, 15-35% fewer false inclusions per tier. 0.25 still
+    // holds and cuts more, but 0.3 loses two questions, so the floor sits two steps back from that edge (the floor is
+    // fit in-sample on dev). potion-base-8M beat potion-retrieval-32M here (32M lost a preference question above 0.09).
     // Only applies when the caller passes `embed`; without one, packets are unchanged.
     embedModel: "potion-base-8M",
     embedSim: "maxsim",
-    embedFloor: 0.25,
+    embedFloor: 0.2,
     rawTurns: 6,
     // Small units beat whole exchanges at every budget on the dev slice (evals/results). 400 keeps a short
     // question and answer together; smaller still scored a little higher on a benchmark whose facts sit in user turns.
@@ -147,11 +148,13 @@ export const PROFILES = {
     minScore: 0.25,
     stemmer: "porter",
     // No gateKey: at 0.25 it added tokens and tier-3 false inclusions, and 0.26 loses a question (P26 gate-key sweep).
-    // Embedding veto, as on claude but with potion-retrieval-32M: 0.2 holds every recall row with 10% fewer tokens and
-    // 47-66% fewer false inclusions per tier; 0.22 loses two questions. potion-base-8M needed 0.35 and lost a turn there.
-    embedModel: "potion-retrieval-32M",
+    // Embedding veto, as on claude with the same potion-base-8M (one 30 MB model for both, against 125 MB for
+    // potion-retrieval-32M): 0.25 holds every recall row with 5% fewer tokens and 17-38% fewer false inclusions per tier;
+    // 0.3 still holds whole recall but loses a turn, 0.4 loses two questions. Recorded option: 32M at 0.18 cuts more
+    // (FI 0.87/0.09) but sits nearer its edge (0.22 loses two questions) and is four times the download.
+    embedModel: "potion-base-8M",
     embedSim: "maxsim",
-    embedFloor: 0.2,
+    embedFloor: 0.25,
     rawTurns: 2,
     segmentTokens: 400,
     // Ungated, every cap that kept its recall gain added wrong pieces (P06). Behind the tally gate it holds recall with
