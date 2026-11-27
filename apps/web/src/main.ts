@@ -1,12 +1,13 @@
 // The page: a texting-style chat, a settings dialog, and a sidebar for topics and your data.
 
 import type { Session } from "@long-con/core";
-import { MODELS, sendTurn, type Step } from "./chat.ts";
+import { MODELS, sendTurn } from "./chat.ts";
+import * as GH from "./github.ts";
 import { FILES_KEY, resetShell } from "./tools.ts";
 import { dayName, topics } from "./topics.ts";
 
-/** Per user turn: the packet it went with, and the tools the answer used. */
-type Packets = Record<string, { text: string; tokens: number; steps?: Step[] }>;
+/** Per user turn: the packet it went with, the model, and the tools the answer used. */
+type Packets = GH.Packets;
 
 // shortcut: localStorage caps out around 5 MB; move to IndexedDB once a chat gets near that.
 const load = <T>(key: string, fallback: T): T => {
@@ -62,6 +63,99 @@ settings.addEventListener("close", () => {
   keyInput.type = "password";
   input.focus();
 });
+
+// ---------- Save to GitHub ----------
+
+const ghEnv: GH.Env = { store: localStorage };
+const ghRepo = $<HTMLInputElement>("gh-repo");
+let ghLogin = "";
+let ghSaved: Date | null = null;
+let ghSignIn: AbortController | null = null;
+$<HTMLAnchorElement>("gh-new").href = GH.NEW_REPO_URL;
+$<HTMLAnchorElement>("gh-install").href = GH.INSTALL_URL;
+
+function renderGitHub(note = "") {
+  const inn = GH.signedIn(ghEnv);
+  const repo = GH.savedRepo(ghEnv);
+  if (inn && !ghLogin) GH.login(ghEnv).then((l) => ((ghLogin = l), renderGitHub()), () => {});
+  $("gh-login").hidden = inn || !!ghSignIn;
+  $("gh-logout").hidden = !inn;
+  $("gh-sync").hidden = !(inn && repo);
+  $("gh-pick").hidden = !inn;
+  if (repo && document.activeElement !== ghRepo) ghRepo.value = `${repo.owner}/${repo.name}`;
+  const who = ghLogin ? `Signed in as ${ghLogin}. ` : "";
+  $("gh-status").textContent =
+    note ||
+    (!inn
+      ? "Keep a copy of every message, packet and tool call in a private repo of yours."
+      : repo
+        ? `${who}Each message saves to ${repo.owner}/${repo.name}${ghSaved ? `, last at ${ghSaved.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}.`
+        : `${who}Pick a private repo to save to.`);
+}
+
+$("gh-login").addEventListener("click", async () => {
+  ghSignIn = new AbortController();
+  renderGitHub("Asking GitHub for a code…");
+  const code = $("gh-code");
+  try {
+    const flow = await GH.startSignIn(ghEnv);
+    const link = Object.assign(el("a", "", "github.com/login/device"), { href: "https://github.com/login/device", target: "_blank", rel: "noopener" });
+    code.replaceChildren("Open ", link, " and enter ", el("b", "", flow.user_code));
+    code.hidden = false;
+    renderGitHub("Waiting for you to approve on GitHub…");
+    await GH.finishSignIn(ghEnv, flow, ghSignIn.signal);
+    ghSignIn = null;
+    code.hidden = true;
+    renderGitHub();
+    ghRepo.focus();
+  } catch (err) {
+    ghSignIn = null;
+    code.hidden = true;
+    renderGitHub(err instanceof Error ? err.message : String(err));
+  }
+});
+
+$("gh-logout").addEventListener("click", () => {
+  GH.signOut(ghEnv);
+  ghLogin = "";
+  renderGitHub();
+});
+
+async function useRepo() {
+  renderGitHub("Checking the repo…");
+  try {
+    await GH.useRepo(ghEnv, ghRepo.value);
+    renderGitHub();
+    saveToGitHub();
+  } catch (err) {
+    renderGitHub(err instanceof Error ? err.message : String(err));
+  }
+}
+$("gh-use").addEventListener("click", useRepo);
+ghRepo.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  e.preventDefault(); // Enter would close the settings dialog.
+  useRepo();
+});
+$("gh-sync").addEventListener("click", () => saveToGitHub(true));
+
+// One sync at a time; each one sends whatever is new by then.
+let ghQueue = Promise.resolve();
+function saveToGitHub(loud = false) {
+  if (!GH.signedIn(ghEnv) || !GH.savedRepo(ghEnv)) return;
+  if (loud) renderGitHub("Saving…");
+  ghQueue = ghQueue.then(async () => {
+    try {
+      await GH.sync(ghEnv, history, packets);
+      ghSaved = new Date();
+      renderGitHub();
+    } catch (err) {
+      const msg = `Couldn't save to GitHub: ${err instanceof Error ? err.message : String(err)}`;
+      renderGitHub(msg);
+      setStatus(msg);
+    }
+  });
+}
 
 // ---------- Sidebar ----------
 
@@ -120,6 +214,7 @@ function renderSidebar() {
       history.splice(history.indexOf(s), 1);
       for (const k of Object.keys(packets)) if (k.startsWith(`${s.id}#`)) delete packets[k];
       saveChat();
+      GH.resend(ghEnv);
       renderLog();
       renderSidebar();
     });
@@ -198,6 +293,8 @@ $<HTMLInputElement>("import").addEventListener("change", async (e) => {
     localStorage.setItem(FILES_KEY, JSON.stringify(Object.fromEntries(files)));
     resetShell();
     saveChat();
+    GH.resend(ghEnv);
+    saveToGitHub();
     renderLog();
     renderSidebar();
   } catch (err) {
@@ -212,6 +309,7 @@ $("clear").addEventListener("click", () => {
   resetShell();
   for (const k of Object.keys(packets)) delete packets[k];
   saveChat();
+  GH.resend(ghEnv);
   renderLog();
   renderSidebar();
 });
@@ -352,9 +450,11 @@ form.addEventListener("submit", async (event) => {
   showTyping(true);
   try {
     const onStep = (label: string) => (presence.textContent = label.length > 40 ? label.slice(0, 39) + "…" : label);
-    const result = await sendTurn(history, message, { apiKey, model: modelSelect.value, onStep });
-    packets[keyOf(result.sessionId, result.turn)] = { text: result.packet, tokens: result.packetTokens, ...(result.steps.length ? { steps: result.steps } : {}) };
+    const model = modelSelect.value;
+    const result = await sendTurn(history, message, { apiKey, model, onStep });
+    packets[keyOf(result.sessionId, result.turn)] = { text: result.packet, tokens: result.packetTokens, model, ...(result.steps.length ? { steps: result.steps } : {}) };
     saveChat();
+    saveToGitHub();
     pending.remove();
     showTyping(false);
     addTurn(result.sessionId, result.turn, "user", message, false);
@@ -374,6 +474,8 @@ form.addEventListener("submit", async (event) => {
 });
 
 renderLog();
+renderGitHub();
+saveToGitHub(); // Anything a failed save left behind.
 setSidebar(!narrow.matches && !!localStorage.getItem("long-con:sidebar"));
 if (!keyInput.value) settings.showModal();
 else input.focus();

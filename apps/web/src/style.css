@@ -80,7 +80,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .days li button.go { flex: 1; text-align: left; border: 0; background: none; padding: 0; }
 .days li small { color: var(--muted); }
 .data-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
-.data-actions button, .data-actions .button, .dialog-actions button, .key-row button {
+.data-actions button, .data-actions .button, .dialog-actions button, .key-row button, .gh-actions button {
   border: 1px solid var(--line); background: var(--bg); border-radius: 9px; padding: 7px 12px; font-size: 0.9rem; font-weight: 500;
 }
 .danger { color: var(--danger); }
@@ -168,6 +168,10 @@ dialog::backdrop { background: rgb(0 0 0 / 0.35); backdrop-filter: blur(2px); }
 dialog h2 { margin: 0 0 14px; font-size: 1.1rem; }
 dialog label { display: block; font-size: 0.85rem; font-weight: 600; margin-top: 12px; }
 dialog input, dialog select { display: block; width: 100%; margin-top: 5px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg); font-weight: 400; }
+dialog h3 { margin: 20px 0 0; padding-top: 14px; border-top: 1px solid var(--line); font-size: 0.95rem; }
+dialog a { color: var(--accent); }
+.gh-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+#gh-code b { font: 600 1.05rem ui-monospace, monospace; color: var(--fg); letter-spacing: 0.08em; }
 .key-row { display: flex; gap: 6px; align-items: end; }
 .key-row input { flex: 1; }
 .dialog-actions { display: flex; justify-content: flex-end; margin-top: 18px; }
