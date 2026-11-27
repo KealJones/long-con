@@ -72,7 +72,9 @@
             <button type="button" id="reader-stop">Stop</button>
           </div>
           <p id="status" class="status" role="status"></p>
+          <div id="tray" class="tray" hidden></div>
           <div class="pill">
+            <label class="attach" aria-label="Attach photos or PDFs"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg><input id="files" type="file" accept="image/*,application/pdf" multiple hidden /></label>
             <textarea id="input" rows="1" placeholder="Text Long Con" aria-label="Message"></textarea>
             <button id="send" type="submit" aria-label="Send" disabled>
               <svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7" /></svg>
@@ -80,10 +82,33 @@
           </div>
         </form>
       </div>
+
+      <section id="thread" class="thread" aria-label="Side thread" hidden>
+        <header class="bar">
+          <button class="icon" id="thread-close" aria-label="Back to the main chat">
+            <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" /></svg>
+          </button>
+          <div class="who"><div><div class="name">Side thread</div><div id="thread-presence" class="presence">off one message</div></div></div>
+          <button type="button" id="thread-wrap" class="wrap-button">Wrap up</button>
+        </header>
+        <main id="thread-log" class="log" aria-live="polite"></main>
+        <form id="thread-form" class="composer">
+          <p id="thread-status" class="status" role="status"></p>
+          <div id="thread-tray" class="tray" hidden></div>
+          <div class="pill">
+            <label class="attach" aria-label="Attach photos or PDFs"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg><input id="thread-files" type="file" accept="image/*,application/pdf" multiple hidden /></label>
+            <textarea id="thread-input" rows="1" placeholder="Reply in this thread" aria-label="Thread message"></textarea>
+            <button id="thread-send" type="submit" aria-label="Send" disabled>
+              <svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7" /></svg>
+            </button>
+          </div>
+        </form>
+      </section>
     </div>
 
     <div id="menu" class="menu" role="menu" hidden>
       <button type="button" role="menuitem" data-act="read">Read aloud</button>
+      <button type="button" role="menuitem" data-act="branch">Branch from here</button>
       <button type="button" role="menuitem" data-act="copy">Copy</button>
     </div>
 
@@ -102,6 +127,22 @@
         <p class="hint">The packet searches everything else, so 0 tests the packet alone.</p>
         <label>Call voice <select id="voice"></select></label>
         <p class="hint">Voices run in this browser and download once, about 90 MB. Talk over a reply to stop it.</p>
+        <h3>Permissions</h3>
+        <label>What it does without asking <select id="preset"></select></label>
+        <p class="hint">Risky means deleting or overwriting files. Asks show up in the chat as a card to tap.</p>
+        <label>Spending cap, dollars an hour <input id="cap" type="number" min="0" step="0.5" inputmode="decimal" /></label>
+        <p id="spent" class="hint"></p>
+        <details class="rules">
+          <summary>Per tool and per site</summary>
+          <div id="tool-rules"></div>
+          <p class="hint">Sites are for reading pages: a rule for example.com covers its subdomains too.</p>
+          <div id="site-rules"></div>
+          <div class="site-add">
+            <input id="site-host" placeholder="example.com" aria-label="Site" autocapitalize="off" spellcheck="false" />
+            <select id="site-rule" aria-label="Rule for the site"></select>
+            <button type="button" id="site-add">Add</button>
+          </div>
+        </details>
         <h3>Save to GitHub</h3>
         <div id="gh" aria-live="polite"></div>
         <div class="dialog-actions"><button value="close" class="primary">Done</button></div>

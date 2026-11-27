@@ -250,13 +250,18 @@ const README = `# Long Con chats
 Saved by the Long Con web chat. \`days/\` has each day as you'd read it, with the packet behind each message and the tools behind each answer. \`turns/\` has every turn as JSON with the exact packet the model was given.
 `;
 
-/** Commits whatever changed since the last sync. Returns how many files went up (0 when nothing had changed). */
-export async function sync(env: Env, history: Session[], packets: Packets, now = new Date()): Promise<number> {
+/** Where a message's attached file goes in the repo: next to that day's turns. */
+export const attachmentPath = (sessionId: string, turn: number, name: string) =>
+  `attachments/${slug(sessionId)}/${String(Math.floor(turn / 2) + 1).padStart(3, "0")}-${name.replace(/[^\w.-]+/g, "-")}`;
+
+/** Commits whatever changed since the last sync. Returns how many files went up (0 when nothing had changed).
+ * `binaries` are extra files as base64, like attachments (path → data); they go up with the next commit. */
+export async function sync(env: Env, history: Session[], packets: Packets, now = new Date(), binaries: Record<string, string> = {}): Promise<number> {
   const repo = savedRepo(env);
   if (!repo) return 0;
   const synced = read<Record<string, number>>(env, SYNCED_KEY) ?? {};
   const files = changedFiles(history, packets, synced);
-  if (!Object.keys(files).length) return 0;
+  if (!Object.keys(files).length && !Object.keys(binaries).length) return 0;
   const base = `/repos/${repo.owner}/${repo.name}`;
   for (let attempt = 0; ; attempt++) {
     let parent: string;
@@ -270,7 +275,8 @@ export async function sync(env: Env, history: Session[], packets: Packets, now =
       continue;
     }
     const { tree: baseTree } = await gh(env, `${base}/git/commits/${parent}`);
-    const tree = await gh(env, `${base}/git/trees`, "POST", { base_tree: baseTree.sha, tree: Object.entries(files).map(([path, content]) => ({ path, mode: "100644", type: "blob", content })) });
+    const blobs = await Promise.all(Object.entries(binaries).map(async ([path, content]) => ({ path, mode: "100644", type: "blob", sha: (await gh(env, `${base}/git/blobs`, "POST", { content, encoding: "base64" })).sha })));
+    const tree = await gh(env, `${base}/git/trees`, "POST", { base_tree: baseTree.sha, tree: [...Object.entries(files).map(([path, content]) => ({ path, mode: "100644", type: "blob", content })), ...blobs] });
     const days = history.filter((s) => (synced[s.id] ?? 0) !== s.turns.length).length;
     const commit = await gh(env, `${base}/git/commits`, "POST", { message: `Chat: ${days} ${days === 1 ? "day" : "days"} updated`, tree: tree.sha, parents: [parent] });
     try {
@@ -283,7 +289,7 @@ export async function sync(env: Env, history: Session[], packets: Packets, now =
     break;
   }
   write(env, SYNCED_KEY, Object.fromEntries(history.map((s) => [s.id, s.turns.length])));
-  return Object.keys(files).length;
+  return Object.keys(files).length + Object.keys(binaries).length;
 }
 
 const b64 = (text: string) => btoa(String.fromCharCode(...new TextEncoder().encode(text)));

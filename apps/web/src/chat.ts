@@ -119,7 +119,8 @@ export function withAttachments(messages: unknown[], files?: Attachment[]) {
       ? { type: "document", source: { type: "base64", media_type: f.type, data: f.data }, title: f.name }
       : { type: "image", source: { type: "base64", media_type: f.type, data: f.data } },
   );
-  last.content = [...blocks, { type: "text", text: String(last.content) }];
+  const text = String(last.content);
+  last.content = text.trim() ? [...blocks, { type: "text", text }] : blocks; // The API refuses an empty text block.
 }
 
 /**

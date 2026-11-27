@@ -1,7 +1,10 @@
 // The page: a texting-style chat, a settings dialog, and a sidebar for topics and your data.
 
 import type { Session } from "@long-con/core";
-import { MODELS, PROFILE, sendTurn } from "./chat.ts";
+import { attachedNote, dayLabel, MODELS, PROFILE, sendTurn, type Ask, type Attachment } from "./chat.ts";
+import * as Files from "./files.ts";
+import * as P from "./permissions.ts";
+import * as T from "./threads.ts";
 import * as Voice from "./voice.ts";
 import * as GH from "./github.ts";
 import { FILES_KEY, resetShell } from "./tools.ts";
@@ -22,6 +25,7 @@ const saveChat = () => {
   try {
     localStorage.setItem("long-con:history", JSON.stringify(history));
     localStorage.setItem("long-con:packets", JSON.stringify(packets));
+    localStorage.setItem("long-con:threads", JSON.stringify(threads));
   } catch {
     setStatus("Couldn't save to this browser's storage. Export your chat so nothing is lost.");
   }
@@ -44,6 +48,15 @@ const search = $<HTMLInputElement>("search");
 
 const history: Session[] = load("long-con:history", []);
 const packets: Packets = load("long-con:packets", {});
+const threads: T.Thread[] = load("long-con:threads", []);
+const perms: P.Permissions = { ...P.DEFAULT_PERMISSIONS, ...load<Partial<P.Permissions>>("long-con:permissions", {}) };
+const savePerms = () => localStorage.setItem("long-con:permissions", JSON.stringify(perms));
+const spendLog: P.Spend[] = load<P.Spend[]>("long-con:spend", []).filter((s) => Date.now() - s.at < 3_600_000);
+const spend = { log: spendLog, record: (s: P.Spend) => (spendLog.push(s), localStorage.setItem("long-con:spend", JSON.stringify(spendLog)), renderSpent()) };
+/** Attached files not in the GitHub repo yet, path → base64. shortcut: kept for this page only; a reload before a save leaves them out of the repo (they stay in this browser). */
+const unsavedFiles: Record<string, string> = {};
+/** The marker a saved turn carries for its files (see attachedNote). */
+const ATTACHED = /\n\n\[Attached: [^\]]*\]$/;
 const keyOf = (sessionId: string, turn: number) => `${sessionId}#${turn}`;
 
 // ---------- Settings ----------
@@ -57,6 +70,93 @@ const rawSelect = $<HTMLSelectElement>("raw-turns");
 for (let n = 0; n <= PROFILE.rawTurns; n++) rawSelect.append(new Option(n === PROFILE.rawTurns ? `${n} (default)` : String(n), String(n)));
 rawSelect.value = localStorage.getItem("long-con:raw-turns") ?? String(PROFILE.rawTurns);
 rawSelect.addEventListener("change", () => localStorage.setItem("long-con:raw-turns", rawSelect.value));
+
+// Permissions: a preset, per-tool and per-site overrides, and the hourly spending cap.
+const RULES: Record<P.Rule, string> = { allow: "Allow", ask: "Ask", deny: "Block" };
+const ruleSelect = (value: string, withDefault: boolean) => {
+  const sel = document.createElement("select");
+  if (withDefault) sel.add(new Option("Like the preset", ""));
+  for (const [v, label] of Object.entries(RULES)) sel.add(new Option(label, v));
+  sel.value = value;
+  return sel;
+};
+const presetSelect = $<HTMLSelectElement>("preset");
+for (const [v, label] of Object.entries(P.PRESETS)) presetSelect.add(new Option(label, v));
+presetSelect.value = perms.preset;
+presetSelect.addEventListener("change", () => ((perms.preset = presetSelect.value as P.Preset), savePerms()));
+const capInput = $<HTMLInputElement>("cap");
+capInput.value = String(perms.capPerHour);
+capInput.addEventListener("change", () => {
+  const v = Number(capInput.value);
+  if (Number.isFinite(v) && v >= 0) (perms.capPerHour = v), savePerms();
+  capInput.value = String(perms.capPerHour);
+  renderSpent();
+});
+function renderSpent() {
+  $("spent").textContent = `Spent in the last hour: $${P.spentLastHour(spendLog).toFixed(2)} of $${perms.capPerHour}. Turns stop at the cap, whatever the preset.`;
+}
+function renderRules() {
+  $("tool-rules").replaceChildren(...Object.entries(P.TOOL_NAMES).map(([tool, name]) => {
+    const row = el("label", "rule-row");
+    const sel = ruleSelect(perms.tools[tool] ?? "", true);
+    sel.addEventListener("change", () => {
+      if (sel.value) perms.tools[tool] = sel.value as P.Rule;
+      else delete perms.tools[tool];
+      savePerms();
+    });
+    row.append(el("span", "", name), sel);
+    return row;
+  }));
+  $("site-rules").replaceChildren(...Object.entries(perms.sites).map(([host, rule]) => {
+    const row = el("div", "rule-row");
+    const sel = ruleSelect(rule, false);
+    sel.setAttribute("aria-label", `Rule for ${host}`);
+    sel.addEventListener("change", () => ((perms.sites[host] = sel.value as P.Rule), savePerms()));
+    const del = btn("", "✕");
+    del.setAttribute("aria-label", `Remove ${host}`);
+    del.addEventListener("click", () => (delete perms.sites[host], savePerms(), renderRules()));
+    row.append(el("span", "", host), sel, del);
+    return row;
+  }));
+}
+const siteRuleSelect = $<HTMLSelectElement>("site-rule");
+for (const [v, label] of Object.entries(RULES)) siteRuleSelect.add(new Option(label, v));
+$("site-add").addEventListener("click", () => {
+  const field = $<HTMLInputElement>("site-host");
+  const host = P.siteOf(field.value.includes("://") ? field.value : `https://${field.value.trim()}`);
+  if (!host) return;
+  perms.sites[host] = siteRuleSelect.value as P.Rule;
+  field.value = "";
+  savePerms();
+  renderRules();
+});
+
+/** Shows an ask as a card in a chat log and waits for a tap. "Always" saves the rule, so it's not asked again. */
+const approver = (where: HTMLElement) => (ask: Ask) =>
+  new Promise<boolean>((resolve) => {
+    const row = el("div", "row assistant");
+    const card = el("div", "approval");
+    card.append(el("b", "", ask.label));
+    if (ask.detail) card.append(el("pre", "", ask.detail));
+    const acts = el("div", "acts");
+    const choose = (ok: boolean, always = false) => {
+      if (always) {
+        if (ask.site) perms.sites[ask.site] = "allow";
+        else perms.tools[ask.tool] = "allow";
+        savePerms();
+        renderRules();
+      }
+      acts.replaceWith(el("div", "done", ok ? (always ? `Allowed, and won't ask again for ${ask.site ?? P.TOOL_NAMES[ask.tool] ?? ask.tool}.` : "Allowed.") : "Not allowed."));
+      resolve(ok);
+    };
+    const yes = action("Allow", () => choose(true), true);
+    acts.append(yes, action(ask.site ? `Always allow ${ask.site}` : "Always allow", () => choose(true, true)), action("Don't", () => choose(false)));
+    card.append(acts);
+    row.append(card);
+    where.append(row);
+    where.scrollTop = where.scrollHeight;
+    yes.focus();
+  });
 $("show-key").addEventListener("click", (e) => {
   const show = keyInput.type === "password";
   keyInput.type = show ? "text" : "password";
@@ -208,7 +308,13 @@ function saveToGitHub(loud = false) {
   if (loud) renderGitHub("Saving…");
   ghQueue = ghQueue.then(async () => {
     try {
-      await GH.sync(ghEnv, history, packets);
+      const sending = { ...unsavedFiles };
+      // Side threads go up whole as one file whenever they've changed since the last save.
+      const threadsJson = JSON.stringify(threads, null, 2);
+      if (threads.length && threadsJson !== localStorage.getItem("long-con:threads-saved")) sending["threads.json"] = Files.toBase64(new TextEncoder().encode(threadsJson + "\n"));
+      await GH.sync(ghEnv, history, packets, new Date(), sending);
+      for (const k of Object.keys(sending)) delete unsavedFiles[k];
+      if (sending["threads.json"]) localStorage.setItem("long-con:threads-saved", threadsJson);
       ghSaved = new Date();
       renderGitHub();
     } catch (err) {
@@ -413,8 +519,9 @@ function addTurn(sessionId: string, turn: number, role: "user" | "assistant", co
   const row = el("div", `row ${role}`);
   row.dataset.key = keyOf(sessionId, turn);
   const bubble = el("div", `bubble last${animate ? "" : " still"}`);
-  bubble.append(richText(content));
+  bubble.append(richText(content.replace(ATTACHED, "")));
   row.append(bubble);
+  if (ATTACHED.test(content)) showSavedFiles(row, row.dataset.key);
   const packet = packets[keyOf(sessionId, role === "user" ? turn : turn - 1)];
   if (packet && role === "user") {
     row.append(...peek(`<path d="M21 16V8l-9-5-9 5v8l9 5 9-5zM3.3 7L12 12l8.7-5M12 22V12"/>`, GH.packetLabel(packet), packet.text || "Nothing older matched, so no packet went to the model, only today's latest turns and your message."));
@@ -424,8 +531,18 @@ function addTurn(sessionId: string, turn: number, role: "user" | "assistant", co
     const text = packet.steps.map((s) => (s.output === undefined ? s.label : `${s.label}\n${s.output}`)).join("\n\n");
     row.append(...peek(`<path d="M4 17l6-5-6-5M12 19h8"/>`, `${n} tool ${n === 1 ? "call" : "calls"}`, text));
   }
+  const branches = threads.filter((t) => t.parent === row.dataset.key && t.turns.length);
+  for (const t of branches) {
+    const chip = btn("replies", `${t.turns.length / 2} ${t.turns.length === 2 ? "reply" : "replies"} · ${t.title}`);
+    chip.addEventListener("click", () => showThread(t));
+    row.append(chip);
+  }
   log.append(row);
   lastRow = row;
+  for (const t of threads.filter((t) => t.wrap && t.after === row.dataset.key)) {
+    log.append(recordCard(t));
+    lastRow = null;
+  }
 }
 
 /** A small chip under a bubble that opens a monospace box. */
@@ -478,7 +595,7 @@ function showTyping(on: boolean) {
 const sync = () => {
   input.style.height = "auto";
   input.style.height = `${input.scrollHeight}px`;
-  send.disabled = busy || !input.value.trim();
+  send.disabled = busy || (!input.value.trim() && !mainFiles.files.length);
 };
 let busy = false;
 input.addEventListener("input", sync);
@@ -497,7 +614,8 @@ form.addEventListener("submit", (event) => {
 
 /** Sends one message and shows the reply. Returns the reply, or null when nothing was sent or it failed. */
 async function ask(message: string, voice = false): Promise<string | null> {
-  if (!message || busy) return null;
+  const files = voice ? [] : mainFiles.files.slice();
+  if ((!message && !files.length) || busy) return null;
   const apiKey = keyInput.value.trim();
   if (!apiKey) {
     setStatus("Add your Anthropic API key in Settings first.");
@@ -509,21 +627,30 @@ async function ask(message: string, voice = false): Promise<string | null> {
   input.value = "";
   sync();
   // The message shows right away like a sent text; it's only saved once the reply is back.
+  mainFiles.clear();
   const pending = el("div", "row user pending");
-  pending.append(el("div", "bubble last", message));
+  pending.append(el("div", "bubble last", message || "(attached)"));
+  if (files.length) pending.append(fileStrip(files));
   log.querySelector(".empty")?.remove();
   log.append(pending);
   showTyping(true);
   try {
     const onStep = (label: string) => (presence.textContent = label.length > 40 ? label.slice(0, 39) + "…" : label);
     const model = modelSelect.value;
-    const result = await sendTurn(history, message, { apiKey, model, voice, rawTurns: Number(rawSelect.value), onStep });
+    const today = dayLabel(new Date());
+    const result = await sendTurn(history, message, {
+      apiKey, model, voice, rawTurns: Number(rawSelect.value), onStep,
+      permissions: perms, approve: approver(log), spend,
+      extraSessions: T.threadSessions(threads), note: T.threadsNote(threads, today),
+      attachments: files,
+    });
+    if (files.length) await keepFiles(keyOf(result.sessionId, result.turn), files, result.sessionId, result.turn);
     packets[keyOf(result.sessionId, result.turn)] = { text: result.packet, tokens: result.packetTokens, model, raw: result.rawTurns, ...(result.steps.length ? { steps: result.steps } : {}) };
     saveChat();
     if (!voice) saveToGitHub(); // A call saves once the reply has been spoken.
     pending.remove();
     showTyping(false);
-    addTurn(result.sessionId, result.turn, "user", message, false);
+    addTurn(result.sessionId, result.turn, "user", message + attachedNote(files), false);
     addTurn(result.sessionId, result.turn + 1, "assistant", result.answer, true);
     log.scrollTop = log.scrollHeight;
     if (app.classList.contains("side-open")) renderSidebar();
@@ -531,14 +658,233 @@ async function ask(message: string, voice = false): Promise<string | null> {
   } catch (err) {
     pending.remove();
     showTyping(false);
-    // Put the message back so nothing is lost.
+    // Put the message and its files back so nothing is lost.
     input.value = message;
+    mainFiles.restore(files);
     setStatus(err instanceof Error ? err.message : String(err));
     return null;
   } finally {
     busy = false;
     sync();
   }
+}
+
+// ---------- Attachments ----------
+
+/** Thumbnails for images, a name tile for PDFs. */
+function fileStrip(files: Attachment[]) {
+  const strip = el("div", "files");
+  for (const f of files) strip.append(fileTile(f));
+  return strip;
+}
+function fileTile(f: Attachment) {
+  if (f.type === "application/pdf") return el("div", "doc", `PDF\n${f.name}`);
+  const img = el("img", "thumb") as HTMLImageElement;
+  img.src = Files.dataUrl(f);
+  img.alt = f.name;
+  return img;
+}
+
+/** Keeps a message's files in this browser, and queues them for the GitHub repo. */
+async function keepFiles(key: string, files: Attachment[], sessionId: string, turn: number) {
+  await Files.saveFiles(key, files).catch(() => setStatus("Couldn't keep the files in this browser; they were still sent."));
+  for (const f of files) unsavedFiles[GH.attachmentPath(sessionId, turn, f.name)] = f.data;
+}
+
+/** A composer's "+" button, paste and tray. */
+function attacher(text: HTMLTextAreaElement, picker: HTMLInputElement, tray: HTMLElement, onChange: () => void, report: (msg: string) => void) {
+  const files: Attachment[] = [];
+  const render = () => {
+    tray.hidden = !files.length;
+    tray.replaceChildren(...files.map((f, i) => {
+      const box = el("div", "file");
+      const x = btn("", "✕");
+      x.setAttribute("aria-label", `Remove ${f.name}`);
+      x.addEventListener("click", () => (files.splice(i, 1), render()));
+      box.append(fileTile(f), x);
+      return box;
+    }));
+    onChange();
+  };
+  const add = async (list: Iterable<File>) => {
+    for (const file of list) {
+      try {
+        files.push(await Files.prepare(file));
+      } catch (err) {
+        report(errText(err));
+      }
+    }
+    render();
+  };
+  picker.addEventListener("change", () => {
+    void add([...(picker.files ?? [])]);
+    picker.value = "";
+  });
+  text.addEventListener("paste", (e) => {
+    const pasted = [...(e.clipboardData?.files ?? [])];
+    if (!pasted.length) return;
+    e.preventDefault();
+    void add(pasted);
+  });
+  return {
+    files,
+    clear: () => (files.splice(0), render()),
+    restore: (back: Attachment[]) => (files.splice(0, files.length, ...back), render()),
+  };
+}
+const mainFiles = attacher(input, $<HTMLInputElement>("files"), $("tray"), () => sync(), setStatus);
+
+/** Fills in a saved message's files once they're read back from IndexedDB. */
+function showSavedFiles(row: HTMLElement, key: string) {
+  Files.loadFiles(key).then((files) => files?.length && row.querySelector(".bubble")!.after(fileStrip(files)), () => {});
+}
+
+// ---------- Side threads ----------
+
+const threadPanel = $("thread");
+const threadLog = $("thread-log");
+const threadForm = $<HTMLFormElement>("thread-form");
+const threadInput = $<HTMLTextAreaElement>("thread-input");
+const threadSend = $<HTMLButtonElement>("thread-send");
+const threadWrap = $<HTMLButtonElement>("thread-wrap");
+const threadStatus = $("thread-status");
+const threadPresence = $("thread-presence");
+let openThread: T.Thread | null = null;
+let threadBusy = false;
+const threadFiles = attacher(threadInput, $<HTMLInputElement>("thread-files"), $("thread-tray"), () => threadSync(), (m) => (threadStatus.textContent = m));
+const threadSync = () => {
+  threadInput.style.height = "auto";
+  threadInput.style.height = `${threadInput.scrollHeight}px`;
+  threadSend.disabled = threadBusy || (!threadInput.value.trim() && !threadFiles.files.length);
+  threadWrap.disabled = threadBusy || !openThread?.turns.length;
+};
+threadInput.addEventListener("input", threadSync);
+threadInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && !event.shiftKey && !event.isComposing && !narrow.matches) {
+    event.preventDefault();
+    threadForm.requestSubmit();
+  }
+});
+const saveThreads = () => saveChat();
+
+function showThread(t: T.Thread) {
+  openThread = t;
+  threadPanel.hidden = false;
+  threadStatus.textContent = "";
+  threadPresence.textContent = t.wrap ? "wrapped up" : t.title || "off one message";
+  threadLog.replaceChildren();
+  const parent = el("div", "parent");
+  parent.append(el("b", "", t.parentRole === "user" ? "You said" : "Long Con said"), t.parentText);
+  threadLog.append(parent);
+  t.turns.forEach((turn, i) => addThreadTurn(t, i, false));
+  if (t.wrap) threadLog.append(recordCard(t, false));
+  threadLog.scrollTop = threadLog.scrollHeight;
+  threadSync();
+  threadInput.focus();
+}
+
+function addThreadTurn(t: T.Thread, i: number, animate: boolean) {
+  const turn = t.turns[i]!;
+  const row = el("div", `row ${turn.role}`);
+  const bubble = el("div", `bubble last${animate ? "" : " still"}`);
+  bubble.append(richText(turn.content.replace(ATTACHED, "")));
+  row.append(bubble);
+  if (ATTACHED.test(turn.content)) showSavedFiles(row, `${t.id}#${i}`);
+  const steps = turn.role === "assistant" ? t.steps?.[i - 1] : undefined;
+  if (steps?.length) row.append(...peek(`<path d="M4 17l6-5-6-5M12 19h8"/>`, `${steps.length} tool ${steps.length === 1 ? "call" : "calls"}`, steps.map((s) => (s.output === undefined ? s.label : `${s.label}\n${s.output}`)).join("\n\n")));
+  threadLog.append(row);
+}
+
+function closeThread() {
+  threadPanel.hidden = true;
+  openThread = null;
+}
+$("thread-close").addEventListener("click", closeThread);
+
+threadForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const t = openThread;
+  const message = threadInput.value.trim();
+  const files = threadFiles.files.slice();
+  if (!t || threadBusy || (!message && !files.length)) return;
+  const apiKey = keyInput.value.trim();
+  if (!apiKey) return settings.showModal();
+  threadBusy = true;
+  threadStatus.textContent = "";
+  threadInput.value = "";
+  threadFiles.clear();
+  threadSync();
+  const pending = el("div", "row user pending");
+  pending.append(el("div", "bubble last", message || "(attached)"));
+  if (files.length) pending.append(fileStrip(files));
+  threadLog.append(pending);
+  threadPresence.textContent = "typing…";
+  threadLog.scrollTop = threadLog.scrollHeight;
+  try {
+    const wasWrapped = !!t.wrap;
+    await T.sendThreadTurn(t, history, threads, message, {
+      apiKey, model: modelSelect.value, permissions: perms, approve: approver(threadLog), spend, attachments: files,
+      onStep: (label) => (threadPresence.textContent = label.length > 40 ? label.slice(0, 39) + "…" : label),
+    });
+    if (!threads.includes(t)) threads.push(t);
+    if (files.length) {
+      await Files.saveFiles(`${t.id}#${t.turns.length - 2}`, files).catch(() => {});
+      for (const f of files) unsavedFiles[`attachments/threads/${t.id}/${f.name.replace(/[^\w.-]+/g, "-")}`] = f.data;
+    }
+    saveThreads();
+    pending.remove();
+    if (wasWrapped) showThread(t);
+    else {
+      addThreadTurn(t, t.turns.length - 2, false);
+      addThreadTurn(t, t.turns.length - 1, true);
+    }
+    threadPresence.textContent = t.title;
+    threadLog.scrollTop = threadLog.scrollHeight;
+    renderLog();
+  } catch (err) {
+    pending.remove();
+    threadInput.value = message;
+    threadFiles.restore(files);
+    threadStatus.textContent = errText(err);
+    threadPresence.textContent = t.title || "off one message";
+  } finally {
+    threadBusy = false;
+    threadSync();
+  }
+});
+
+threadWrap.addEventListener("click", async () => {
+  const t = openThread;
+  if (!t?.turns.length || threadBusy) return;
+  const apiKey = keyInput.value.trim();
+  if (!apiKey) return settings.showModal();
+  threadBusy = true;
+  threadSync();
+  threadPresence.textContent = "wrapping up…";
+  try {
+    const last = history.at(-1);
+    const after = last?.turns.length ? keyOf(last.id, last.turns.length - 1) : t.parent;
+    await T.wrapUp(t, after, { apiKey, model: modelSelect.value, permissions: perms, spend });
+    saveThreads();
+    renderLog();
+    showThread(t);
+    saveToGitHub();
+  } catch (err) {
+    threadStatus.textContent = errText(err);
+    threadPresence.textContent = t.title;
+  } finally {
+    threadBusy = false;
+    threadSync();
+  }
+});
+
+/** The record a wrapped thread leaves in the main chat; a tap opens the thread. */
+function recordCard(t: T.Thread, opens = true) {
+  const card = btn("record");
+  card.append(el("b", "", `Side thread wrapped up: ${t.title}`), t.wrap ?? "");
+  if (opens) card.addEventListener("click", () => showThread(t));
+  else card.disabled = true;
+  return card;
 }
 
 // Voice calls: tap the mic to start, tap again to hang up. Talking over a reply stops it.
@@ -563,9 +909,11 @@ const reader = $("reader");
 const readerState = $("reader-state");
 const readerPause = $<HTMLButtonElement>("reader-pause");
 let menuText = "";
+let menuRow: HTMLElement | null = null;
 let reading: Voice.Reader | null = null;
 function openMenu(bubble: HTMLElement, x: number, y: number) {
   menuText = bubble.innerText;
+  menuRow = bubble.closest<HTMLElement>(".row");
   menu.hidden = false;
   menu.style.left = `${Math.max(8, Math.min(x, innerWidth - menu.offsetWidth - 8))}px`;
   menu.style.top = `${Math.max(8, Math.min(y, innerHeight - menu.offsetHeight - 8))}px`;
@@ -594,6 +942,11 @@ log.addEventListener("scroll", closeMenu);
 menu.addEventListener("click", (e) => {
   const act = (e.target as HTMLElement).closest<HTMLElement>("[data-act]")?.dataset.act;
   closeMenu();
+  if (act === "branch" && menuRow?.dataset.key) {
+    const key = menuRow.dataset.key;
+    // Opens an existing open branch off this message, or starts a new one (kept once its first reply is back).
+    showThread(threads.find((t) => t.parent === key && !t.wrap) ?? T.newThread(key, menuRow.classList.contains("user") ? "user" : "assistant", menuText));
+  }
   if (act === "copy") void navigator.clipboard.writeText(menuText);
   if (act === "read") {
     if (hangUp) endCall();
@@ -640,6 +993,8 @@ callButton.addEventListener("click", () => {
   });
 });
 
+renderRules();
+renderSpent();
 renderLog();
 renderGitHub();
 if (GH.signedIn(ghEnv) && !GH.savedRepo(ghEnv)) setUpRepo();

@@ -28,6 +28,7 @@ function fakeGitHub(opts: { empty?: boolean; conflictOnce?: boolean; publicRepo?
     if (p === "/repos/KealJones/chats/git/ref/heads/main") return empty ? json({ message: "Git Repository is empty." }, 409) : json({ object: { sha: "c1" } });
     if (p === "/repos/KealJones/chats/contents/.long-con.json") return (empty = false), json({}, 201);
     if (p === "/repos/KealJones/chats/git/commits/c1") return json({ tree: { sha: "t1" } });
+    if (p === "/repos/KealJones/chats/git/blobs") return json({ sha: "b1" }, 201);
     if (p === "/repos/KealJones/chats/git/trees") return json({ sha: "t2" }, 201);
     if (p === "/repos/KealJones/chats/git/commits") return json({ sha: "c2" }, 201);
     if (p === "/repos/KealJones/chats/git/refs/heads/main") return conflict ? ((conflict = false), json({ message: "Update is not a fast forward" }, 422)) : json({});
@@ -114,4 +115,17 @@ test("finds a chats repo that already has the marker, else one named like long-c
   assert.equal(await run(null), "KealJones/long-con-chats");
   repos.pop();
   assert.equal(await run(null), null);
+});
+
+test("attachments go up as blobs next to their day, even when no text changed", async () => {
+  const gh = fakeGitHub();
+  const env = { store: memStore(), fetch: gh.fetch };
+  env.store.setItem(GH.AUTH_KEY, JSON.stringify({ access_token: "tok" }));
+  await GH.useRepo(env, "KealJones/chats");
+  await GH.sync(env, history(), packets);
+  const path = GH.attachmentPath(day, 0, "my cat.jpg");
+  assert.equal(path, "attachments/2026-11-27/001-my-cat.jpg");
+  assert.equal(await GH.sync(env, history(), packets, new Date(), { [path]: "AAA" }), 1);
+  assert.deepEqual(gh.calls.find((c) => c.url.endsWith("/git/blobs"))!.body, { content: "AAA", encoding: "base64" });
+  assert.deepEqual(gh.calls.filter((c) => c.url.endsWith("/git/trees")).at(-1)!.body.tree, [{ path, mode: "100644", type: "blob", sha: "b1" }]);
 });
