@@ -8,7 +8,7 @@ import { resolve, type Resolution } from "./resolver.ts";
 import { segmentKey, splitIntoSegments, type KeyDenoise, type Segment } from "./segments.ts";
 import { extractNotes, groupNotes, groupWords, renderGroup, type Note } from "./notes.ts";
 import type { PointerPick, Profile } from "./profiles.ts";
-import { isTallyQuestion, SEG_GATE, tallySearch } from "./tally.ts";
+import { isTallyQuestion, rankTallyPieces, SEG_GATE, tallySearch } from "./tally.ts";
 import { unitProbability } from "./gate.ts";
 import { contentWords, estimateTokens, type Stemmer } from "./text.ts";
 import { lookupSymbols, type SymbolIndex, type SymbolItem } from "./symbols.ts";
@@ -148,7 +148,7 @@ export function buildPacket({ history, message, profile, currentSessionId, code,
     const ranked: { hit: Hit<Segment>; confidence: number; features?: number[] }[] = !found
       ? []
       : tally
-        ? tallySearch(history, resolution.query, current?.id, recentStart, hits, profile.unitWeights, profile.stemmer).slice(0, profile.tallyPieces)
+        ? tallyRank(tallySearch(history, resolution.query, current?.id, recentStart, hits, profile.unitWeights, profile.stemmer), sim, profile).slice(0, profile.tallyPieces)
         : hits;
     // A tally piece is judged by the best unit-gate probability of a segment holding its turn (or by an eval's logistic).
     const gate = tally ? profile.tallyGate : profile.unitGate;
@@ -226,6 +226,12 @@ export function buildPacket({ history, message, profile, currentSessionId, code,
     code: symbols?.items ?? [],
   };
 }
+
+/** Tally pieces re-ranked, floored or counted by cosine (profile.tallyMix / tallyFloor / tallyBar) when there is one. */
+const tallyRank = <T extends { hit: Hit<Segment> }>(pieces: T[], sim: ((s: Segment) => number) | undefined, p: Profile) =>
+  sim && (p.tallyMix || p.tallyFloor !== undefined || p.tallyBar !== undefined)
+    ? rankTallyPieces(pieces, (x) => sim(x.hit.item), { mix: p.tallyMix, floor: p.tallyFloor, bar: p.tallyBar })
+    : pieces;
 
 /**
  * Which medium units become pointers (the rest drop): the first `cap` by search rank, by gate probability, by the

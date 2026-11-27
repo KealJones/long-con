@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buildPacket, PROFILES, searchUnits, type Session } from "../src/index.ts";
-import { isTallyQuestion, TALLY_FEATURES, tallySearch } from "../src/tally.ts";
+import { isTallyQuestion, rankTallyPieces, TALLY_FEATURES, tallySearch } from "../src/tally.ts";
 import { filler } from "./fixtures.ts";
 
 test("counting and aggregation questions are told apart from spans, ages and plain lookups", () => {
@@ -91,4 +91,13 @@ test("counting words in the question don't pull in turns that only share them", 
     const packet = buildPacket({ history, message: "what is the total number of concerts I went to", profile });
     assert.ok(!packet.text.includes("apples"), `${profile.name} keeps the word problem out of the packet`);
   }
+});
+
+test("tally pieces re-rank, floor and count by cosine", () => {
+  const cos: Record<string, number> = { a: 0.2, b: 0.6, c: 0.4 };
+  const sim = (p: string) => cos[p]!;
+  assert.deepEqual(rankTallyPieces(["a", "b", "c"], sim, {}), ["a", "b", "c"], "mix 0 keeps BM25 order");
+  assert.deepEqual(rankTallyPieces(["a", "b", "c"], sim, { mix: 1 }), ["b", "c", "a"], "mix 1 orders by cosine");
+  assert.deepEqual(rankTallyPieces(["a", "b", "c"], sim, { floor: 0.3 }), ["b", "c"]);
+  assert.deepEqual(rankTallyPieces(["a", "b", "c"], sim, { bar: 0.5 }), ["a"], "one clears the bar, so the top one by BM25 comes in");
 });

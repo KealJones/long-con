@@ -123,3 +123,17 @@ export function tallySearch(
   }
   return out;
 }
+
+/**
+ * Tally pieces by cosine (needs an embedder): `mix` 0 keeps BM25 order, 1 orders by the piece's cosine to the message,
+ * between them by the weighted sum of the two places. `floor` drops pieces under that cosine; `bar` keeps only as many
+ * pieces (in the new order) as clear that cosine. Order matters only when the budget runs out before the pieces do.
+ */
+export function rankTallyPieces<T>(pieces: readonly T[], sim: (p: T) => number, { mix = 0, floor, bar }: { mix?: number; floor?: number; bar?: number }): T[] {
+  const cos = pieces.map(sim);
+  const byCos = new Map([...pieces.keys()].sort((a, b) => cos[b]! - cos[a]! || a - b).map((i, place) => [i, place]));
+  const order = [...pieces.keys()].sort((a, b) => (1 - mix) * a + mix * byCos.get(a)! - ((1 - mix) * b + mix * byCos.get(b)!) || a - b);
+  const kept = order.filter((i) => floor === undefined || cos[i]! >= floor);
+  const n = bar === undefined ? kept.length : cos.filter((c) => c >= bar).length;
+  return kept.slice(0, n).map((i) => pieces[i]!);
+}

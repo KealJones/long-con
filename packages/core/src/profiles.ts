@@ -55,6 +55,12 @@ export interface Profile {
    * so counting questions face the same bar as whole segments. 0 turns it off.
    */
   tallyGate: number;
+  /** Tally pieces ordered by BM25 place (0 or absent) or cosine place (1), or a weighted mix, for the budget. Needs `embed`. */
+  tallyMix?: number;
+  /** A tally piece whose cosine to the message is under this stays out (on top of embedFloor). Absent: off. Needs `embed`. */
+  tallyFloor?: number;
+  /** Only as many tally pieces as clear this cosine come in, in tallyMix order. Absent: off. Needs `embed`. */
+  tallyBar?: number;
   /** Evals only: judge pieces by a logistic over all of TALLY_FEATURES with these weights instead (fit-tally-gate.ts). */
   tallyWeights?: readonly number[];
   /**
@@ -178,6 +184,12 @@ export const PROFILES = {
     // fewer tokens and fewer false inclusions (fit-tally-gate.ts sweep).
     tallyPieces: Infinity,
     tallyGate: 0.01,
+    // Tally cosine (evals/loop/tally-cosine.ts dev sweep): only as many pieces come in as clear cosine 0.35. Every recall
+    // row holds with a few fewer pieces on should-be-empty counting prompts (tier 2 FI 0.98 -> 0.88); 0.45 loses a turn,
+    // so the bar sits two steps back, fit in-sample on dev. Re-ranking by cosine (tallyMix) changes nothing on either
+    // profile: counting packets never fill their budget. Claude stays off: its tally floor holds at 0.25 but 0.3 loses a
+    // multi-session question (grouped CV loses it too), and a bar of 0.3 already loses two.
+    tallyBar: 0.35,
     noteCoverage: 0.5,
     recentAnswers: 1,
     gate: true,
