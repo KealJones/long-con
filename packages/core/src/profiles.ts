@@ -86,7 +86,8 @@ export const PROFILES = {
     // Highest unit-gate threshold with no all-evidence loss in leave-one-type-out CV; 0.004 loses one question for half the FI (P03 sweep).
     unitGate: 0.002,
     // P15 sweep on dev: units under 0.004 shrink to pointers, at most 3 (one per search round); whole all-evidence loses
-    // a question, but every question stays readable through its pointers, with 12% fewer tokens and less FI on every tier.
+    // a question, but every question stays readable through its pointers, with 12% fewer tokens. The FI cut on every tier
+    // comes from the cap dropping medium units; with no cap FI matches the unit gate alone.
     pointerGate: 0.004,
     maxPointers: 3,
     // Porter matched more wrong units at every bar that kept recall (P17 sweep), so claude keeps the suffix stripper.
