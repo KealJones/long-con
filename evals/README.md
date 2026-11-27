@@ -106,6 +106,7 @@ Rules that keep the numbers honest:
 
 ```
 evals/scripts/fetch-longmemeval.sh                        # LongMemEval_S, about 265 MB, checked by sha256
+evals/scripts/fetch-embedders.sh                          # potion-base-8M and potion-retrieval-32M (model2vec, MIT), about 155 MB, checked by sha256
 npm run cli -- eval recall                                # free: is the evidence in the packet? Every profile
 npm run cli -- eval estimate --profile small-local        # free: what a real run would cost
 npm run cli -- eval run --limit 12 --no-tools --arms packet,bare   # on a Claude plan, through subagents
