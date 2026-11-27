@@ -4,7 +4,7 @@ One entry per idea tried by the hourly packet R&D loop. Newest run first. Number
 
 ## Run 12: 2026-11-26, 10:17 PM Arizona (ran through the 11:18 wake)
 
-Main went 28ce118 → this entry. A grouped-CV check of the embedding veto's floor and the dense retrieval channel (P10/P11, from run 11) get their own entries when their agents finish.
+Main went 28ce118 → this entry. The dense retrieval channel (P10/P11, started in run 11) finished here. A grouped-CV check of the embedding veto's floor gets its own entry when its agent finishes.
 
 ### Pointer floor and cap (P15 follow-up, claude): kept
 
@@ -15,6 +15,14 @@ Main went 28ce118 → this entry. A grouped-CV check of the embedding veto's flo
 - **Numbers (claude, dev):** whole / pointers / readable 78.7 / 80.9 / 80.9% unchanged, turns 86.5% (87.6% with pointers) unchanged; tokens 3,567 → 3,561; FI t1 5.15 (1,260) → 4.55 (1,238), t1t 3.24 (797) → 2.97 (787), t2 7.72 (1,860) → 7.26 (1,843), t3 6.11 (1,330) → 5.70 (1,316); whole-unit FI unchanged, the cut is all pointers (t1 1.08 → 0.48); empty t1 48.0 → 49.3%; precision 12.8 → 13.0%. small-local packets byte-identical (pointers off); a pointer tier there at cap 1-2 still loses at least two questions whole and readable, so it stays off.
 - **Review (fresh Opus 5.5):** valid with notes. No labels reach the builder; readable and pointers-as-found count the capped, floored pointers correctly; empty-rate unchanged. Notes: a far medium unit shorter than its pointer line now drops instead of staying whole (comment updated); with the model files missing the floor turns off silently; the floor and cap are fit in-sample and readable recall rests on one question, so this is a tuning number until a held-out run.
 - **Next ideas:** fit the pointer floor together with the gate instead of a separate threshold; a reader run to see whether models open pointers at all.
+
+### P10/P11. Dense channel with its own floor (static embedders): not kept
+
+- **Sources:** [potion-retrieval-32M model card](https://huggingface.co/minishlab/potion-retrieval-32M), [@yaks/model2vec](https://jsr.io/@yaks/model2vec), arXiv 2603.16171.
+- **Tried:** `packages/core/src/dense.ts`: units over a cosine floor (best turn, or one vector per unit as the control) fused as a third weighted RRF ranking; a unit gets in on cosine alone only when the lexical side already let one in, so it never fills an empty packet. `dense.tally` adds whole units after the tally pieces on counting questions. potion-base-8M (main's embedder) and potion-retrieval-32M; floors 0.45-0.7; RRF weight 1 and 3. Measured over main 4bf8b2b with the veto on.
+- **Numbers:** claude at 0.55 changes nothing but tokens (3,561 → 3,602); with tally, 80.9 / 83.0 / 83.0% (+1 multi-session question) at 3,875 tokens (+9%) with t1 4.55 → 4.56 and t3 5.70 → 5.74, and floors 0.5 and 0.6 both lose that question. small-local loses 1-2 questions under 0.65 (61.7% at 0.55, 63.8% at 0.6) and matches baseline at 0.65. Empty rates and answerable-empty unchanged on both. Grouped 5-fold CV picks the baseline in every fold on both profiles.
+- **Why not kept:** no clean recall on either profile. The evidence missing from empty lexical packets scores cosine 0.20-0.25 against about 0.6 for the top 0.1% of other messages, so no dense-only floor can reach it; on small-local a cosine-ranked unit takes the 2.5K budget ahead of lexical evidence. Speed is no obstacle (8M: 0.16-0.32 ms a message, about 0.1 s for a cold dev haystack). Branch `loop/p10-dense-channel` (c88cb20, off in every profile); the pre-rebase arms with a separate port are on `loop/p10-pre-rebase`.
+- **Next ideas:** cosine to rank inside tally mode, not to add units; dense hits in the search_history tool, where an abstaining packet doesn't apply.
 
 ## Run 11: 2026-11-26, 8:17 PM Arizona (ran through the 9:17 wake)
 

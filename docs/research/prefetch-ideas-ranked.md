@@ -30,8 +30,8 @@ Score = expected gain × confidence ÷ cost, roughly. Measurement and safety ite
 | 7 | P07 | Event-date index and time-range boost | Both | Low | dropped (run 4) |
 | 8 | P08 | Rule PRF plus entity second hop | Both | Low | dropped |
 | 9 | P09 | Preference spans with category keys | small-local | Low | folded into P31 |
-| 10 | P10 | Message-level dense channel with its own floor | Both | Medium | open |
-| 11 | P11 | Static embedder for small-local | small-local | Low | open |
+| 10 | P10 | Message-level dense channel with its own floor | Both | Medium | not kept (run 12) |
+| 11 | P11 | Static embedder for small-local | small-local | Low | dense channel not kept (run 12); the embedder ships as the veto (run 11) |
 | 12 | P12 | URL to file with a line range | Both | Medium | dropped (retry with real pages) |
 | 13 | P13 | Identifier-exact `path:line` from a symbol index | Both | Medium | kept, wired as an optional source (run 6) |
 | 14 | P14 | Work-saved paired eval | Both (measurement) | Medium | open |
