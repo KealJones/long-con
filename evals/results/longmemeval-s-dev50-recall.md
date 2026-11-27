@@ -10,6 +10,7 @@ These are tuning numbers, not results: the segment cap and the cutoff were picke
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | claude | 8,000 | 92.1% | 86.5% | 78.7% | 66.0% to 89.4% | 3,949 | 7,978 |
 | claude: pointers as found | | | 87.6% | 80.9% | | | |
+| claude: readable (pointers open in 3 searches) | | | | 80.9% | | | |
 | claude: plain BM25 top-k | 8,000 | 93.0% | 85.1% | 76.6% | 63.8% to 87.2% | 7,886 | 8,000 |
 | small-local | 2,500 | 77.8% | 72.2% | 66.0% | 53.2% to 78.7% | 1,425 | 2,497 |
 | small-local: plain BM25 top-k | 2,500 | 85.9% | 72.5% | 59.6% | 44.7% to 72.3% | 2,476 | 2,499 |

@@ -3,7 +3,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Session } from "@long-con/core";
 import type { Question } from "../src/longmemeval.ts";
-import { packetRecall } from "../src/recall.ts";
+import { searchUnits } from "@long-con/core";
+import { packetRecall, readableRecall } from "../src/recall.ts";
 
 const chat = (id: string, contents: string[]): Session => ({ id, turns: contents.map((content, i) => ({ role: i % 2 ? ("assistant" as const) : ("user" as const), content })) });
 const s1 = chat("chat-1", ["hi", "hello", "what's new?", "not much", "my sister is moving to Denver", "Exciting!"]);
@@ -50,4 +51,19 @@ test("a pointer to an evidence turn counts as found, needs a read, and only in t
   assert.equal(r.complete, false);
   assert.equal(r.turnRecallWithPointers, 1);
   assert.equal(r.completeWithPointers, true);
+});
+
+test("readable recall: a pointer counts only if its query brings its unit back and the pointers fit the search rounds (P15)", () => {
+  const search = { segmentTokens: 400, stemmer: "suffix" as const, gateKey: "" as const, searchResults: 1, maxToolRounds: 1 };
+  const unit = searchUnits(q.sessions, "sister denver", 400).hits[0]!.hit.item;
+  assert.equal(unit.sessionId, "chat-1");
+  const pointer = (query: string, sessionId = unit.sessionId, start = unit.start, end = unit.end) => ({ sessionId, start, end, confidence: 0.5, why: "", query });
+  const half = packet([[s2, 0, 1]]);
+  assert.equal(readableRecall(q, { ...packet([[s1, 4, 5], [s2, 0, 1]]), pointers: [] }, search), true, "all whole needs no search");
+  assert.equal(readableRecall(q, { ...half, pointers: [pointer("sister denver")] }, search), true);
+  assert.equal(readableRecall(q, { ...half, pointers: [pointer("June job luck")] }, search), false, "the query brings back the other chat");
+  assert.equal(readableRecall(q, { ...half, pointers: [] }, search), false, "no pointer to the missing turn");
+  const none = { segments: [], text: "", pointers: [pointer("sister denver"), pointer("June job luck", "chat-2", 0, 1)] };
+  assert.equal(readableRecall(q, none, search), false, "two pointers, one search round");
+  assert.equal(readableRecall(q, none, { ...search, maxToolRounds: 2 }), true);
 });
