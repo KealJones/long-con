@@ -60,6 +60,8 @@ export interface Profile {
   embedSim?: "segment" | "maxsim";
   /** Embedding veto: a unit the gate kept stays out when its cosine to the message is under this. 0 or absent: off. */
   embedFloor?: number;
+  /** Query-relative veto: a gate-kept unit also stays out when its cosine is under this share of the best gate-kept unit's. 0 or absent: off. */
+  embedRatio?: number;
   /** How many of the model's own latest answers in this chat go in the registers. */
   recentAnswers: number;
   /** Whether a per-turn gate can skip retrieval for messages that need none, like "thanks". */

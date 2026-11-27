@@ -25,13 +25,13 @@ const SIMS = ["segment", "maxsim"] as const;
 const SHOULD_BE_EMPTY: TierName[] = ["tier1-off-history", "tier1t-time-phrases", "tier2-cross-history", "tier3-evidence-ablated"];
 
 /** The question a probe's fold follows (as in fit-gate.ts): the asked question, or the history's for an off-history prompt. */
-function probeQuestion(p: Probe): string {
+export function probeQuestion(p: Probe): string {
   if (p.tier === "tier1-off-history" || p.tier === "tier1t-time-phrases") return p.id.slice(p.id.lastIndexOf("@") + 1);
   if (p.tier === "tier2-cross-history") return p.id.slice(0, p.id.lastIndexOf("@"));
   return p.id;
 }
 
-function load() {
+export function load() {
   const dev = devQuestions(loadLongMemEval(DATA));
   const probes = buildProbes(dev, loadTier1(), { timePrompts: loadTier1(TIER1_TIME) }).filter((p) => p.tier !== "tier4-abstention");
   return { dev, probes, typeOf: new Map(dev.map((q) => [q.id, q.type])) };

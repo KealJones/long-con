@@ -15,6 +15,21 @@ test("the embedding veto drops a unit the gate kept when its cosine to the messa
   assert.equal(buildPacket({ history: history("my sister priya moves to denver in may"), message, profile: { ...profile, embedFloor: 0 }, embed }).segments.length, 1);
 });
 
+test("embedRatio drops a gate-kept unit whose cosine is under that share of the best kept unit's", () => {
+  const message = "when does priya move to denver";
+  const history = [
+    { id: "s", date: "2026/03/06", turns: [{ role: "user" as const, content: "priya moves to denver in april" }] },
+    { id: "t", date: "2026/03/07", turns: [{ role: "user" as const, content: "priya said denver in may maybe" }] },
+  ];
+  // April points the message's way (cosine 1); may sits at 0.6.
+  const embed = (t: string) => new Float32Array(t.includes("april") || t === message ? [1, 0] : t.includes("may") ? [0.6, 0.8] : [0, 1]);
+  const profile = { ...PROFILES.claude, unitGate: 0, pointerGate: 0, embedSim: "maxsim" as const, embedFloor: 0.1 };
+  const ids = (embedRatio: number) => buildPacket({ history, message, profile: { ...profile, embedRatio }, embed }).segments.map((s) => s.sessionId).sort();
+  assert.deepEqual(ids(0), ["s", "t"]);
+  assert.deepEqual(ids(0.5), ["s", "t"]);
+  assert.deepEqual(ids(0.7), ["s"]);
+});
+
 const vocab = { "[UNK]": 0, hello: 1, world: 2, play: 3, "##ing": 4, ",": 5, cafe: 6 };
 const tokenizer = { normalizer: { type: "BertNormalizer", lowercase: true, strip_accents: null }, model: { type: "WordPiece", vocab, unk_token: "[UNK]" } };
 

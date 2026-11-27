@@ -154,12 +154,16 @@ export function buildPacket({ history, message, profile, currentSessionId, code,
     const gate = tally ? profile.tallyGate : profile.unitGate;
     const probability = (f: number[]) =>
       !tally ? unitProbability(f, profile.unitWeights) : profile.tallyWeights ? unitProbability(f, profile.tallyWeights) : f[SEG_GATE]!;
+    const passes = (r: (typeof ranked)[number]) => r.confidence >= profile.minConfidence && (r.features && gate > 0 ? probability(r.features) : 1) >= gate;
+    // The veto's floor, raised to embedRatio of the best cosine among the units the gate keeps when that is set.
+    const ratio = sim ? (profile.embedRatio ?? 0) : 0;
+    const floor = Math.max(profile.embedFloor ?? 0, ratio > 0 ? ratio * Math.max(0, ...ranked.filter(passes).map((r) => sim!(r.hit.item))) : 0);
     for (const { hit, confidence, features } of ranked) {
       // The budget is a ceiling, not a target: weak matches stay out even when there's room.
       if (confidence < profile.minConfidence) continue;
       const p = features && gate > 0 ? probability(features) : 1;
       if (p < gate) continue;
-      if (sim && (profile.embedFloor ?? 0) > 0 && sim(hit.item) < profile.embedFloor!) continue;
+      if (sim && floor > 0 && sim(hit.item) < floor) continue;
       // The same exchange saved twice only needs to come in once.
       const text = hit.item.turns.map((t) => t.content).join("\n");
       if (seen.has(text)) continue;
