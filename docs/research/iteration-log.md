@@ -2,6 +2,22 @@
 
 One entry per idea tried by the hourly packet R&D loop. Newest run first. Numbers are dev unless marked held-out. Backlog: [prefetch-ideas-ranked.md](prefetch-ideas-ranked.md).
 
+## Run 13: 2026-11-27, 1:17 AM Arizona
+
+Main went c806fb3 → this entry. An embedding re-rank inside tally mode and the veto-floor CV check (run 12) get their own entries when their agents finish.
+
+### Search tool marks hits with the packet's embedding veto (shared search): kept
+
+- **Sources:** the recorded design decision that the packet and the search_history tool share one search, with the packet abstaining and the tool marking weak hits low confidence; [Bruch et al. 2022](https://arxiv.org/abs/2210.11934) for the convex-fusion re-rank arm.
+- **Tried:** `searchHistory` takes the optional embedder; a shared `markResults` marks a hit low confidence when its best-turn cosine is under the profile's `embedFloor`, the packet veto's own floor. Arms: (a) that mark; (b) re-ranking the tool's top 10 or 20 by a mix of BM25 rank and cosine (0.25 / 0.5 / 0.75); (c) a separate tool floor, swept 0-0.3. New free metric `evals/loop/search-tool.ts`: one search per dev question (plus each pointer query on claude), scoring evidence in the top hits, evidence marked strong or wrongly low, non-evidence marked strong, and strong hits per should-be-empty prompt. Reader arms and the reader-input estimate pass the embedder. buildPacket untouched; empty-rate output byte-identical.
+- **Numbers (dev, floor 0 → the packet's floor):**
+  - claude (top 3): evidence in top hits 85.1% and marked strong 85.1%, unchanged; evidence wrongly low 0/57 both; strong hits per prompt t1 / t1t / t2 / t3 1.60 / 0.81 / 1.66 / 1.40 → 1.05 / 0.53 / 1.50 / 1.30; prompts with every hit marked low 46.1 / 72.8 / 44.0 / 53.2 → 52.4 / 76.5 / 46.0 / 53.2%; pointer queries open their evidence 1/1, false strong per query 1.87 → 1.80.
+  - small-local (top 1): evidence in top hits 68.1%, marked strong 59.6%, unchanged; wrongly low 4/32 both (already there); strong per prompt 0.24 / 0.04 / 0.28 / 0.23 → 0.16 / 0.03 / 0.26 / 0.19; all-low 75.5 / 96.5 / 72.0 / 76.6 → 84.1 / 97.5 / 74.0 / 80.9%.
+  - Sweep: the first evidence hit goes wrongly low at 0.3 on both profiles; claude 0.25 holds and cuts more (t1 0.78) but is one step from that edge, so the tool keeps the packet's floor. The re-rank only lost (claude evidence found 85.1 → 83.0%, small-local 68.1 → 59.6%) and isn't in the commit.
+- **Review (fresh Opus 5.5):** valid with notes. The metric and the tool share `markResults`; floor 0 reproduces the old marking; labels are used only for scoring; dev only. Notes: with the model files missing, reader runs fall back to the old marking with only a warning while the metric throws; a long evidence turn split into parts counts each part as evidence (shared with existing metrics, fair before and after).
+- **Kept:** branch `loop/search-tool-embed`, merged. apps/web's tool isn't wired yet.
+- **Next ideas:** a fitted gate probability as the tool's strong/low cut; a reader run to see whether the marks change answers.
+
 ## Run 12: 2026-11-26, 10:17 PM Arizona (ran through the 11:18 wake)
 
 Main went 28ce118 → this entry. The dense retrieval channel (P10/P11, started in run 11) finished here. A grouped-CV check of the embedding veto's floor gets its own entry when its agent finishes.
