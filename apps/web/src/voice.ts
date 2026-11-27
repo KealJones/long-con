@@ -63,7 +63,7 @@ export let voiceError = "";
 
 // Tilde (a WebGPU engine built for iPhone Safari) runs Kokoro-82M on the GPU, ~4x faster than real time on an iPhone 16 Pro.
 // kokoro-js crashed Safari's GPU there and was slower than real time on WebAssembly.
-const TILDE = "https://cdn.jsdelivr.net/gh/KealJones/tilde@ab7fe77/src/index.js";
+const TILDE = "https://cdn.jsdelivr.net/gh/KealJones/tilde@v0.2.0/src/index.js";
 const GGUF = "https://huggingface.co/ggml-org/Kokoro-82M-GGUF/resolve/main/";
 type TildeKokoro = { speak(phonemes: string, o: { voice: string }): Promise<Float32Array> };
 type TildeLib = {
