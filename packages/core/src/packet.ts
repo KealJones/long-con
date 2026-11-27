@@ -12,6 +12,7 @@ import { isTallyQuestion, SEG_GATE, tallySearch } from "./tally.ts";
 import { unitProbability } from "./gate.ts";
 import { contentWords, estimateTokens, type Stemmer } from "./text.ts";
 import { lookupSymbols, type SymbolIndex, type SymbolItem } from "./symbols.ts";
+import { MAX_CARDS, PEOPLE, peopleIn, personCard, type PersonCard, type PersonIndex } from "./people.ts";
 
 export interface BuildPacketInput {
   history: Session[];
@@ -24,6 +25,11 @@ export interface BuildPacketInput {
    * gets its path:line and signature, two or three get pointers, anything else gets no Code section.
    */
   code?: SymbolIndex;
+  /**
+   * The person index (P24), when the caller builds one. A message naming a known person gets a short card of dated
+   * pointers to the user's mentions of them; a message naming nobody known, or someone ambiguous, gets none.
+   */
+  people?: PersonIndex;
 }
 
 /** One retrieved unit of history in the packet, with the labels the model sees. */
@@ -56,6 +62,8 @@ export interface Packet {
   notes: Note[];
   /** Definitions in the Code section: a signature for a single match, pointers otherwise. */
   code: SymbolItem[];
+  /** Person cards (P24): pointers to the user's own mentions of the people the message names. */
+  people: PersonCard[];
 }
 
 /** Mentions the search tool only when the model has one, so no arm is told about a tool it can't use. */
@@ -64,7 +72,7 @@ export const HISTORY_NOTICE = (since: string, canSearch = true) =>
 export const TRUST_NOTE = (canSearch = true) =>
   `This packet is a best guess at what's relevant. Don't rely on anything in it that looks wrong${canSearch ? "; use the tools instead" : ""}.`;
 
-export function buildPacket({ history, message, profile, currentSessionId, code }: BuildPacketInput): Packet {
+export function buildPacket({ history, message, profile, currentSessionId, code, people }: BuildPacketInput): Packet {
   const current = history.find((s) => s.id === currentSessionId);
   const recentStart = current ? Math.max(0, current.turns.length - profile.rawTurns) : 0;
   const recentTurns = current ? current.turns.slice(recentStart) : [];
@@ -99,6 +107,16 @@ export function buildPacket({ history, message, profile, currentSessionId, code 
   const symbols = code ? lookupSymbols(message, code, { blockTokens: 0, packetTokens: budget - estimateTokens(`\n\n${CODE}\n`), shape: "signature" }) : undefined;
   const codeLines = symbols?.text ? ["", CODE, symbols.text] : [];
   budget -= estimateTokens(codeLines.join("\n"));
+  // Person cards are their own source with their own exactness rule (a known, unambiguous person), like Code.
+  const cards: PersonCard[] = [];
+  for (const person of people ? peopleIn(message, people).slice(0, MAX_CARDS) : []) {
+    const card = personCard(person, message, people!, isRecent);
+    const cost = card && estimateTokens(`\n${cards.length ? "" : `\n${PEOPLE}\n`}${card.line}`);
+    if (!card || cost! > budget) continue;
+    budget -= cost!;
+    cards.push(card);
+  }
+  const peopleLines = cards.length ? ["", PEOPLE, ...cards.map((c) => c.line)] : [];
   const chosen: { segment: Segment; hit: Hit<Segment>; confidence: number; medium: boolean }[] = [];
   const pointed: { segment: Segment; hit: Hit<Segment>; confidence: number; query: string; line: string }[] = [];
   // A pointer is only worth its line when the reader can open it.
@@ -185,6 +203,7 @@ export function buildPacket({ history, message, profile, currentSessionId, code 
   const text = [
     ...head,
     ...codeLines,
+    ...peopleLines,
     ...(noteLines.length ? ["", NOTES, ...noteLines] : []),
     ...(body.length ? ["", RETRIEVED, ...body] : []),
     ...(pointed.length ? ["", POINTERS, ...pointed.map((p) => p.line)] : []),
@@ -208,6 +227,7 @@ export function buildPacket({ history, message, profile, currentSessionId, code 
     pointers: pointed.map((p) => ({ ...shown(p), query: p.query })),
     notes: shownNotes,
     code: symbols?.items ?? [],
+    people: cards,
   };
 }
 

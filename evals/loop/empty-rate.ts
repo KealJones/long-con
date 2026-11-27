@@ -30,6 +30,7 @@ export const FIXTURE = join(ROOT, "evals/sets/should-be-empty/fixture-haystack.j
 const RETRIEVED = "Retrieved history, oldest first:";
 const NOTES = "Notes on what the user said they like, newest value first:";
 const POINTERS = "Maybe related, not shown (search_history with the quoted words opens one):";
+const PEOPLE = "People the message names, pointers to the user's own mentions (search_history with the quoted words opens one):";
 
 export type TierName = "tier1-off-history" | "tier1t-time-phrases" | "tier2-cross-history" | "tier3-evidence-ablated" | "tier4-abstention" | "answerable";
 
@@ -197,18 +198,20 @@ export interface ProbeResult {
 export function runProbe(
   probe: Probe,
   profile: Profile,
-  build: (p: Probe) => Pick<Packet, "segments" | "text" | "tokens"> & Partial<Pick<Packet, "notes" | "pointers">> = defaultBuild(profile),
+  build: (p: Probe) => Pick<Packet, "segments" | "text" | "tokens"> & Partial<Pick<Packet, "notes" | "pointers" | "people">> = defaultBuild(profile),
 ): ProbeResult {
   const packet = build(probe);
   // Each interest note shown is a unit too, judged by its source turn, so a note on a should-be-empty prompt counts as a false inclusion.
   // A note whose source turn is already inside a shown segment adds nothing new, so it isn't counted twice.
   const inShown = (sessionId: string, turn: number) => packet.segments.some((s) => s.sessionId === sessionId && s.start <= turn && turn <= s.end);
   const notes = (packet.notes ?? []).filter((n) => !inShown(n.from.sessionId, n.from.turn));
-  const pointers = packet.pointers ?? [];
+  // Person-card pointers (P24) count like P15 pointers, one unit per turn pointed at, unless that turn is already shown.
+  const cardPointers = (packet.people ?? []).flatMap((c) => c.pointers).filter((p) => !inShown(p.sessionId, p.turn)).map((p) => ({ sessionId: p.sessionId, start: p.turn, end: p.turn }));
+  const pointers = [...(packet.pointers ?? []), ...cardPointers];
   const units = [...packet.segments, ...notes.map((n) => ({ sessionId: n.from.sessionId, start: n.from.turn, end: n.from.turn })), ...pointers];
   const evidenceUnits = probe.evidence ? units.filter((s) => isEvidenceUnit(s, probe.evidence!)).length : 0;
   const evidencePointers = probe.evidence ? pointers.filter((s) => isEvidenceUnit(s, probe.evidence!)).length : 0;
-  const found = [NOTES, RETRIEVED, POINTERS].map((h) => packet.text.indexOf(h)).filter((i) => i >= 0);
+  const found = [PEOPLE, NOTES, RETRIEVED, POINTERS].map((h) => packet.text.indexOf(h)).filter((i) => i >= 0);
   const at = found.length ? Math.min(...found) : -1;
   // The pointer section is last in the packet.
   const pointerAt = packet.text.indexOf(POINTERS);

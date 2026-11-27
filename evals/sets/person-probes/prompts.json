@@ -1,0 +1,215 @@
+{
+  "note": "Should-be-empty person probes (P24): messages naming a person or relation that a history doesn't hold, so the right person card is none. Hand-written 2026-11-27 with made-up rare names and uncommon relation words, before any card was scored on them. Each runs on every dev history; a pairing is skipped when `match` appears (any case) in any turn of that history, so a probe is never scored where its person might really be. Split by FNV-1a of the id (evals/loop/split.ts): a third held out, never run while tuning.",
+  "prompts": [
+    {
+      "id": "pp-name-rel-01",
+      "kind": "name-rel",
+      "prompt": "What did my friend Bartholomew say about the camping trip?",
+      "match": "Bartholomew",
+      "split": "dev"
+    },
+    {
+      "id": "pp-name-rel-02",
+      "kind": "name-rel",
+      "prompt": "Can you remind me what my coworker Ximena suggested for the offsite?",
+      "match": "Ximena",
+      "split": "dev"
+    },
+    {
+      "id": "pp-name-rel-03",
+      "kind": "name-rel",
+      "prompt": "My uncle Thaddeus is visiting next week, any ideas for things to do?",
+      "match": "Thaddeus",
+      "split": "held-out"
+    },
+    {
+      "id": "pp-name-rel-04",
+      "kind": "name-rel",
+      "prompt": "What gift did I end up getting for my niece Saoirse?",
+      "match": "Saoirse",
+      "split": "dev"
+    },
+    {
+      "id": "pp-name-rel-05",
+      "kind": "name-rel",
+      "prompt": "My neighbor Ingrid keeps parking in front of my driveway, how do I bring it up?",
+      "match": "Ingrid",
+      "split": "held-out"
+    },
+    {
+      "id": "pp-name-rel-06",
+      "kind": "name-rel",
+      "prompt": "Did I ever tell you where my cousin Leopold moved to?",
+      "match": "Leopold",
+      "split": "dev"
+    },
+    {
+      "id": "pp-name-rel-07",
+      "kind": "name-rel",
+      "prompt": "My boss Hortense wants the slides by Monday, can you help me outline them?",
+      "match": "Hortense",
+      "split": "dev"
+    },
+    {
+      "id": "pp-name-rel-08",
+      "kind": "name-rel",
+      "prompt": "What restaurant did my roommate Cyprian recommend?",
+      "match": "Cyprian",
+      "split": "dev"
+    },
+    {
+      "id": "pp-name-rel-09",
+      "kind": "name-rel",
+      "prompt": "How old is my nephew Anselm turning this year?",
+      "match": "Anselm",
+      "split": "dev"
+    },
+    {
+      "id": "pp-name-rel-10",
+      "kind": "name-rel",
+      "prompt": "My classmate Wilhelmina asked to borrow my notes, should I?",
+      "match": "Wilhelmina",
+      "split": "dev"
+    },
+    {
+      "id": "pp-name-bare-01",
+      "kind": "name-bare",
+      "prompt": "What did Zebulon think of the new apartment?",
+      "match": "Zebulon",
+      "split": "held-out"
+    },
+    {
+      "id": "pp-name-bare-02",
+      "kind": "name-bare",
+      "prompt": "Remind me when Ottoline's birthday party is.",
+      "match": "Ottoline",
+      "split": "dev"
+    },
+    {
+      "id": "pp-name-bare-03",
+      "kind": "name-bare",
+      "prompt": "I'm meeting Evander for lunch, where should we go?",
+      "match": "Evander",
+      "split": "dev"
+    },
+    {
+      "id": "pp-name-bare-04",
+      "kind": "name-bare",
+      "prompt": "Did I already thank Philippa for the dinner?",
+      "match": "Philippa",
+      "split": "held-out"
+    },
+    {
+      "id": "pp-name-bare-05",
+      "kind": "name-bare",
+      "prompt": "How do I tell Casimir I can't make it to his wedding?",
+      "match": "Casimir",
+      "split": "dev"
+    },
+    {
+      "id": "pp-name-bare-06",
+      "kind": "name-bare",
+      "prompt": "What book did Rosalind lend me last month?",
+      "match": "Rosalind",
+      "split": "dev"
+    },
+    {
+      "id": "pp-rel-01",
+      "kind": "rel",
+      "prompt": "What did my godfather give me for my graduation?",
+      "match": "godfather",
+      "split": "held-out"
+    },
+    {
+      "id": "pp-rel-02",
+      "kind": "rel",
+      "prompt": "My stepdaughter wants a puppy, what breed is good for kids?",
+      "match": "stepdaughter",
+      "split": "held-out"
+    },
+    {
+      "id": "pp-rel-03",
+      "kind": "rel",
+      "prompt": "When is my goddaughter's recital again?",
+      "match": "goddaughter",
+      "split": "dev"
+    },
+    {
+      "id": "pp-rel-04",
+      "kind": "rel",
+      "prompt": "My father-in-law is coming to stay, what should I cook?",
+      "match": "father-in-law",
+      "split": "held-out"
+    },
+    {
+      "id": "pp-rel-05",
+      "kind": "rel",
+      "prompt": "How long has my ex-husband had the kids this month?",
+      "match": "ex-husband",
+      "split": "dev"
+    },
+    {
+      "id": "pp-rel-06",
+      "kind": "rel",
+      "prompt": "What did my godson ask for his birthday?",
+      "match": "godson",
+      "split": "dev"
+    },
+    {
+      "id": "pp-rel-07",
+      "kind": "rel",
+      "prompt": "My sister-in-law is hosting Thanksgiving, what dish should I bring?",
+      "match": "sister-in-law",
+      "split": "dev"
+    },
+    {
+      "id": "pp-rel-08",
+      "kind": "rel",
+      "prompt": "Did my stepdad ever finish fixing the fence?",
+      "match": "stepdad",
+      "split": "dev"
+    },
+    {
+      "id": "pp-rel-09",
+      "kind": "rel",
+      "prompt": "My fiancee wants to elope, what do you think?",
+      "match": "fiancee",
+      "split": "dev"
+    },
+    {
+      "id": "pp-rel-10",
+      "kind": "rel",
+      "prompt": "What did my twin brother say about the reunion?",
+      "match": "twin brother",
+      "split": "held-out"
+    },
+    {
+      "id": "pp-rel-11",
+      "kind": "rel",
+      "prompt": "How do I ask my mentor for a reference letter?",
+      "match": "mentor",
+      "split": "dev"
+    },
+    {
+      "id": "pp-rel-12",
+      "kind": "rel",
+      "prompt": "My great-aunt turns 90 soon, what's a good gift?",
+      "match": "great-aunt",
+      "split": "dev"
+    },
+    {
+      "id": "pp-rel-13",
+      "kind": "rel",
+      "prompt": "When did my stepmom say she'd visit?",
+      "match": "stepmom",
+      "split": "dev"
+    },
+    {
+      "id": "pp-rel-14",
+      "kind": "rel",
+      "prompt": "What did my grandparents say about the cruise?",
+      "match": "grandparents",
+      "split": "dev"
+    }
+  ]
+}
