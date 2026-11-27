@@ -54,11 +54,15 @@ export function interruptNote(parts: string[], done: number, fraction: number): 
 
 type Kokoro = { generate(text: string, o: { voice: string }): Promise<{ audio: Float32Array; sampling_rate: number }> };
 let kokoro: Promise<Kokoro | null> | undefined;
+/** Why Kokoro didn't load, so the page can say why it fell back to the built-in voice. */
+export let voiceError = "";
 
 /** Loads once per page; the model files stay in the browser's cache after the first time. */
 export function loadKokoro(onProgress: (pct: number) => void): Promise<Kokoro | null> {
   return (kokoro ??= (async () => {
-    const { KokoroTTS } = await import("kokoro-js");
+    const { KokoroTTS, env } = await import("kokoro-js");
+    // The bundler copies ONNX Runtime's .wasm but not the .mjs loader it imports next to it, so both come from the CDN.
+    env.wasmPaths = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/dist/";
     // q8 on WASM: ~90 MB and runs everywhere, iPhone included. WebGPU needs the 326 MB fp32 model, too big for a phone tab.
     return (await KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-v1.0-ONNX", {
       dtype: "q8",
@@ -69,6 +73,7 @@ export function loadKokoro(onProgress: (pct: number) => void): Promise<Kokoro | 
     })) as unknown as Kokoro;
   })().catch((err) => {
     console.warn("Kokoro didn't load, using the built-in voice", err);
+    voiceError = err instanceof Error ? err.message : String(err);
     return null;
   }));
 }
@@ -124,7 +129,7 @@ export function startCall(opts: CallOptions): () => void {
       await loadKokoro((pct) => opts.state("loading", `loading the voice, ${pct}%`));
     }
     while (!signal.aborted) {
-      opts.state("listening");
+      opts.state("listening", voiceError && opts.voice() !== "builtin" ? "(Kokoro didn't load, using this device's voice)" : undefined);
       const text = await listen(signal, opts.heard);
       if (!text || signal.aborted) continue;
       opts.state("thinking");

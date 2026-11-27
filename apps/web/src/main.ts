@@ -601,6 +601,7 @@ menu.addEventListener("click", (e) => {
       reader.hidden = s === "done";
       readerState.textContent = s === "loading" ? "Loading the voice…" : s === "paused" ? "Paused" : "Reading aloud";
       readerPause.textContent = s === "paused" ? "Resume" : "Pause";
+      if (s === "playing" && Voice.voiceError && voiceSelect.value !== "builtin") setStatus(`Using this device's voice; Kokoro didn't load: ${Voice.voiceError}`);
     });
   }
 });
