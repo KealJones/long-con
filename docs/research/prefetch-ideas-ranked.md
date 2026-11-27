@@ -24,7 +24,7 @@ Score = expected gain × confidence ÷ cost, roughly. Measurement and safety ite
 | 2 | P02 | Absolute relevance gate (normalized BM25, coverage, anchor) | small-local | Low | kept (score bar only) |
 | 3 | P03 | Logistic gate on ~9 features, τ per profile | small-local | Low | kept (run 3) |
 | 3b | P31 | Interest notes: background noter plus remember tool (queued ahead of P04 on 2026-11-26) | Both | Medium | rule noter kept (run 3); model noter and remember tool open |
-| 4 | P04 | Cross-encoder rerank of top 40-60 | small-local | Medium | open |
+| 4 | P04 | Cross-encoder rerank of top 40-60 | small-local | Medium | abstention floor kept as a static-embedder veto (run 11); rerank open |
 | 5 | P05 | Zero-model contextual prefix in the index | Both | Low | dropped (retry as tie-break) |
 | 6 | P06 | Tally mode for counting questions | Both | Low | kept (claude only) |
 | 7 | P07 | Event-date index and time-range boost | Both | Low | dropped (run 4) |

@@ -2,6 +2,23 @@
 
 One entry per idea tried by the hourly packet R&D loop. Newest run first. Numbers are dev unless marked held-out. Backlog: [prefetch-ideas-ranked.md](prefetch-ideas-ranked.md).
 
+## Run 11: 2026-11-26, 8:17 PM Arizona (ran through the 9:17 wake)
+
+Main went f4111df → 74e9d3f. The static embedders from the repo release (potion-base-8M and potion-retrieval-32M, model2vec, MIT) were tried two ways. The veto is kept; the dense retrieval channel (P10/P11) gets its own entry when its agent finishes.
+
+### Embedding veto on the unit gate (the abstention-floor half of P04, with a static embedder): kept
+
+- **Sources:** [model2vec](https://github.com/MinishLab/model2vec) for the embedding (mean of token rows, normalized); arXiv 2609.15578 and 2609.11646 (skimmed) on why a raw score size is a weak confidence signal, which fits a veto behind the gate doing better than a cosine bar alone.
+- **Tried:** `packages/core/src/embed.ts`, a plain-TypeScript model2vec embedder (WordPiece from tokenizer.json, safetensors F32/F16/BF16; matches model2vec 0.6.0's vectors to 1e-8 on both models, per the agent). `buildPacket` takes an optional `embed`; a unit the gate kept is dropped when its best turn's cosine to the message is under `embedFloor`. Without an embedder packets are unchanged. Arm (a), the cosine as a 12th gate feature with a refit, was not kept: grouped CV AUROC rose 0.941 → 0.969, but no threshold beat the veto in the builder.
+- **Settings:** potion-base-8M for both profiles (30 MB, against 125 MB for 32M). claude floor 0.2 and small-local 0.25, each two sweep steps back from where recall drops (claude 0.3 and small-local 0.4 lose two questions), since the floor is fit in-sample on dev. Recorded options: claude 8M at 0.25 (3,139 tokens, FI 3.88 / 2.41 / 6.38 / 4.96) and small-local 32M at 0.18 or 0.2 (FI 0.76 at 0.2, one step from its edge).
+- **Numbers (dev, FI per prompt with retrieved tokens):**
+  - claude: whole / pointers / readable 78.7 / 80.9 / 80.9% unchanged, turns 86.5% unchanged; tokens 3,949 → 3,567; FI t1 7.09 (1,700) → 5.15 (1,260), t1t 4.99 (1,217) → 3.24 (797), t2 9.52 (2,299) → 7.72 (1,860), t3 7.17 (1,521) → 6.11 (1,330); empty 46.1/72.8/46.0/55.3 → 48.0/73.0/48.0/55.3%; precision 11.4 → 12.8%; answerable empty 2.1% unchanged.
+  - small-local: 66.0% / 72.2% unchanged; tokens 1,425 → 1,351; FI t1 1.43 (392) → 1.07 (308), t1t 0.21 (55) → 0.13 (37), t2 1.18 (309) → 0.98 (270), t3 1.00 (263) → 0.70 (179); empty 73.6/96.0/72.0/78.7 → 76.5/96.3/74.0/80.9%; precision 24.9 → 26.6%; answerable empty 17.0% unchanged.
+  - Speed: about 0.8 ms to embed a 1,600-character unit on Node; model load 96 ms.
+- **Review (fresh Opus 5.5):** valid with notes. No label reaches the builder, both evals apply the veto the same way, pointers and FI counts are consistent. Notes: the veto can also let a lower unit in by freeing budget (the fixed-budget rows rise, e.g. claude fixed@8K 76.6 → 80.9% in the sweep); the reader arms in `evals/src/arms.ts` didn't pass the embedder (fixed, e601578); the recall report claimed the veto even when the model files were missing (fixed, it now says so); model2vec cuts a text at 512 × median token length characters before tokenizing and embed.ts doesn't (no effect below about 3,000 characters a turn).
+- **Kept:** branch `loop/embed-gate-feature`, merged to main. apps/web doesn't pass an embedder yet, so the browser packet is unchanged until it does; the browser cost of loading the 30 MB model isn't measured.
+- **Next ideas:** a grouped-CV choice of the floor; wire the embedder into apps/web and the search tool's low-confidence marks; a reader run to confirm the dropped units were noise.
+
 ## Run 10: 2026-11-26, 7:18 PM Arizona
 
 Baseline is main at bbf0298 (builder as in run 9). Dev numbers only, tuning-grade. FI is false inclusions per prompt, retrieved tokens in brackets. No paid runs. Nothing changed main's packets this run. 
