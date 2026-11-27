@@ -9,7 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@long-con/core": "0.0.0"
+    "@long-con/core": "0.0.0",
+    "just-bash": "3.6.0"
   },
   "devDependencies": {
     "vite": "8.3.8"

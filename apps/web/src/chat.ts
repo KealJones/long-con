@@ -2,13 +2,14 @@
 // No DOM here, so the test can run it in Node with a fake fetch.
 
 import { assemblePrompt, buildPacket, PROFILES, type Session } from "@long-con/core";
+import { runTool, toolDefs, type ToolContext } from "./tools.ts";
 
-// shortcut: no search tool yet, so the packet doesn't promise one. Turn it back on once core exports the
-// shared search function (the packet R&D loop is moving it there).
-export const PROFILE = { ...PROFILES.claude, maxToolRounds: 0 };
+export const PROFILE = PROFILES.claude;
+/** Model calls per message at most; the last one gets no tools, so it has to answer. */
+export const MAX_ROUNDS = 12;
 
 export const SYSTEM =
-  "You are a helpful assistant in a long-running chat with the user. Each message comes with a packet of what seemed relevant from your past chats with them. Use it when it helps. If it doesn't say and you don't know, say so instead of guessing. Write like you're texting a friend: plain and conversational, no headings or tables.";
+  "You are a helpful assistant in a long-running chat with the user. Each message comes with a packet of what seemed relevant from your past chats with them. Use it when it helps. If it doesn't say and you don't know, say so instead of guessing. You also have tools: a bash shell whose /home files stay in this browser, a search of all your past chats, and web search and fetch. Write like you're texting a friend: plain and conversational, no headings or tables.";
 
 export const MODELS = ["claude-sonnet-5-5", "claude-opus-5-5", "claude-haiku-5-5"];
 
@@ -24,6 +25,16 @@ export interface TurnOptions {
   model: string;
   now?: Date;
   fetch?: typeof fetch;
+  /** Where the shell keeps /home (localStorage when left out). */
+  store?: ToolContext["store"];
+  /** Called as each tool runs, for a live "typing" line. */
+  onStep?: (label: string) => void;
+}
+
+/** One tool call in a turn, as the chat shows it. */
+export interface Step {
+  label: string;
+  output?: string;
 }
 
 export interface TurnResult {
@@ -33,6 +44,7 @@ export interface TurnResult {
   /** Where the new user turn sits, for keying the packet. */
   sessionId: string;
   turn: number;
+  steps: Step[];
 }
 
 /** Sends one message. Only changes `history` once the answer is back, so a failed call loses nothing. */
@@ -42,23 +54,73 @@ export async function sendTurn(history: Session[], message: string, opts: TurnOp
   const packet = buildPacket({ history, message, profile: PROFILE, currentSessionId: today });
   const prompt = assemblePrompt({ system: `${SYSTEM}\n\nToday is ${today}.`, packet: packet.text, recentTurns: packet.recentTurns, message });
 
-  const res = await (opts.fetch ?? fetch)("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": opts.apiKey,
-      "anthropic-version": "2023-06-01",
-      "anthropic-dangerous-direct-browser-access": "true",
-    },
-    body: JSON.stringify({ model: opts.model, max_tokens: PROFILE.answerTokens, system: prompt.system, messages: prompt.messages }),
-  });
-  const body = await res.json().catch(() => null);
-  if (!res.ok) throw new Error(body?.error?.message ?? `Anthropic API error ${res.status}`);
-  const answer = (body?.content ?? []).filter((b: { type: string }) => b.type === "text").map((b: { text: string }) => b.text).join("");
+  const doFetch = opts.fetch ?? fetch;
+  const messages: unknown[] = [...prompt.messages];
+  const steps: Step[] = [];
+  const toolCtx: ToolContext = { history, profile: PROFILE, store: opts.store, fetch: opts.fetch };
+  let body: { content?: Block[]; stop_reason?: string } | null = null;
+  for (let round = 1; ; round++) {
+    const res = await doFetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": opts.apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+      body: JSON.stringify({
+        model: opts.model,
+        max_tokens: PROFILE.answerTokens,
+        system: prompt.system,
+        messages,
+        tools: toolDefs(opts.model),
+        ...(round >= MAX_ROUNDS ? { tool_choice: { type: "none" } } : {}),
+      }),
+    });
+    body = await res.json().catch(() => null);
+    if (!res.ok) throw new Error((body as { error?: { message?: string } } | null)?.error?.message ?? `Anthropic API error ${res.status}`);
+    const content = body?.content ?? [];
+    // The whole content goes back as it came (thinking, server tool results), so the next call can carry on.
+    messages.push({ role: "assistant", content });
+    for (const b of content) if (b.type === "server_tool_use") report(steps, opts, serverLabel(b));
+    if (body?.stop_reason === "pause_turn" && round < MAX_ROUNDS) continue;
+    const calls = content.filter((b) => b.type === "tool_use");
+    if (body?.stop_reason !== "tool_use" || !calls.length) break;
+    const results = await Promise.all(
+      calls.map(async (b) => {
+        const run = await runTool(b.name!, b.input ?? {}, toolCtx).catch((e) => ({ output: String(e?.message ?? e), isError: true, label: b.name! }));
+        report(steps, opts, run.label, run.output);
+        return { type: "tool_result", tool_use_id: b.id, content: run.output, ...(run.isError ? { is_error: true } : {}) };
+      }),
+    );
+    messages.push({ role: "user", content: results });
+  }
+  const answer = (body?.content ?? []).filter((b) => b.type === "text").map((b) => b.text).join("");
   if (!answer) throw new Error(`No text in the answer (stop reason: ${body?.stop_reason ?? "unknown"})`);
 
   let session = history.find((s) => s.id === today);
   if (!session) history.push((session = { id: today, date: today, turns: [] }));
   session.turns.push({ role: "user", content: message }, { role: "assistant", content: answer });
-  return { answer, packet: packet.text, packetTokens: packet.tokens, sessionId: today, turn: session.turns.length - 2 };
+  return { answer, packet: packet.text, packetTokens: packet.tokens, sessionId: today, turn: session.turns.length - 2, steps };
+}
+
+interface Block {
+  type: string;
+  text?: string;
+  id?: string;
+  name?: string;
+  input?: Record<string, unknown>;
+}
+
+function report(steps: Step[], opts: TurnOptions, label: string, output?: string) {
+  // shortcut: shown output capped at 4K characters to spare localStorage; the model still got all of it.
+  steps.push(output === undefined ? { label } : { label, output: output.length > 4000 ? `${output.slice(0, 4000)}\n…` : output });
+  opts.onStep?.(label);
+}
+
+function serverLabel(b: Block): string {
+  const input = b.input ?? {};
+  if (b.name === "web_search") return `searched the web for “${input.query ?? ""}”`;
+  if (b.name === "web_fetch") return `read ${input.url ?? "a page"}`;
+  return String(b.name);
 }

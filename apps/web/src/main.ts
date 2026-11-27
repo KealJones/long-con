@@ -1,10 +1,12 @@
 // The page: a texting-style chat, a settings dialog, and a sidebar for topics and your data.
 
 import type { Session } from "@long-con/core";
-import { MODELS, sendTurn } from "./chat.ts";
+import { MODELS, sendTurn, type Step } from "./chat.ts";
+import { FILES_KEY, resetShell } from "./tools.ts";
 import { dayName, topics } from "./topics.ts";
 
-type Packets = Record<string, { text: string; tokens: number }>;
+/** Per user turn: the packet it went with, and the tools the answer used. */
+type Packets = Record<string, { text: string; tokens: number; steps?: Step[] }>;
 
 // shortcut: localStorage caps out around 5 MB; move to IndexedDB once a chat gets near that.
 const load = <T>(key: string, fallback: T): T => {
@@ -103,8 +105,8 @@ function renderSidebar() {
 
   // Data
   const messages = history.reduce((n, s) => n + s.turns.length, 0);
-  const bytes = (localStorage.getItem("long-con:history")?.length ?? 0) + (localStorage.getItem("long-con:packets")?.length ?? 0);
-  $("stats").replaceChildren(stat(messages, "messages"), stat(history.length, "days"), stat(`${Math.max(1, Math.round(bytes / 1024))} KB`, "stored"));
+  const bytes = ["long-con:history", "long-con:packets", FILES_KEY].reduce((n, k) => n + (localStorage.getItem(k)?.length ?? 0), 0);
+  $("stats").replaceChildren(stat(messages, "messages"), stat(history.length, "days"), stat(`${bytes ? Math.max(1, Math.round(bytes / 1024)) : 0} KB`, "stored"));
   $("days").replaceChildren(...[...history].reverse().map((s) => {
     const li = el("li");
     const go = btn("go", dayName(s.id));
@@ -169,7 +171,7 @@ function jumpTo(key: string) {
 }
 
 $("export").addEventListener("click", () => {
-  const blob = new Blob([JSON.stringify({ history, packets }, null, 2)], { type: "application/json" });
+  const blob = new Blob([JSON.stringify({ history, packets, files: load(FILES_KEY, {}) }, null, 2)], { type: "application/json" });
   const a = el("a") as HTMLAnchorElement;
   a.href = URL.createObjectURL(blob);
   a.download = `long-con-${new Date().toISOString().slice(0, 10)}.json`;
@@ -192,6 +194,9 @@ $<HTMLInputElement>("import").addEventListener("change", async (e) => {
     history.splice(0, history.length, ...data.history);
     for (const k of Object.keys(packets)) delete packets[k];
     Object.assign(packets, typeof data.packets === "object" && data.packets ? data.packets : {});
+    const files = data.files && typeof data.files === "object" ? Object.entries(data.files).filter(([p, c]) => p.startsWith("/home/") && typeof c === "string") : [];
+    localStorage.setItem(FILES_KEY, JSON.stringify(Object.fromEntries(files)));
+    resetShell();
     saveChat();
     renderLog();
     renderSidebar();
@@ -201,8 +206,10 @@ $<HTMLInputElement>("import").addEventListener("change", async (e) => {
 });
 
 $("clear").addEventListener("click", () => {
-  if (!confirm("Delete the whole chat from this browser? This can't be undone. Export first if you want a copy.")) return;
+  if (!confirm("Delete the whole chat and its files from this browser? This can't be undone. Export first if you want a copy.")) return;
   history.length = 0;
+  localStorage.removeItem(FILES_KEY);
+  resetShell();
   for (const k of Object.keys(packets)) delete packets[k];
   saveChat();
   renderLog();
@@ -248,22 +255,32 @@ function addTurn(sessionId: string, turn: number, role: "user" | "assistant", co
   const bubble = el("div", `bubble last${animate ? "" : " still"}`);
   bubble.append(richText(content));
   row.append(bubble);
-  const packet = role === "user" ? packets[keyOf(sessionId, turn)] : undefined;
-  if (packet) {
-    const chip = btn("packet-chip");
-    chip.setAttribute("aria-expanded", "false");
-    chip.innerHTML = `<svg viewBox="0 0 24 24"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5zM3.3 7L12 12l8.7-5M12 22V12"/></svg>`;
-    chip.append(`packet · ${packet.tokens} tokens`);
-    const box = el("div", "packet", packet.text);
-    box.hidden = true;
-    chip.addEventListener("click", () => {
-      box.hidden = !box.hidden;
-      chip.setAttribute("aria-expanded", String(!box.hidden));
-    });
-    row.append(chip, box);
+  const packet = packets[keyOf(sessionId, role === "user" ? turn : turn - 1)];
+  if (packet && role === "user") {
+    row.append(...peek(`<path d="M21 16V8l-9-5-9 5v8l9 5 9-5zM3.3 7L12 12l8.7-5M12 22V12"/>`, `packet · ${packet.tokens} tokens`, packet.text));
+  }
+  if (packet?.steps?.length && role === "assistant") {
+    const n = packet.steps.length;
+    const text = packet.steps.map((s) => (s.output === undefined ? s.label : `${s.label}\n${s.output}`)).join("\n\n");
+    row.append(...peek(`<path d="M4 17l6-5-6-5M12 19h8"/>`, `${n} tool ${n === 1 ? "call" : "calls"}`, text));
   }
   log.append(row);
   lastRow = row;
+}
+
+/** A small chip under a bubble that opens a monospace box. */
+function peek(icon: string, label: string, text: string) {
+  const chip = btn("packet-chip");
+  chip.setAttribute("aria-expanded", "false");
+  chip.innerHTML = `<svg viewBox="0 0 24 24">${icon}</svg>`;
+  chip.append(label);
+  const box = el("div", "packet", text);
+  box.hidden = true;
+  chip.addEventListener("click", () => {
+    box.hidden = !box.hidden;
+    chip.setAttribute("aria-expanded", String(!box.hidden));
+  });
+  return [chip, box];
 }
 
 function renderLog() {
@@ -334,8 +351,9 @@ form.addEventListener("submit", async (event) => {
   log.append(pending);
   showTyping(true);
   try {
-    const result = await sendTurn(history, message, { apiKey, model: modelSelect.value });
-    packets[keyOf(result.sessionId, result.turn)] = { text: result.packet, tokens: result.packetTokens };
+    const onStep = (label: string) => (presence.textContent = label.length > 40 ? label.slice(0, 39) + "…" : label);
+    const result = await sendTurn(history, message, { apiKey, model: modelSelect.value, onStep });
+    packets[keyOf(result.sessionId, result.turn)] = { text: result.packet, tokens: result.packetTokens, ...(result.steps.length ? { steps: result.steps } : {}) };
     saveChat();
     pending.remove();
     showTyping(false);
