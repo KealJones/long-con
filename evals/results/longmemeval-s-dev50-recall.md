@@ -1,6 +1,6 @@
 # Packet recall: LongMemEval_S dev slice
 
-47 answerable questions of the 50-question dev slice (3 abstention questions have no evidence to find). Full history averages 139,782 tokens per question. Builder: BM25 only (no embeddings yet), size-based segments. No model calls. "All evidence in packet" means every labeled evidence turn is in it.
+47 answerable questions of the 50-question dev slice (3 abstention questions have no evidence to find). Full history averages 139,782 tokens per question. Builder: BM25 search, size-based segments, and a static-embedder veto on the units the gate keeps (embedModel in each profile). No model calls. "All evidence in packet" means every labeled evidence turn is in it.
 
 These are tuning numbers, not results: the segment cap and the cutoff were picked on this same slice, so they flatter the builder. With 47 questions, one question moves "All evidence in packet" by 2.1%. Intervals are 95% bootstraps over questions. Two limits: an evidence chat with no labeled turn isn't counted, and recall leaves out what a reader would find by searching.
 
@@ -8,10 +8,11 @@ These are tuning numbers, not results: the segment cap and the cutoff were picke
 
 | Profile | Budget ceiling | Evidence chats found | Evidence turns found | All evidence in packet | 95% interval | Mean packet tokens | Largest packet |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| claude | 8,000 | 92.1% | 86.5% | 78.7% | 66.0% to 89.4% | 3,965 | 7,986 |
+| claude | 8,000 | 92.1% | 86.5% | 78.7% | 66.0% to 89.4% | 3,561 | 7,972 |
 | claude: pointers as found | | | 87.6% | 80.9% | | | |
+| claude: readable (pointers open in 3 searches) | | | | 80.9% | | | |
 | claude: plain BM25 top-k | 8,000 | 93.0% | 85.1% | 76.6% | 63.8% to 87.2% | 7,886 | 8,000 |
-| small-local | 2,500 | 77.8% | 72.2% | 66.0% | 53.2% to 78.7% | 1,421 | 2,492 |
+| small-local | 2,500 | 77.8% | 72.2% | 66.0% | 53.2% to 78.7% | 1,351 | 2,497 |
 | small-local: plain BM25 top-k | 2,500 | 85.9% | 72.5% | 59.6% | 44.7% to 72.3% | 2,476 | 2,499 |
 
 Packet against plain BM25 top-k on the same questions:
@@ -29,8 +30,8 @@ System prompt, search tool definition, packet and question; then the same plus o
 
 | Profile | Context window | First call, mean | First call, largest | With one search, mean | With one search, largest | Fits with room to answer |
 | --- | --- | --- | --- | --- | --- | --- |
-| claude | 200,000 | 3,930 | 8,150 | 4,763 | 9,239 | 50 of 50 |
-| small-local | 6,000 | 1,515 | 2,668 | 1,813 | 3,120 | 50 of 50 |
+| claude | 200,000 | 3,524 | 8,145 | 4,349 | 9,006 | 50 of 50 |
+| small-local | 6,000 | 1,447 | 2,654 | 1,741 | 3,075 | 50 of 50 |
 
 ## Recall against packet size
 
@@ -40,14 +41,14 @@ System prompt, search tool definition, packet and question; then the same plus o
 
 | Budget ceiling | Fixed: all evidence | Fixed: mean tokens | Adaptive: all evidence | Adaptive: mean tokens |
 | --- | --- | --- | --- | --- |
-| 1,000 | 51.1% | 872 | 51.1% | 839 |
-| 1,500 | 63.8% | 1,278 | 66.0% | 1,223 |
-| 2,000 | 68.1% | 1,664 | 70.2% | 1,570 |
-| 2,500 | 68.1% | 2,038 | 70.2% | 1,894 |
-| 3,000 | 72.3% | 2,381 | 74.5% | 2,165 |
-| 4,000 | 74.5% | 3,024 | 76.6% | 2,642 |
-| 6,000 | 74.5% | 4,203 | 76.6% | 3,399 |
-| 8,000 | 76.6% | 5,422 | 78.7% | 3,965 |
+| 1,000 | 51.1% | 858 | 51.1% | 825 |
+| 1,500 | 61.7% | 1,237 | 63.8% | 1,178 |
+| 2,000 | 68.1% | 1,644 | 70.2% | 1,548 |
+| 2,500 | 68.1% | 1,996 | 70.2% | 1,863 |
+| 3,000 | 72.3% | 2,298 | 74.5% | 2,095 |
+| 4,000 | 74.5% | 2,951 | 76.6% | 2,568 |
+| 6,000 | 74.5% | 4,167 | 76.6% | 3,240 |
+| 8,000 | 76.6% | 5,239 | 78.7% | 3,561 |
 
 Smallest ceiling within 2 points of its own 8K score: fixed 8,000, adaptive 8,000.
 
@@ -55,16 +56,16 @@ Smallest ceiling within 2 points of its own 8K score: fixed 8,000, adaptive 8,00
 
 | Budget ceiling | Fixed: all evidence | Fixed: mean tokens | Adaptive: all evidence | Adaptive: mean tokens |
 | --- | --- | --- | --- | --- |
-| 1,000 | 46.8% | 713 | 46.8% | 682 |
-| 1,500 | 57.4% | 1,009 | 59.6% | 980 |
-| 2,000 | 59.6% | 1,262 | 61.7% | 1,212 |
-| 2,500 | 63.8% | 1,497 | 66.0% | 1,421 |
-| 3,000 | 63.8% | 1,722 | 66.0% | 1,604 |
-| 4,000 | 63.8% | 2,116 | 66.0% | 1,871 |
-| 6,000 | 66.0% | 2,607 | 66.0% | 2,144 |
-| 8,000 | 66.0% | 2,878 | 66.0% | 2,187 |
+| 1,000 | 46.8% | 706 | 46.8% | 686 |
+| 1,500 | 53.2% | 970 | 55.3% | 946 |
+| 2,000 | 61.7% | 1,220 | 63.8% | 1,175 |
+| 2,500 | 63.8% | 1,421 | 66.0% | 1,351 |
+| 3,000 | 63.8% | 1,615 | 66.0% | 1,501 |
+| 4,000 | 66.0% | 1,897 | 66.0% | 1,711 |
+| 6,000 | 66.0% | 2,200 | 66.0% | 1,837 |
+| 8,000 | 66.0% | 2,340 | 66.0% | 1,837 |
 
-Smallest ceiling within 2 points of its own 8K score: fixed 6,000, adaptive 2,500.
+Smallest ceiling within 2 points of its own 8K score: fixed 4,000, adaptive 2,500.
 
 ## By question type
 
@@ -72,20 +73,20 @@ Smallest ceiling within 2 points of its own 8K score: fixed 6,000, adaptive 2,50
 
 | Type | Questions | Evidence turns found | All evidence in packet | Mean packet tokens |
 | --- | --- | --- | --- | --- |
-| knowledge-update | 8 | 93.8% | 87.5% | 3,493 |
-| multi-session | 11 | 72.7% | 54.5% | 1,284 |
-| single-session-assistant | 6 | 100.0% | 100.0% | 3,079 |
-| single-session-preference | 3 | 83.3% | 66.7% | 5,868 |
-| single-session-user | 6 | 100.0% | 100.0% | 4,587 |
-| temporal-reasoning | 13 | 82.1% | 76.9% | 6,206 |
+| knowledge-update | 8 | 93.8% | 87.5% | 3,530 |
+| multi-session | 11 | 72.7% | 54.5% | 1,111 |
+| single-session-assistant | 6 | 100.0% | 100.0% | 2,919 |
+| single-session-preference | 3 | 83.3% | 66.7% | 5,742 |
+| single-session-user | 6 | 100.0% | 100.0% | 3,851 |
+| temporal-reasoning | 13 | 82.1% | 76.9% | 5,311 |
 
 ### small-local
 
 | Type | Questions | Evidence turns found | All evidence in packet | Mean packet tokens |
 | --- | --- | --- | --- | --- |
-| knowledge-update | 8 | 87.5% | 87.5% | 1,353 |
-| multi-session | 11 | 58.3% | 36.4% | 649 |
-| single-session-assistant | 6 | 100.0% | 100.0% | 2,117 |
-| single-session-preference | 3 | 16.7% | 0.0% | 977 |
-| single-session-user | 6 | 100.0% | 100.0% | 1,982 |
-| temporal-reasoning | 13 | 61.5% | 61.5% | 1,641 |
+| knowledge-update | 8 | 87.5% | 87.5% | 1,341 |
+| multi-session | 11 | 58.3% | 36.4% | 588 |
+| single-session-assistant | 6 | 100.0% | 100.0% | 2,004 |
+| single-session-preference | 3 | 16.7% | 0.0% | 960 |
+| single-session-user | 6 | 100.0% | 100.0% | 1,851 |
+| temporal-reasoning | 13 | 61.5% | 61.5% | 1,560 |

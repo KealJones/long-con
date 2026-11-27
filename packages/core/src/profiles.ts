@@ -3,6 +3,8 @@
 import type { KeyDenoise } from "./segments.ts";
 import type { Stemmer } from "./text.ts";
 
+export type PointerPick = "rank" | "gate" | "cosine" | "mix";
+
 export interface Profile {
   name: string;
   /** The model's whole context window in tokens: prompt, packet, recent turns, tool results and answer. */
@@ -32,6 +34,12 @@ export interface Profile {
   pointerGate: number;
   /** Most pointers in one packet; medium units past it stay out. */
   maxPointers: number;
+  /** Which medium units fill the pointer cap (packet.ts pickPointers): search rank (default), gate probability, cosine, or both. */
+  pointerPick?: PointerPick;
+  /** A medium unit whose best-turn cosine (needs `embed` and embedSim) reaches this comes in whole, not as a pointer. Absent: off. */
+  pointerPromote?: number;
+  /** A medium unit whose best-turn cosine is under this drops instead of becoming a pointer. Absent: off. */
+  pointerFloor?: number;
   /** How search stems words (see text.ts). minScore depends on it: a stemmer that matches more words lifts every score. */
   stemmer: Stemmer;
   /** P26: denoise mode (segments.ts) for the text the absolute score and the gate judge; ranking keeps the full text. */
@@ -61,6 +69,12 @@ export interface Profile {
    * when the absolute bar already let history in. 0 turns notes off.
    */
   noteCoverage: number;
+  /** The model2vec model the embedding gate was tuned with; the caller loads it and passes `embed` to buildPacket. */
+  embedModel?: string;
+  /** Which cosine the embedding gate uses when the caller passes an embedder: the whole unit's, or its best turn's. Absent: off. */
+  embedSim?: "segment" | "maxsim";
+  /** Embedding veto: a unit the gate kept stays out when its cosine to the message is under this. 0 or absent: off. */
+  embedFloor?: number;
   /** How many of the model's own latest answers in this chat go in the registers. */
   recentAnswers: number;
   /** Whether a per-turn gate can skip retrieval for messages that need none, like "thanks". */
@@ -96,13 +110,28 @@ export const PROFILES = {
     // a question, but every question stays readable through its pointers, with 12% fewer tokens. The FI cut on every tier
     // comes from the cap dropping medium units; with no cap FI matches the unit gate alone.
     pointerGate: 0.004,
-    maxPointers: 3,
+    // Pointer pick (evals/loop/pointer-sweep.ts dev sweep, with the embedding veto): on should-be-empty prompts every
+    // pointer is a false inclusion, so which medium units fill the cap (rank, gate probability, cosine, both) moves no FI;
+    // only how many pointers do. A medium unit whose best-turn cosine is under 0.3 drops instead of taking a line, and the
+    // cap falls to 2: every recall row holds, pointer FI per tier falls by half or more. The one question found through a
+    // pointer sits between 0.35 and 0.4 (0.4 loses it), so the floor sits two steps back from that edge, fit in-sample on
+    // dev. Promoting a high-cosine medium unit to whole (0.4) only added FI.
+    maxPointers: 2,
+    pointerFloor: 0.3,
     // Porter matched more wrong units at every bar that kept recall (P17 sweep), so claude keeps the suffix stripper.
     stemmer: "suffix",
     // P26 on the gate only: the bar and the gate judge units with stock assistant sentences dropped, at the full text's
     // length; ranking keeps the full text. Same recall, fewer tokens, fewer false inclusions on every tier. Without
     // "fulllen" the shorter keys scored higher and tier 2 gained a unit. The bar stays (0.18 loses a question, 0.16 adds FI).
     gateKey: "boilerplate+fulllen+matched",
+    // Embedding veto (evals/loop/embed-gate.ts dev sweep): a gate-kept unit whose best turn's cosine to the message is
+    // under 0.2 stays out. Every recall row holds, 10% fewer tokens, 15-35% fewer false inclusions per tier. 0.25 still
+    // holds and cuts more, but 0.3 loses two questions, so the floor sits two steps back from that edge (the floor is
+    // fit in-sample on dev). potion-base-8M beat potion-retrieval-32M here (32M lost a preference question above 0.09).
+    // Only applies when the caller passes `embed`; without one, packets are unchanged.
+    embedModel: "potion-base-8M",
+    embedSim: "maxsim",
+    embedFloor: 0.2,
     rawTurns: 6,
     // Small units beat whole exchanges at every budget on the dev slice (evals/results). 400 keeps a short
     // question and answer together; smaller still scored a little higher on a benchmark whose facts sit in user turns.
@@ -129,6 +158,8 @@ export const PROFILES = {
     minConfidence: 0.3,
     // CV sweep: one question for about half the false inclusions; 0.013 loses three. Keeps minScore, which the gate doesn't replace.
     unitGate: 0.01,
+    // Pointer-pick sweep with the embedding veto: at caps 1-2 every gate and pick loses at least two questions whole and
+    // readable (0.02: 59.6/61.7%; 0.05: 46.8/57.4%), though picking by gate or cosine beats rank by one readable question.
     // Off. Recorded option (P15 dev sweep): 0.05 with no cap halves packet tokens (1,425 -> 752) at the same false
     // inclusions, but whole all-evidence falls 66.0 -> 46.8% (63.8% readable in one search), a bet that a 1.7B model runs
     // the pointer search. Not taken until a reader run shows it does. Any cap cost more readable recall than it saved.
@@ -141,6 +172,13 @@ export const PROFILES = {
     minScore: 0.25,
     stemmer: "porter",
     // No gateKey: at 0.25 it added tokens and tier-3 false inclusions, and 0.26 loses a question (P26 gate-key sweep).
+    // Embedding veto, as on claude with the same potion-base-8M (one 30 MB model for both, against 125 MB for
+    // potion-retrieval-32M): 0.25 holds every recall row with 5% fewer tokens and 17-38% fewer false inclusions per tier;
+    // 0.3 still holds whole recall but loses a turn, 0.4 loses two questions. Recorded option: 32M at 0.18 cuts more
+    // (FI 0.87/0.09) but sits nearer its edge (0.22 loses two questions) and is four times the download.
+    embedModel: "potion-base-8M",
+    embedSim: "maxsim",
+    embedFloor: 0.25,
     rawTurns: 2,
     segmentTokens: 400,
     // Ungated, every cap that kept its recall gain added wrong pieces (P06). Behind the tally gate it holds recall with

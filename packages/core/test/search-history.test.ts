@@ -16,3 +16,15 @@ test("search_history shares the packet's search and marks weak hits instead of d
   assert.match(weak, /low confidence/);
   assert.equal(searchHistory(history, "quantum chromodynamics", PROFILES.claude), "No matches.");
 });
+
+test("search_history marks a hit low confidence when the packet's embedding veto would drop it", () => {
+  const query = "Which BBQ sauce do I like?";
+  // Fake embedders: `near` points text naming Kansas the query's way, `far` points every unit away.
+  const near = (t: string) => new Float32Array(t.includes("Kansas") || t === query ? [1, 0] : [0, 1]);
+  const far = (t: string) => new Float32Array(t === query ? [1, 0] : [0, 1]);
+  const profile = { ...PROFILES.claude, embedSim: "maxsim" as const, embedFloor: 0.5 };
+  assert.doesNotMatch(searchHistory(history, query, profile, near).split("\n")[0]!, /low confidence/);
+  assert.match(searchHistory(history, query, profile, far).split("\n")[0]!, /low confidence/);
+  assert.doesNotMatch(searchHistory(history, query, { ...profile, embedFloor: 0 }, far).split("\n")[0]!, /low confidence/);
+  assert.equal(searchHistory(history, query, profile), searchHistory(history, query, { ...profile, embedFloor: 0 }, far), "no embedder, no veto");
+});

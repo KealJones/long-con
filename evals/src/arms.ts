@@ -4,6 +4,7 @@
 
 import type Anthropic from "@anthropic-ai/sdk";
 import { assemblePrompt, buildPacket, searchHistory, estimateTokens, HISTORY_NOTICE, type Packet, type Profile, type Session } from "@long-con/core";
+import { embedderFor } from "./embedder.ts";
 import type { Question } from "./longmemeval.ts";
 import { BilledError, costOf, type ModelClient, type ModelRequest } from "./model.ts";
 
@@ -78,7 +79,7 @@ export function firstMessages(arm: Exclude<ArmName, "compaction" | "compaction-s
     case "packet": {
       // Below the profile's switch point the chat is still short enough to send whole.
       if (estimateTokens(renderChats(q.sessions)) <= profile.switchAt) return firstMessages("full", q, profile);
-      const packet = buildPacket({ history: q.sessions, message: q.question, profile });
+      const packet = buildPacket({ history: q.sessions, message: q.question, profile, embed: embedderFor(profile) });
       return { messages: assemblePrompt({ system: SYSTEM, packet: packet.text, recentTurns: packet.recentTurns, message: ask(q) }).messages, contextTokens: packet.tokens };
     }
     // Ablations: the same packet with one part of its head left out. The builder drops it, so the freed tokens go back to the budget.
@@ -88,7 +89,7 @@ export function firstMessages(arm: Exclude<ArmName, "compaction" | "compaction-s
       return firstMessages("packet", q, { ...profile, standingRules: false });
     case "packet-tools": {
       if (estimateTokens(renderChats(q.sessions)) <= profile.switchAt) return firstMessages("full", q, profile);
-      const packet = buildPacket({ history: q.sessions, message: q.question, profile });
+      const packet = buildPacket({ history: q.sessions, message: q.question, profile, embed: embedderFor(profile) });
       return { messages: packetAsToolCall(packet, ask(q)), contextTokens: packet.tokens };
     }
     case "bare": {
@@ -201,7 +202,7 @@ async function readerLoop(cfg: ArmConfig, calls: Call[], messages: Anthropic.Mes
         content: res.toolCalls.map((tc) => ({
           type: "tool_result" as const,
           tool_use_id: tc.id,
-          content: searchHistory(q.sessions, String(tc.input.query ?? ""), cfg.profile),
+          content: searchHistory(q.sessions, String(tc.input.query ?? ""), cfg.profile, embedderFor(cfg.profile)),
         })),
       },
     ];

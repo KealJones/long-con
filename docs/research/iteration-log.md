@@ -16,6 +16,118 @@ Baseline is 425801d. Dev only, tuning-grade; one question is 2.1 points. No paid
 - **Kept:** act cues tagged at write time (offers, acks, bundles, corrections, updates, rules), a typed results register, update links, the "check before repeating" note on old price and version answers, and small talk closing the gate. The low-ceiling gain most likely comes from the rules fix: "remember to" no longer pins pasted advice, which freed room. Not checked turn by turn.
 - **Not kept as a default:** pulling in the answer unit after a question hit. claude tokens 3,949 → 4,335 and tier 1 FI 7.09 → 8.05 for no recall change at the default ceiling. It's behind `answerFollows`, on in the web app only, where questions about the assistant's own answers are common and LongMemEval's are rare (95% of its evidence turns are user turns).
 - **Can't be measured here:** the topic window and the not-found line (LongMemEval asks in a fresh session, and its should-be-empty tiers aren't phrased as questions about the past). Both are on in the web app only, and wait for the pain-mined set.
+## Run 13: 2026-11-27, 1:17 AM Arizona
+
+Main went c806fb3 → this entry. An embedding re-rank inside tally mode and the veto-floor CV check (run 12) get their own entries when their agents finish.
+
+### Search tool marks hits with the packet's embedding veto (shared search): kept
+
+- **Sources:** the recorded design decision that the packet and the search_history tool share one search, with the packet abstaining and the tool marking weak hits low confidence; [Bruch et al. 2022](https://arxiv.org/abs/2210.11934) for the convex-fusion re-rank arm.
+- **Tried:** `searchHistory` takes the optional embedder; a shared `markResults` marks a hit low confidence when its best-turn cosine is under the profile's `embedFloor`, the packet veto's own floor. Arms: (a) that mark; (b) re-ranking the tool's top 10 or 20 by a mix of BM25 rank and cosine (0.25 / 0.5 / 0.75); (c) a separate tool floor, swept 0-0.3. New free metric `evals/loop/search-tool.ts`: one search per dev question (plus each pointer query on claude), scoring evidence in the top hits, evidence marked strong or wrongly low, non-evidence marked strong, and strong hits per should-be-empty prompt. Reader arms and the reader-input estimate pass the embedder. buildPacket untouched; empty-rate output byte-identical.
+- **Numbers (dev, floor 0 → the packet's floor):**
+  - claude (top 3): evidence in top hits 85.1% and marked strong 85.1%, unchanged; evidence wrongly low 0/57 both; strong hits per prompt t1 / t1t / t2 / t3 1.60 / 0.81 / 1.66 / 1.40 → 1.05 / 0.53 / 1.50 / 1.30; prompts with every hit marked low 46.1 / 72.8 / 44.0 / 53.2 → 52.4 / 76.5 / 46.0 / 53.2%; pointer queries open their evidence 1/1, false strong per query 1.87 → 1.80.
+  - small-local (top 1): evidence in top hits 68.1%, marked strong 59.6%, unchanged; wrongly low 4/32 both (already there); strong per prompt 0.24 / 0.04 / 0.28 / 0.23 → 0.16 / 0.03 / 0.26 / 0.19; all-low 75.5 / 96.5 / 72.0 / 76.6 → 84.1 / 97.5 / 74.0 / 80.9%.
+  - Sweep: the first evidence hit goes wrongly low at 0.3 on both profiles; claude 0.25 holds and cuts more (t1 0.78) but is one step from that edge, so the tool keeps the packet's floor. The re-rank only lost (claude evidence found 85.1 → 83.0%, small-local 68.1 → 59.6%) and isn't in the commit.
+- **Review (fresh Opus 5.5):** valid with notes. The metric and the tool share `markResults`; floor 0 reproduces the old marking; labels are used only for scoring; dev only. Notes: with the model files missing, reader runs fall back to the old marking with only a warning while the metric throws; a long evidence turn split into parts counts each part as evidence (shared with existing metrics, fair before and after).
+- **Kept:** branch `loop/search-tool-embed`, merged. apps/web's tool isn't wired yet.
+- **Next ideas:** a fitted gate probability as the tool's strong/low cut; a reader run to see whether the marks change answers.
+
+## Run 12: 2026-11-26, 10:17 PM Arizona (ran through the 11:18 wake)
+
+Main went 28ce118 → this entry. The dense retrieval channel (P10/P11, started in run 11) finished here. A grouped-CV check of the embedding veto's floor gets its own entry when its agent finishes.
+
+### Pointer floor and cap (P15 follow-up, claude): kept
+
+- **Sources:** [SARA](https://arxiv.org/html/2507.05633v1) (keep the most relevant passages whole, compress the rest), [compact clue selection](https://arxiv.org/html/2502.11811v7).
+- **Tried:** which medium units fill the pointer cap: rank, gate probability, the embedding veto's best-turn cosine, or a mix (`pointerPick`); promoting a medium unit to whole on a high cosine (`pointerPromote`); and dropping a would-be pointer whose cosine is under `pointerFloor`. pointer-sweep.ts now passes the embedder (it built recall packets without it).
+- **Findings:** pick order doesn't change FI (on a should-be-empty prompt every pointer is wrong, so only the count matters); gate order loses the one question found through a pointer; cap 1 loses it in any order; promote at 0.4 adds FI for nothing and does nothing at 0.5-0.6. The cosine floor holds every row up to 0.35 and loses the pointer-found question at 0.4.
+- **Kept on claude:** `maxPointers` 3 → 2 and `pointerFloor` 0.3 (two steps back from the edge, as with the veto), rank order. Options pick and promote stay off.
+- **Numbers (claude, dev):** whole / pointers / readable 78.7 / 80.9 / 80.9% unchanged, turns 86.5% (87.6% with pointers) unchanged; tokens 3,567 → 3,561; FI t1 5.15 (1,260) → 4.55 (1,238), t1t 3.24 (797) → 2.97 (787), t2 7.72 (1,860) → 7.26 (1,843), t3 6.11 (1,330) → 5.70 (1,316); whole-unit FI unchanged, the cut is all pointers (t1 1.08 → 0.48); empty t1 48.0 → 49.3%; precision 12.8 → 13.0%. small-local packets byte-identical (pointers off); a pointer tier there at cap 1-2 still loses at least two questions whole and readable, so it stays off.
+- **Review (fresh Opus 5.5):** valid with notes. No labels reach the builder; readable and pointers-as-found count the capped, floored pointers correctly; empty-rate unchanged. Notes: a far medium unit shorter than its pointer line now drops instead of staying whole (comment updated); with the model files missing the floor turns off silently; the floor and cap are fit in-sample and readable recall rests on one question, so this is a tuning number until a held-out run.
+- **Next ideas:** fit the pointer floor together with the gate instead of a separate threshold; a reader run to see whether models open pointers at all.
+
+### P10/P11. Dense channel with its own floor (static embedders): not kept
+
+- **Sources:** [potion-retrieval-32M model card](https://huggingface.co/minishlab/potion-retrieval-32M), [@yaks/model2vec](https://jsr.io/@yaks/model2vec), arXiv 2603.16171.
+- **Tried:** `packages/core/src/dense.ts`: units over a cosine floor (best turn, or one vector per unit as the control) fused as a third weighted RRF ranking; a unit gets in on cosine alone only when the lexical side already let one in, so it never fills an empty packet. `dense.tally` adds whole units after the tally pieces on counting questions. potion-base-8M (main's embedder) and potion-retrieval-32M; floors 0.45-0.7; RRF weight 1 and 3. Measured over main 4bf8b2b with the veto on.
+- **Numbers:** claude at 0.55 changes nothing but tokens (3,561 → 3,602); with tally, 80.9 / 83.0 / 83.0% (+1 multi-session question) at 3,875 tokens (+9%) with t1 4.55 → 4.56 and t3 5.70 → 5.74, and floors 0.5 and 0.6 both lose that question. small-local loses 1-2 questions under 0.65 (61.7% at 0.55, 63.8% at 0.6) and matches baseline at 0.65. Empty rates and answerable-empty unchanged on both. Grouped 5-fold CV picks the baseline in every fold on both profiles.
+- **Why not kept:** no clean recall on either profile. The evidence missing from empty lexical packets scores cosine 0.20-0.25 against about 0.6 for the top 0.1% of other messages, so no dense-only floor can reach it; on small-local a cosine-ranked unit takes the 2.5K budget ahead of lexical evidence. Speed is no obstacle (8M: 0.16-0.32 ms a message, about 0.1 s for a cold dev haystack). Branch `loop/p10-dense-channel` (c88cb20, off in every profile); the pre-rebase arms with a separate port are on `loop/p10-pre-rebase`.
+- **Next ideas:** cosine to rank inside tally mode, not to add units; dense hits in the search_history tool, where an abstaining packet doesn't apply.
+
+## Run 11: 2026-11-26, 8:17 PM Arizona (ran through the 9:17 wake)
+
+Main went f4111df → 74e9d3f. The static embedders from the repo release (potion-base-8M and potion-retrieval-32M, model2vec, MIT) were tried two ways. The veto is kept; the dense retrieval channel (P10/P11) gets its own entry when its agent finishes.
+
+### Embedding veto on the unit gate (the abstention-floor half of P04, with a static embedder): kept
+
+- **Sources:** [model2vec](https://github.com/MinishLab/model2vec) for the embedding (mean of token rows, normalized); arXiv 2609.15578 and 2609.11646 (skimmed) on why a raw score size is a weak confidence signal, which fits a veto behind the gate doing better than a cosine bar alone.
+- **Tried:** `packages/core/src/embed.ts`, a plain-TypeScript model2vec embedder (WordPiece from tokenizer.json, safetensors F32/F16/BF16; matches model2vec 0.6.0's vectors to 1e-8 on both models, per the agent). `buildPacket` takes an optional `embed`; a unit the gate kept is dropped when its best turn's cosine to the message is under `embedFloor`. Without an embedder packets are unchanged. Arm (a), the cosine as a 12th gate feature with a refit, was not kept: grouped CV AUROC rose 0.941 → 0.969, but no threshold beat the veto in the builder.
+- **Settings:** potion-base-8M for both profiles (30 MB, against 125 MB for 32M). claude floor 0.2 and small-local 0.25, each two sweep steps back from where recall drops (claude 0.3 and small-local 0.4 lose two questions), since the floor is fit in-sample on dev. Recorded options: claude 8M at 0.25 (3,139 tokens, FI 3.88 / 2.41 / 6.38 / 4.96) and small-local 32M at 0.18 or 0.2 (FI 0.76 at 0.2, one step from its edge).
+- **Numbers (dev, FI per prompt with retrieved tokens):**
+  - claude: whole / pointers / readable 78.7 / 80.9 / 80.9% unchanged, turns 86.5% unchanged; tokens 3,949 → 3,567; FI t1 7.09 (1,700) → 5.15 (1,260), t1t 4.99 (1,217) → 3.24 (797), t2 9.52 (2,299) → 7.72 (1,860), t3 7.17 (1,521) → 6.11 (1,330); empty 46.1/72.8/46.0/55.3 → 48.0/73.0/48.0/55.3%; precision 11.4 → 12.8%; answerable empty 2.1% unchanged.
+  - small-local: 66.0% / 72.2% unchanged; tokens 1,425 → 1,351; FI t1 1.43 (392) → 1.07 (308), t1t 0.21 (55) → 0.13 (37), t2 1.18 (309) → 0.98 (270), t3 1.00 (263) → 0.70 (179); empty 73.6/96.0/72.0/78.7 → 76.5/96.3/74.0/80.9%; precision 24.9 → 26.6%; answerable empty 17.0% unchanged.
+  - Speed: about 0.8 ms to embed a 1,600-character unit on Node; model load 96 ms.
+- **Review (fresh Opus 5.5):** valid with notes. No label reaches the builder, both evals apply the veto the same way, pointers and FI counts are consistent. Notes: the veto can also let a lower unit in by freeing budget (the fixed-budget rows rise, e.g. claude fixed@8K 76.6 → 80.9% in the sweep); the reader arms in `evals/src/arms.ts` didn't pass the embedder (fixed, e601578); the recall report claimed the veto even when the model files were missing (fixed, it now says so); model2vec cuts a text at 512 × median token length characters before tokenizing and embed.ts doesn't (no effect below about 3,000 characters a turn).
+- **Kept:** branch `loop/embed-gate-feature`, merged to main. apps/web doesn't pass an embedder yet, so the browser packet is unchanged until it does; the browser cost of loading the 30 MB model isn't measured.
+- **Next ideas:** a grouped-CV choice of the floor; wire the embedder into apps/web and the search tool's low-confidence marks; a reader run to confirm the dropped units were noise.
+
+## Run 10: 2026-11-26, 7:18 PM Arizona
+
+Baseline is main at bbf0298 (builder as in run 9). Dev numbers only, tuning-grade. FI is false inclusions per prompt, retrieved tokens in brackets. No paid runs. Nothing changed main's packets this run. 
+
+### Suffix stemmer made idempotent (claude): not kept
+
+- **Sources:** [Harman 1991, "How effective is suffixing?"](https://ideas.repec.org/a/bla/jamest/v42y1991i1p7-15.html), [Snowball introduction](https://snowballstem.org/texts/introduction.html); P28's miss analysis above.
+- **Tried:** claude's `suffix()` applies its rules until the word stops changing, so "weddings" and "wedding" share a stem. On the dev vocabulary (49,709 words) 406 words change stem and 203 join another class; most merges are right (settings/setting, meetings/meet), some carry the old -ing rule's errors (evenings/even, ratings/rat). small-local (Porter) packets byte-identical.
+- **Numbers (claude):** all-evidence whole / pointers / readable unchanged at 78.7 / 80.9 / 80.9%; evidence turns 86.5 → 87.2% (the weddings question finds 2 of its 3 turns); tokens 3,949 → 3,974; FI t1 7.09 → 7.21, t1t 4.99 → 5.06, t2 9.52 unchanged, t3 7.17 → 7.23.
+- **Why not kept:** no new question and more FI on three tiers. Branch `loop/suffix-stemmer-fix` (5e0e7e0).
+- **Side finding:** a claude bar of 0.175 instead of 0.17 keeps all three recall rows on dev and cuts FI to 6.83 / 4.34 / 9.44 / 6.47, with or without the fix. It sits one notch from a cliff (0.18 loses a question), and grouped CV of "highest bar that keeps recall" loses that question in its fold, so it isn't taken without a held-out check.
+
+### P28. Phrase graph plus personalized PageRank, gated: not kept
+
+- **Sources:** [HippoRAG](https://arxiv.org/abs/2405.14831), [HippoRAG 2](https://arxiv.org/abs/2502.14802).
+- **Tried:** `phrasegraph.ts`, a rule-based phrase chunker (content words and adjacent pairs) and a phrase-to-unit graph walked by personalized PageRank from the message's phrases (seeds weighted by specificity, damping 0.5, 10 iterations, phrases in over 5% of units dropped as hubs), fused with the BM25 rankings by RRF. Only for messages a rule written before scoring marks as aggregation ("what do I know", "so far", "across all", counting words): 9 of 13 multi-session dev questions, no single-session ones. Up to 2 extra units come in whole, behind the score bar.
+- **Numbers:** no new evidence on either profile, and every per-type row unchanged. claude tokens 3,949 → 4,107, t2 FI 9.52 → 9.76, t3 7.17 → 7.47, precision 11.4 → 11.0%. small-local tokens 1,425 → 1,569, t2 FI 1.18 → 1.34, t3 1.00 → 1.13, precision 24.9 → 23.0%. A walk-only variant did the same.
+- **Why not kept:** every multi-session evidence turn claude misses shares no word with the question, and the walk ranks those turns 70th to 400th of about 480. Without model-written triples or synonym edges, a word graph sees what BM25 already sees. Branch `loop/p28-phrase-graph` (fa9de0c, off by default).
+- **Next:** the suffix stemmer splits "weddings" from "wedding", which causes two of one question's misses; the rest need meaning (an embedding channel, once a model can be downloaded).
+
+### P17. BM25F with up-weighted user words: not kept (run 9 idea, finished in run 10)
+
+- **Sources:** [Robertson, Zaragoza and Taylor 2004](https://ir.webis.de/anthology/2004.cikm_conference-2004.6), [Pérez-Iglesias et al.](https://arxiv.org/abs/0911.5046).
+- **Tried:** a `Bm25F` index (user and assistant fields, each with its own length normalization and weight, summed before one saturation) to order units, three ways: replacing the two-ranking RRF, replacing it but keeping today's confidence, and as a third RRF list. Sweep: user weight 1 to 5, b user 0.3 to 0.75, b assistant 0.3 to 1.0. The bar and unit gate kept their features, so nothing was refit. Results in `evals/results/p17-bm25f-sweep.md` on the branch.
+- **Numbers (best of each):** replacing (3 : 0.75 : 0.5) cut claude FI (t1 7.09 → 6.77, t3 7.17 → 6.49) but lost a whole question and both pointer finds (78.7 / 80.9 → 76.6 / 76.6%); small-local lost 4 or more questions at every setting (66.0 → 57.4% at its best replace). As a third list, claude held whole recall but lost the pointer find and added FI on every tier; small-local stayed one question short.
+- **Why not kept:** a loss on both profiles. One saturation lets a long assistant answer that repeats the query words max out a unit whether or not the user turn matches; RRF gives the user-word ranking its own vote. The lexical side looks done. Branch `loop/p17-bm25f` (0eecf39).
+- **Next:** pick pointers by gate probability instead of rank, so the 3-pointer cap is less order-sensitive; an embedding list (P04/P10) once a model can be downloaded.
+
+### P20 retry. Working set with a current-project signal: not kept
+
+- **Sources:** [Agentless](https://arxiv.org/html/2407.01489v2), [LocAgent](https://arxiv.org/pdf/2503.09089), [Cline multi-root workspaces](https://docs.cline.bot/features/multiroot-workspace.md), a Cursor forum thread on multi-root path links.
+- **Tried:** the caller names the active workspace (root, name, files). A path from the chat counts only after a turn ties the window to it (its name, its root folder's name, or an absolute path under its root); a path outside it, a `../` path, or a top folder the workspace lacks unties it until the next tie. Absolute paths outside the root never resolve. New hand-written set `evals/sets/working-set-mixed/` (63 chats, 34 dev and 29 held out by the shared hash split, held-out not run), with a wrong-items metric. Memory packets byte-identical to main on both profiles.
+- **Numbers (dev, first try → retry):** named earlier 4/6 → 5/6 (small-local 3/6 → 4/6), nearby 4/4, mixed window 7/7, should-be-empty 6/12 → 12/12, wrong items 15 → 3, section tokens 168 → 176. On the run 7 set, whose chats never name the repo: named earlier 5/7 → 0/7, nearby 13/13 → 1/13.
+- **Review (Opus 5.5):** valid with fixes; every number reproduced, byte-identity confirmed with a separate hash. But 15 of the 17 tied dev chats tie by naming the repo in a user turn, so those rows show the resolver works once tied, not that ties happen. 9 of the 12 should-be-empty chats can't get a section by construction. Items from before an untie are kept, so all 5 dev switched chats still carry a stale section of about 188 tokens while the user is on another project, which no metric scored. The claim that tool output ties real windows is untested, since turns carry text only.
+- **Why not kept:** recall on windows that don't name the workspace collapses, and switched chats keep a stale section, a false inclusion. Branch `loop/p20-current-project` (1ad4bef).
+- **Next:** an untie drops what came before it; seed the tie from the session's own working directory (the caller knows it); pass the user's other workspace names so a switch said in words unties; score stale sections as wrong items.
+
+## Run 9: 2026-11-26, 5:18 PM Arizona (ran through the 6:17 wake)
+
+Baseline is main at 826beb2 (P15 pointer tier on claude). Dev numbers only, tuning-grade; one question is 2.1 points. FI is false inclusions per prompt, retrieved tokens in brackets. No paid runs. BM25F (P17) finished in run 10.
+
+### P15 follow-ups: readable recall row kept (measurement); pointer grid changes nothing
+
+- **Sources:** run 8's P15 entry and review; [Stability Regularized Cross-Validation](https://arxiv.org/html/2505.06927v1) on how small-dev picks read better in-sample than they are.
+- **Changed:** `eval recall` prints "claude: readable (pointers open in 3 searches)" for profiles with pointers on, using the same `searchUnits` path and top-N as the real search tool; `pointer-sweep.ts` calls the shared code. Every other number is unchanged and small-local output is byte-identical. Claude readable is 80.9%, equal to pointers-as-found.
+- **Grid (claude, gate 0.003 to 0.008 by 0.001, cap 0 to 4, plus no cap):** no setting beats main (0.004, cap 3) under the keep rule. Cap 0 at 0.004 cuts t1 FI 7.09 → 5.79 (t3 7.17 → 6.47) at the same 78.7% whole recall but loses the pointers-as-found question. 0.007 with cap 0 halves FI (t1 3.46, t3 4.00) and saves about 870 tokens for one more question (76.6%). With no cap, every gate reaches 80.9% readable but FI returns to pre-P15 levels. Each pointer costs about +0.4 to 0.5 t1 FI. A rule fixed before looking picks 0.004 with cap 0 in-sample; leave-one-type-out CV picks it in five of six folds (held-out readable 74.5%).
+- **Review (Opus 5.5):** valid with one fix (a pointer now has to match its unit's end as well as its start, since pieces of a split turn share a start; no number moved). Readable is stricter than the real reader loop, which can run more than one search per round. It measures what is reachable, not what a model searches.
+- **Pushed:** 27a2f20. Grid branch `loop/p15-readable-grid` (78eca4f).
+- **Next:** a reader run on whether models open pointers; if they don't, cap 0 replaces cap 3. The 0.004 to 0.007 gap costs only one preference question, which is a policy call.
+
+### P24. Person index and cards: not kept
+
+- **Sources:** [EnSIMem](https://arxiv.org/pdf/2609.27279), [A Simple Yet Strong Baseline for Long-Term Conversational Memory](https://arxiv.org/pdf/2511.17208), [Event-Centric Memory with Query-Aware Graph Augmentation](https://arxiv.org/pdf/2610.11920), docs/research/people.md.
+- **Tried:** `people.ts`, an optional source. An alias table from user turns only ("my sister", "my sister Emma", "Emma, my sister"), merged only on exact matches or stated links; a name tied to two relations names nobody. A message naming a known person gets an 80-token card of dated pointers with search words, never traits or private words. No card for unknown or ambiguous names or for bare relations like "my friend". New probe set `evals/sets/person-probes/` (30 made-up names and rare relations, 22 dev and 8 held out unseen; 1,037 dev pairs).
+- **Numbers:** abstention held: no card on any of 1,037 probe pairs or 1,850 tier 1/1t prompts. Only 5 of 47 answerable dev questions name a relation (rule fixed before scoring); cards fired on 2 and brought no evidence. Tier 2 FI rose on both profiles (claude 9.52 → 9.58, small-local 1.18 → 1.24) from cards on another history. Recall unchanged; tokens +2 and +5.
+- **Why not kept:** a small regression with no gain. LongMemEval has too few person questions to test what P24 is for (fewer tool calls on person prompts). Branch `loop/p24-person-index` (ca843ac).
+- **Next:** test on real person cases in long histories (the P21 non-memory set), hold cards behind the history bar so tier 2 can't trip them, and match lowercase names.
 
 ## Run 8: 2026-11-26, 4:17 PM Arizona
 

@@ -61,42 +61,48 @@ let kokoro: Promise<Kokoro | null> | undefined;
 /** Why Kokoro didn't load, so the page can say why it fell back to the built-in voice. */
 export let voiceError = "";
 
-/** Loads once per page, in a worker; the model files stay in the browser's cache after the first time. */
+// Tilde (a WebGPU engine built for iPhone Safari) runs Kokoro-82M on the GPU, ~4x faster than real time on an iPhone 16 Pro.
+// kokoro-js crashed Safari's GPU there and was slower than real time on WebAssembly.
+const TILDE = "https://cdn.jsdelivr.net/gh/KealJones/tilde@ab7fe77/src/index.js";
+const GGUF = "https://huggingface.co/ggml-org/Kokoro-82M-GGUF/resolve/main/";
+type TildeKokoro = { speak(phonemes: string, o: { voice: string }): Promise<Float32Array> };
+type TildeLib = {
+  loadKokoro(backbone: string, mmproj: string, o: { onProgress: (p: { loaded: number; total: number }) => void }): Promise<TildeKokoro>;
+  trimSilence(pcm: Float32Array): Float32Array;
+  SPEECH_RATE: number;
+};
+
+/** Loads once per page; the model files stay in the browser's cache after the first time. */
 export function loadKokoro(onProgress: (pct: number) => void): Promise<Kokoro | null> {
-  return (kokoro ??= new Promise((resolve) => {
-    const worker = new Worker(new URL("./kokoro-worker.ts", import.meta.url), { type: "module" });
-    const waiting = new Map<number, { ok: (v: { audio: Float32Array; sampling_rate: number }) => void; no: (e: Error) => void }>();
-    let n = 0;
-    const failed = (message: string) => {
-      console.warn("Kokoro didn't load, using the built-in voice:", message);
-      voiceError = message;
-      resolve(null);
-    };
-    worker.onerror = (e) => failed(e.message || "the voice worker didn't start");
-    worker.onmessage = ({ data: m }) => {
-      if (m.type === "progress") onProgress(m.pct);
-      else if (m.type === "error") failed(m.message);
-      else if (m.type === "audio" || m.type === "failed") {
-        const w = waiting.get(m.id);
-        waiting.delete(m.id);
-        if (m.type === "audio") w?.ok({ audio: m.audio, sampling_rate: m.rate });
-        else w?.no(new Error(m.message));
-      } else if (m.type === "ready")
-        resolve({
-          generate: (text, o) =>
-            new Promise((ok, no) => {
-              waiting.set(++n, { ok, no });
-              worker.postMessage({ type: "generate", id: n, text, voice: o.voice });
-            }),
-          cancel: () => {
-            worker.postMessage({ type: "cancel" });
-            for (const w of waiting.values()) w.no(new Error("cancelled"));
-            waiting.clear();
-          },
-        });
-    };
-    worker.postMessage({ type: "load" });
-  }));
+  return (kokoro ??= (async () => {
+    try {
+      if (!(navigator as { gpu?: unknown }).gpu) throw new Error("this browser has no WebGPU");
+      const [t, { phonemize }] = await Promise.all([import(/* @vite-ignore */ TILDE) as Promise<TildeLib>, import("./phonemize.js")]);
+      const k = await t.loadKokoro(GGUF + "Kokoro-82M-F32.gguf", GGUF + "mmproj-Kokoro-82M-F16.gguf", {
+        onProgress: (p) => onProgress(Math.round((100 * p.loaded) / p.total)),
+      });
+      // One sentence at a time on the GPU; cancel() bumps the epoch so queued sentences are dropped.
+      let tail: Promise<unknown> = Promise.resolve(), epoch = 0;
+      return {
+        generate(text, o) {
+          const mine = epoch;
+          const job = tail.then(async () => {
+            if (mine !== epoch) throw new Error("cancelled");
+            // shortcut: one call takes 510 phonemes; longer sentences are cut, as kokoro-js did.
+            const ph = (await phonemize(text, o.voice.startsWith("b") ? "b" : "a")).slice(0, 510);
+            return { audio: t.trimSilence(await k.speak(ph, { voice: o.voice })), sampling_rate: t.SPEECH_RATE };
+          });
+          tail = job.catch(() => {});
+          return job;
+        },
+        cancel: () => void epoch++,
+      } satisfies Kokoro;
+    } catch (err) {
+      voiceError = err instanceof Error ? err.message : String(err);
+      console.warn("Kokoro didn't load, using the built-in voice:", voiceError);
+      return null;
+    }
+  })());
 }
 
 type Recognition = EventTarget & {
@@ -350,7 +356,7 @@ export function readAloud(text: string, voice: string, state: (s: ReadState) => 
 
   async function go(me: number) {
     state(builtin ? "playing" : "loading");
-    // Queue every sentence now, so the worker never sits idle while one plays (that idling was the gap between sentences).
+    // Queue every sentence now, so the voice never sits idle while one plays (that idling was the gap between sentences).
     if (!builtin) parts.forEach((_, i) => void make(i).catch(() => {}));
     // A phone can make speech slower than it plays it, so hold off until the rest will be ready in time.
     if (!builtin && (await loadKokoro(() => {}))) {

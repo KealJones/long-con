@@ -2,7 +2,7 @@
 // the model would, by its words, and don't care how it's laid out or built.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildPacket, PROFILES, searchUnits, type Session } from "../src/index.ts";
+import { buildPacket, pickPointers, PROFILES, searchUnits, type Session } from "../src/index.ts";
 import { filler } from "./fixtures.ts";
 
 const chat = (s: Session): Session => s;
@@ -276,6 +276,11 @@ test("a medium-confidence unit comes in as a one-line pointer whose words find i
   const top = searchUnits(history, packet.pointers[0]!.query, profile.segmentTokens).hits[0]!.hit.item;
   assert.equal(top.sessionId, "answer_9c1d_2", "its quoted words bring the unit back");
   assert.ok(packet.tokens < buildPacket({ history, message, profile }).tokens);
+  // With an embedder (here every cosine is 1), a close enough unit stays whole (pointerPromote), a far one drops (pointerFloor).
+  const embed = () => new Float32Array([1, 0]);
+  assert.match(buildPacket({ history, message, profile: { ...pointing, pointerPromote: 0.9 }, embed }).text, /1840/);
+  const far = buildPacket({ history, message, profile: { ...pointing, pointerFloor: 1.1 }, embed });
+  assert.equal(far.pointers.length + far.segments.length, 0);
   // Off, or with no search tool to open it, the unit comes in whole as before.
   for (const p of [profile, { ...pointing, maxToolRounds: 0 }]) {
     const whole = buildPacket({ history, message, profile: p });
@@ -291,4 +296,22 @@ test("today's turns older than the raw ones stay searchable, even when they shar
   const packet = packetFor(history, "what was my bike lock code again", "today");
   assert.equal(packet.recentTurns.length, profile.rawTurns);
   assert.match(packet.text, /bike lock code is the year we met/);
+});
+
+test("the pointer cap is filled by rank, gate probability, cosine or both", () => {
+  const units = [
+    { rank: 0, p: 0.0021, sim: 0.3 },
+    { rank: 2, p: 0.0039, sim: 0.22 },
+    { rank: 5, p: 0.003, sim: 0.6 },
+  ];
+  const kept = (pick: Parameters<typeof pickPointers>[1], cap = 1) => [...pickPointers(units, pick, cap)].sort();
+  assert.deepEqual(kept("rank"), [0]);
+  assert.deepEqual(kept("gate"), [2]);
+  assert.deepEqual(kept("cosine"), [5]);
+  // Places: gate 2,0,1 and cosine 1,2,0 for ranks 0,2,5; rank 5 sums lowest.
+  assert.deepEqual(kept("mix"), [5]);
+  assert.deepEqual(kept("rank", 0), []);
+  assert.deepEqual(kept("rank", Infinity), [0, 2, 5]);
+  // With no cosine, cosine and mix fall back to rank.
+  assert.deepEqual([...pickPointers(units.map(({ rank, p }) => ({ rank, p })), "cosine", 1)], [0]);
 });
