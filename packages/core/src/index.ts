@@ -7,6 +7,7 @@ export { Bm25, type Hit } from "./bm25.ts";
 export { splitIntoSegments, splitTurn, type Segment } from "./segments.ts";
 export { contentWords, estimateTokens } from "./text.ts";
 export type { Resolution } from "./resolver.ts";
+export { extractRules } from "./registers.ts";
 export { SymbolIndex, indexSource, identifiersIn, lookupSymbols, type SymbolDef, type SymbolItem, type SymbolKind, type SymbolLookup, type SymbolBudget, type SourceFile } from "./symbols.ts";
 export { UNIT_FEATURES, UNIT_WEIGHTS, unitProbability } from "./gate.ts";
 export { isTallyQuestion, tallySearch, TALLY_FEATURES } from "./tally.ts";
