@@ -62,6 +62,8 @@ export interface Profile {
   trustNote: boolean;
   /** The standing-rules register in the packet's head. On unless set false; the eval's packet-norules arm turns it off. */
   standingRules?: boolean;
+  /** Whether the model sees images itself. Models that don't get the ask_image tool instead (images.ts). */
+  vision: boolean;
   /** Searches the model may run per turn. 0 gives it no search tool. */
   maxToolRounds: number;
   /** Units one search returns. */
@@ -107,6 +109,7 @@ export const PROFILES = {
     recentAnswers: 2,
     gate: true,
     trustNote: true,
+    vision: true,
     maxToolRounds: 3,
     searchResults: 3,
     answerTokens: 4000,
@@ -144,6 +147,7 @@ export const PROFILES = {
     recentAnswers: 1,
     gate: true,
     trustNote: true,
+    vision: false,
     maxToolRounds: 1,
     searchResults: 1,
     answerTokens: 600,

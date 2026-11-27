@@ -87,7 +87,7 @@ export async function sendTurn(history: Session[], message: string, opts: TurnOp
         max_tokens: PROFILE.answerTokens,
         system: prompt.system,
         messages,
-        tools: toolDefs(opts.model),
+        tools: toolDefs(opts.model, profile),
         ...(round >= MAX_ROUNDS ? { tool_choice: { type: "none" } } : {}),
       }),
     });
