@@ -5,8 +5,9 @@
 // Files: /home is kept in this browser (localStorage) between chats; /tmp and the rest live for the page.
 // shortcut: no git or gh yet (Squiggle's need isomorphic-git and a GitHub sign-in); add them if Keal wants them here.
 
-import { searchHistory, type Profile, type Session } from "@long-con/core";
+import { imageTools, searchHistory, type Profile, type Session } from "@long-con/core";
 import { calculate } from "./calc.ts";
+import { runAskImage, type AttachedImages } from "./vision.ts";
 
 export const FILES_KEY = "long-con:files";
 
@@ -34,7 +35,8 @@ Not here: git, gh. For a web search use the web_search tool; for a page curl can
 };
 
 /** Tool definitions for the Messages API. Haiku takes the older server-tool versions. */
-export function toolDefs(model: string) {
+/** With a profile, a model that can't see also gets ask_image. */
+export function toolDefs(model: string, profile?: Profile) {
   const basic = model.includes("haiku");
   return [
     {
@@ -53,6 +55,7 @@ export function toolDefs(model: string) {
     },
     { type: basic ? "web_search_20250305" : "web_search_20260209", name: "web_search", max_uses: 5 },
     { type: basic ? "web_fetch_20250910" : "web_fetch_20260209", name: "web_fetch", max_uses: 5 },
+    ...(profile ? imageTools(profile) : []),
   ];
 }
 
@@ -62,6 +65,8 @@ export interface ToolContext {
   /** Where /home is kept; localStorage in the browser, a Map in tests. */
   store?: Pick<Storage, "getItem" | "setItem">;
   fetch?: typeof fetch;
+  /** Images attached in this chat, for ask_image. */
+  images?: AttachedImages;
 }
 
 export interface ToolRun {
@@ -76,6 +81,10 @@ export async function runTool(name: string, input: Record<string, unknown>, ctx:
   if (name === "search_history") {
     const query = String(input.query ?? "");
     return { output: searchHistory(ctx.history, query, ctx.profile), isError: false, label: `searched past chats for “${query}”` };
+  }
+  if (name === "ask_image") {
+    const run = await runAskImage(input, ctx.images ?? new Map());
+    return { output: run.text, isError: run.isError, label: `asked the picture: “${String(input.question ?? "")}”` };
   }
   if (name === "bash") return bash(String(input.command ?? "").trim(), ctx);
   return { output: `No tool named ${name}.`, isError: true, label: name };

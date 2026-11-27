@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@huggingface/transformers": "^3.8.1",
     "@long-con/core": "0.0.0",
     "just-bash": "3.6.0",
     "kokoro-js": "^1.2.1"
