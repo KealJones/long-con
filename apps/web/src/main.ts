@@ -1020,6 +1020,9 @@ callButton.addEventListener("click", () => {
   });
 });
 
+// The composers float over their logs; the logs' bottom padding follows their height.
+for (const f of document.querySelectorAll<HTMLElement>(".composer"))
+  new ResizeObserver(() => f.parentElement!.style.setProperty("--composer-h", `${f.offsetHeight}px`)).observe(f);
 renderRules();
 renderSpent();
 sync();
