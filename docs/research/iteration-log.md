@@ -2,6 +2,10 @@
 
 One entry per idea tried by the hourly packet R&D loop. Newest run first. Numbers are dev unless marked held-out. Backlog: [prefetch-ideas-ranked.md](prefetch-ideas-ranked.md).
 
+## Note: 2026-11-27, 2:30 PM Arizona: entry points must match
+
+From now on the eval harness, the CLI and the web chat must run the same packet code with the same options, and a change counts as kept only once every entry point runs it. Today they don't match: the web chat (apps/web/src/chat.ts) calls the builder without the embedder, so the embedding veto kept in run 11 and the search tool's low-confidence marks from run 13 run only in the harness. Either the web chat gets the veto (the embedder is plain TypeScript, so it can run in the browser once the model file is served there) or the harness drops it; the web chat's thread decides. Until then those two results are "kept in core, waiting on web wiring".
+
 ## Run 13: 2026-11-27, 1:17 AM Arizona
 
 Main went c806fb3 → c198760. The veto-floor CV check started in run 12 finished here.
