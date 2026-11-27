@@ -54,9 +54,6 @@
               <div id="presence" class="presence">remembers everything</div>
             </div>
           </div>
-          <button class="icon" id="call" aria-label="Start a voice call" aria-pressed="false" hidden>
-            <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>
-          </button>
           <button class="icon" id="open-settings" aria-label="Settings">
             <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
           </button>
@@ -76,7 +73,13 @@
           <div class="pill">
             <label class="attach" aria-label="Attach photos or PDFs"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg><input id="files" type="file" accept="image/*,application/pdf" multiple hidden /></label>
             <textarea id="input" rows="1" placeholder="Text Long Con" aria-label="Message"></textarea>
-            <button id="send" type="submit" aria-label="Send" disabled>
+            <button type="button" id="dictate" class="dictate" aria-label="Dictate" aria-pressed="false" hidden>
+              <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>
+            </button>
+            <button type="button" id="call" class="round" aria-label="Start a voice call" aria-pressed="false" hidden>
+              <svg viewBox="0 0 24 24"><path d="M4 11v2M8 8v8M12 5v14M16 8v8M20 11v2" /></svg>
+            </button>
+            <button id="send" class="round" type="submit" aria-label="Send" disabled>
               <svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7" /></svg>
             </button>
           </div>

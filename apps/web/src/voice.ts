@@ -88,6 +88,20 @@ type Recognition = EventTarget & {
 const Recognizer = (globalThis as unknown as { SpeechRecognition?: new () => Recognition; webkitSpeechRecognition?: new () => Recognition }).SpeechRecognition
   ?? (globalThis as unknown as { webkitSpeechRecognition?: new () => Recognition }).webkitSpeechRecognition;
 export const canCall = !!Recognizer && !!navigator.mediaDevices?.getUserMedia;
+export const canDictate = !!Recognizer;
+
+/** Dictation into the box: shows what's heard so far, until stopped or the browser ends it. Returns stop. */
+export function dictate(onText: (text: string) => void, onEnd: () => void): () => void {
+  const rec = new Recognizer!();
+  rec.lang = navigator.language;
+  rec.continuous = true;
+  rec.interimResults = true;
+  rec.onresult = (e) => onText(Array.from(e.results, (r) => r[0]!.transcript).join(""));
+  rec.onerror = () => onEnd();
+  rec.onend = onEnd;
+  rec.start();
+  return () => rec.stop();
+}
 
 export type CallState = "loading" | "listening" | "thinking" | "speaking";
 export interface CallOptions {

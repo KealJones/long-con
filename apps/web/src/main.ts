@@ -595,7 +595,12 @@ function showTyping(on: boolean) {
 const sync = () => {
   input.style.height = "auto";
   input.style.height = `${input.scrollHeight}px`;
-  send.disabled = busy || (!input.value.trim() && !mainFiles.files.length);
+  const typed = !!input.value.trim() || mainFiles.files.length > 0;
+  // An empty box offers a call; the first character swaps in send. A call in progress keeps its hang-up button.
+  callButton.hidden = !Voice.canCall || (typed && !hangUp);
+  send.hidden = !callButton.hidden;
+  input.closest(".pill")!.classList.toggle("typed", typed && !hangUp);
+  send.disabled = busy || !typed;
 };
 let busy = false;
 input.addEventListener("input", sync);
@@ -893,7 +898,6 @@ const voiceSelect = $<HTMLSelectElement>("voice");
 for (const [id, name] of Object.entries(Voice.VOICES)) voiceSelect.append(new Option(name, id));
 voiceSelect.value = localStorage.getItem("long-con:voice") ?? "af_heart";
 voiceSelect.addEventListener("change", () => localStorage.setItem("long-con:voice", voiceSelect.value));
-callButton.hidden = !Voice.canCall;
 let hangUp: (() => void) | null = null;
 const CALL_STATES = { loading: "getting ready…", listening: "listening…", thinking: "thinking…", speaking: "speaking…" };
 function endCall() {
@@ -902,7 +906,30 @@ function endCall() {
   callButton.setAttribute("aria-pressed", "false");
   callButton.setAttribute("aria-label", "Start a voice call");
   showTyping(false);
+  input.value = "";
+  sync();
 }
+
+// The mic in the box types what you say; it doesn't send.
+const dictateButton = $<HTMLButtonElement>("dictate");
+dictateButton.hidden = !Voice.canDictate;
+let stopDictating: (() => void) | null = null;
+dictateButton.addEventListener("click", () => {
+  if (stopDictating) return stopDictating();
+  const before = input.value.trimEnd();
+  dictateButton.setAttribute("aria-pressed", "true");
+  stopDictating = Voice.dictate(
+    (text) => {
+      input.value = before ? `${before} ${text}` : text;
+      sync();
+    },
+    () => {
+      stopDictating = null;
+      dictateButton.setAttribute("aria-pressed", "false");
+      input.focus();
+    },
+  );
+});
 // Long-press a message (right-click on a computer) for its menu. A "Branch from here" item can join it later.
 const menu = $("menu");
 const reader = $("reader");
@@ -995,6 +1022,7 @@ callButton.addEventListener("click", () => {
 
 renderRules();
 renderSpent();
+sync();
 renderLog();
 renderGitHub();
 if (GH.signedIn(ghEnv) && !GH.savedRepo(ghEnv)) setUpRepo();
