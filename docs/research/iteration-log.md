@@ -4,7 +4,7 @@ One entry per idea tried by the hourly packet R&D loop. Newest run first. Number
 
 ## Run 13: 2026-11-27, 1:17 AM Arizona
 
-Main went c806fb3 → c198760. The veto-floor CV check (from run 12) gets its own entry when its agent finishes.
+Main went c806fb3 → c198760. The veto-floor CV check started in run 12 finished here.
 
 ### Search tool marks hits with the packet's embedding veto (shared search): kept
 
@@ -25,6 +25,14 @@ Main went c806fb3 → c198760. The veto-floor CV check (from run 12) gets its ow
 - **Findings:** the mix changes nothing on either profile at any setting: counting packets never fill their budget (the tally subset averages 821 tokens on claude, 455 on small-local), so order never decides what gets in. No tier 1 or 1t prompt trips the tally check; 12 tier 2 and 11 tier 3 prompts do. claude floor 0.25 holds every row (tally-trip t3 FI 5.55 → 4.00) but 0.3 loses a multi-session question, and CV picks 0.3 in one fold and loses it there (76.6% against 78.7%). small-local bar 0.35 (two steps back from its edge at 0.45) holds every row with tokens 1,351 → 1,337, FI t2 0.98 → 0.88 and t3 0.70 → 0.66, t1 and t1t unchanged, precision 26.6 → 27.4%.
 - **Why not kept:** claude fails CV, and the small-local gain is about five fewer pieces over 50 tier 2 prompts and 1% fewer tokens, inside noise, for three new options; the CV picker there ignored turns and chose 0.5 in 4 of 5 folds. Branch `loop/tally-cosine` (ab30e77).
 - **Next ideas:** the missed multi-session evidence is a lexical miss, not an order or budget problem, so tally recall needs more candidates in the pool (cosine-only pieces behind the bar), not a better order.
+
+### Embedding veto floor under cross-validation, and a query-relative floor: floors confirmed, nothing changed
+
+- **Sources:** [Relevance Filtering for Embedding-based Retrieval](https://arxiv.org/html/2408.04887v1) on query-dependent cosine thresholds.
+- **Tried:** `evals/loop/veto-cv.ts` runs the real builder at every floor × ratio and cross-validates the "highest floor that keeps recall" choice, 5-fold and leave-one-question-out, grouped by question (dev only, on 28ce118, before the pointer change). Also a query-relative floor, `max(floor, r × best kept cosine)`, r 0.5-0.9.
+- **Findings:** the in-sample edge (first question lost) is claude 0.275 and small-local 0.375, and choosing "the highest floor that keeps recall" lands on it and loses held-out questions (claude 5-fold 74.5 / 76.6 / 76.6%, LOO 76.6 / 78.7 / 78.7%; small-local both 63.8%). But every fold picks at least 0.25 on claude and 0.35 on small-local, and no floor up to those loses a question, so the shipped 0.2 and 0.25 sit inside the CV-safe range: the "two steps back" rule held out of fold. The tightest claude question's evidence sits at cosine 0.252, about 0.05 above its floor; the claude edge rests on about three questions. The query-relative floor loses a claude question at r 0.5 at any floor and is noise on small-local (t1 FI 1.05 against 1.07); a joint CV pick chose a ratio once in ten folds.
+- **Not changed:** small-local at 0.3 keeps whole recall (1,318 tokens, FI 0.89 / 0.10 / 0.80 / 0.45) but run 11's sweep shows it loses an evidence turn (72.2 → 71.6%), so it isn't taken. `embedRatio` stays on branch `loop/veto-cv` (2500ba9) with the CV script.
+- **Next ideas:** more answerable questions whose evidence sits near cosine 0.25-0.3, so the floor's edge rests on more than three; a held-out check of the veto before it's called a result.
 
 ## Run 12: 2026-11-26, 10:17 PM Arizona (ran through the 11:18 wake)
 
