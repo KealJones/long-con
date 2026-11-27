@@ -44,7 +44,7 @@ Score = expected gain × confidence ÷ cost, roughly. Measurement and safety ite
 | 21 | P21 | Code, non-memory and URL eval sets | Both (measurement) | Medium | code set grown (run 6), URL set kept (run 7) |
 | 22 | P22 | Novelty-gated web search | small-local | Medium | open |
 | 23 | P23 | Ratcheted raw window plus sticky tier | claude (cost) | Low | open |
-| 24 | P24 | Subject index and person cards | Both | Medium | open |
+| 24 | P24 | Subject index and person cards | Both | Medium | not kept (run 9; LongMemEval has too few person questions) |
 | 25 | P25 | Open-loop speculation between turns | Both | Medium | open |
 | 26 | P26 | Key denoising (SeCom) | Both | Low | kept on the gate only, claude (run 6) |
 | 27 | P27 | Conformal τ | Both | Low | blocked (needs ~100 empty prompts) |

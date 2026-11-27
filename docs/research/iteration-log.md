@@ -2,6 +2,27 @@
 
 One entry per idea tried by the hourly packet R&D loop. Newest run first. Numbers are dev unless marked held-out. Backlog: [prefetch-ideas-ranked.md](prefetch-ideas-ranked.md).
 
+## Run 9: 2026-11-26, 5:18 PM Arizona (ran through the 6:17 wake)
+
+Baseline is main at 826beb2 (P15 pointer tier on claude). Dev numbers only, tuning-grade; one question is 2.1 points. FI is false inclusions per prompt, retrieved tokens in brackets. No paid runs. BM25F (P17) was still running when this was written and gets its own entry.
+
+### P15 follow-ups: readable recall row kept (measurement); pointer grid changes nothing
+
+- **Sources:** run 8's P15 entry and review; [Stability Regularized Cross-Validation](https://arxiv.org/html/2505.06927v1) on how small-dev picks read better in-sample than they are.
+- **Changed:** `eval recall` prints "claude: readable (pointers open in 3 searches)" for profiles with pointers on, using the same `searchUnits` path and top-N as the real search tool; `pointer-sweep.ts` calls the shared code. Every other number is unchanged and small-local output is byte-identical. Claude readable is 80.9%, equal to pointers-as-found.
+- **Grid (claude, gate 0.003 to 0.008 by 0.001, cap 0 to 4, plus no cap):** no setting beats main (0.004, cap 3) under the keep rule. Cap 0 at 0.004 cuts t1 FI 7.09 → 5.79 (t3 7.17 → 6.47) at the same 78.7% whole recall but loses the pointers-as-found question. 0.007 with cap 0 halves FI (t1 3.46, t3 4.00) and saves about 870 tokens for one more question (76.6%). With no cap, every gate reaches 80.9% readable but FI returns to pre-P15 levels. Each pointer costs about +0.4 to 0.5 t1 FI. A rule fixed before looking picks 0.004 with cap 0 in-sample; leave-one-type-out CV picks it in five of six folds (held-out readable 74.5%).
+- **Review (Opus 5.5):** valid with one fix (a pointer now has to match its unit's end as well as its start, since pieces of a split turn share a start; no number moved). Readable is stricter than the real reader loop, which can run more than one search per round. It measures what is reachable, not what a model searches.
+- **Pushed:** 27a2f20. Grid branch `loop/p15-readable-grid` (78eca4f).
+- **Next:** a reader run on whether models open pointers; if they don't, cap 0 replaces cap 3. The 0.004 to 0.007 gap costs only one preference question, which is a policy call.
+
+### P24. Person index and cards: not kept
+
+- **Sources:** [EnSIMem](https://arxiv.org/pdf/2609.27279), [A Simple Yet Strong Baseline for Long-Term Conversational Memory](https://arxiv.org/pdf/2511.17208), [Event-Centric Memory with Query-Aware Graph Augmentation](https://arxiv.org/pdf/2610.11920), docs/research/people.md.
+- **Tried:** `people.ts`, an optional source. An alias table from user turns only ("my sister", "my sister Emma", "Emma, my sister"), merged only on exact matches or stated links; a name tied to two relations names nobody. A message naming a known person gets an 80-token card of dated pointers with search words, never traits or private words. No card for unknown or ambiguous names or for bare relations like "my friend". New probe set `evals/sets/person-probes/` (30 made-up names and rare relations, 22 dev and 8 held out unseen; 1,037 dev pairs).
+- **Numbers:** abstention held: no card on any of 1,037 probe pairs or 1,850 tier 1/1t prompts. Only 5 of 47 answerable dev questions name a relation (rule fixed before scoring); cards fired on 2 and brought no evidence. Tier 2 FI rose on both profiles (claude 9.52 → 9.58, small-local 1.18 → 1.24) from cards on another history. Recall unchanged; tokens +2 and +5.
+- **Why not kept:** a small regression with no gain. LongMemEval has too few person questions to test what P24 is for (fewer tool calls on person prompts). Branch `loop/p24-person-index` (ca843ac).
+- **Next:** test on real person cases in long histories (the P21 non-memory set), hold cards behind the history bar so tier 2 can't trip them, and match lowercase names.
+
 ## Run 8: 2026-11-26, 4:17 PM Arizona
 
 Baseline is main at 49379d0 (P26 gate keys and the URL set in). Dev numbers only unless marked held-out, tuning-grade; one question is 2.1 points. FI is false inclusions per prompt, retrieved tokens in brackets. No paid runs.
