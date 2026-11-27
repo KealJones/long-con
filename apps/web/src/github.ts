@@ -10,7 +10,8 @@ import type { Step } from "./chat.ts";
 // App and relay if it should show its own name on the GitHub sign-in page.
 export const RELAY = "https://squiggle-relay.kealjones.workers.dev/api";
 export const INSTALL_URL = "https://github.com/apps/squiggle-github/installations/new";
-export const NEW_REPO_URL = "https://github.com/new?name=long-con-chats&visibility=private&description=Long%20Con%20chats";
+export const REPO_NAME = "long-con-chats";
+export const NEW_REPO_URL = `https://github.com/new?name=${REPO_NAME}&visibility=private&description=Long%20Con%20chats`;
 const REST = "https://api.github.com";
 export const AUTH_KEY = "long-con:github";
 export const REPO_KEY = "long-con:github-repo";
@@ -29,7 +30,16 @@ export interface Repo {
   branch: string;
 }
 /** The packet store as the page keeps it: one entry per user turn. */
-export type Packets = Record<string, { text: string; tokens: number; steps?: Step[]; model?: string }>;
+export type Packets = Record<string, { text: string; tokens: number; steps?: Step[]; model?: string; raw?: number }>;
+
+/** The packet always opens with the history notice; a packet of that line alone found nothing. */
+export const packetEmpty = (text: string) => !text.includes("\n");
+
+/** "packet · 58 tokens · plus the last 6 turns sent raw", or "empty packet · …" when it found nothing. */
+export function packetLabel(p: Packets[string]): string {
+  const raw = p.raw === undefined ? "" : p.raw ? ` · plus the last ${p.raw} ${p.raw === 1 ? "turn" : "turns"} sent raw` : " · no turns sent raw";
+  return `${packetEmpty(p.text) ? "empty packet, nothing older matched" : `packet · ${p.tokens} tokens`}${raw}`;
+}
 
 export interface Env {
   store: Pick<Storage, "getItem" | "setItem" | "removeItem">;
@@ -117,6 +127,56 @@ async function gh(env: Env, path: string, method = "GET", body?: unknown) {
 
 export const login = async (env: Env): Promise<string> => (await gh(env, "/user")).login;
 
+interface GhRepo {
+  name: string;
+  full_name: string;
+  private: boolean;
+  owner: { login: string };
+}
+
+/** Whether the GitHub app is installed anywhere this person can see. */
+export const installed = async (env: Env) => ((await gh(env, "/user/installations?per_page=100")).installations ?? []).length > 0;
+
+/** Every repo the GitHub app can reach for this person. */
+export async function accessibleRepos(env: Env): Promise<GhRepo[]> {
+  const out: GhRepo[] = [];
+  for (const inst of (await gh(env, "/user/installations?per_page=100")).installations ?? [])
+    for (let page = 1; page <= 10; page++) {
+      const d = await gh(env, `/user/installations/${inst.id}/repositories?per_page=100&page=${page}`);
+      out.push(...(d.repositories ?? []));
+      if ((d.repositories ?? []).length < 100) break;
+    }
+  return out;
+}
+
+/** Like Squiggle's findExistingStorage: a private repo that already has Long Con's marker, else one named like long-con-chats. */
+export async function findRepo(env: Env): Promise<string | null> {
+  const repos = (await accessibleRepos(env)).filter((r) => r.private);
+  const named = (r: GhRepo) => (r.name.toLowerCase() === REPO_NAME ? 2 : /long-?con/i.test(r.name) ? 1 : 0);
+  repos.sort((a, b) => named(b) - named(a));
+  for (const r of repos.slice(0, 25)) {
+    try {
+      await gh(env, `/repos/${r.full_name}/contents/${MARKER}`);
+      return r.full_name;
+    } catch {
+      // Not this one.
+    }
+  }
+  return repos.find(named)?.full_name ?? null;
+}
+
+/** Makes a new private repo. Throws with code "cannot-create" when the app isn't allowed to (then the page links to github.com/new). */
+export async function createRepo(env: Env, name = REPO_NAME): Promise<string> {
+  try {
+    return (await gh(env, "/user/repos", "POST", { name, private: true, auto_init: true, description: "Long Con chats: transcripts and packets. Private." })).full_name;
+  } catch (e) {
+    const status = (e as { status?: number }).status;
+    if (status === 401 || status === 403 || status === 404) throw Object.assign(new Error("GitHub didn't let Long Con create the repo."), { code: "cannot-create" });
+    if (status === 422) throw new Error(`You already have a repo named ${name}. Give the GitHub app access to it and it'll be found.`);
+    throw e;
+  }
+}
+
 /** Checks a repo before using it, like Squiggle: it has to be private and writable. */
 export async function useRepo(env: Env, spec: string): Promise<Repo> {
   const m = spec.trim().replace(/^https:\/\/github\.com\//, "").replace(/\.git$|\/$/g, "").match(/^([\w.-]+)\/([\w.-]+)$/);
@@ -158,7 +218,7 @@ export function changedFiles(history: Session[], packets: Packets, synced: Recor
     for (let i = done - (done % 2); i < s.turns.length; i += 2) {
       const user = s.turns[i]!;
       const p = packets[keyOf(s.id, i)];
-      const turn = { day: s.id, turn: i / 2 + 1, model: p?.model, message: user.content, packet: p?.text, packetTokens: p?.tokens, steps: p?.steps ?? [], answer: s.turns[i + 1]?.content };
+      const turn = { day: s.id, turn: i / 2 + 1, model: p?.model, message: user.content, packet: p?.text, packetTokens: p?.tokens, rawTurns: p?.raw, steps: p?.steps ?? [], answer: s.turns[i + 1]?.content };
       files[`turns/${slug(s.id)}/${String(i / 2 + 1).padStart(3, "0")}.json`] = JSON.stringify(turn, null, 2) + "\n";
     }
   }
@@ -174,7 +234,7 @@ function dayMarkdown(s: Session, packets: Packets): string {
   s.turns.forEach((t, i) => {
     out.push(`**${t.role === "user" ? "You" : "Long Con"}**`, "", t.content, "");
     const p = packets[keyOf(s.id, t.role === "user" ? i : i - 1)];
-    if (p && t.role === "user") out.push(`<details><summary>Packet · ${p.tokens} tokens${p.model ? ` · ${p.model}` : ""}</summary>`, "", fence(p.text), "", "</details>", "");
+    if (p && t.role === "user") out.push(`<details><summary>${packetLabel(p)}${p.model ? ` · ${p.model}` : ""}</summary>`, "", fence(p.text), "", "</details>", "");
     if (p?.steps?.length && t.role === "assistant") {
       const steps = p.steps.map((x) => (x.output === undefined ? x.label : `${x.label}\n${x.output}`)).join("\n\n");
       out.push(`<details><summary>${p.steps.length} tool ${p.steps.length === 1 ? "call" : "calls"}</summary>`, "", fence(steps), "", "</details>", "");

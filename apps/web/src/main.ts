@@ -64,80 +64,137 @@ settings.addEventListener("close", () => {
   input.focus();
 });
 
-// ---------- Save to GitHub ----------
+// ---------- Save to GitHub: the same steps as Squiggle's setup ----------
 
 const ghEnv: GH.Env = { store: localStorage };
-const ghRepo = $<HTMLInputElement>("gh-repo");
+const ghBox = $("gh");
 let ghLogin = "";
 let ghSaved: Date | null = null;
-let ghSignIn: AbortController | null = null;
-$<HTMLAnchorElement>("gh-new").href = GH.NEW_REPO_URL;
-$<HTMLAnchorElement>("gh-install").href = GH.INSTALL_URL;
+/** A setup step is on screen, so the usual view stays out of its way. */
+let ghStep = false;
 
+const hint = (text: string) => el("p", "hint", text);
+const errText = (err: unknown) => (err instanceof Error ? err.message : String(err));
+const actions = (...nodes: Node[]) => {
+  const d = el("div", "gh-actions");
+  d.append(...nodes);
+  return d;
+};
+const action = (text: string, onClick: () => void, primary = false) => {
+  const b = btn(primary ? "primary" : "", text);
+  b.addEventListener("click", onClick);
+  return b;
+};
+const away = (text: string, href: string, primary = false) => Object.assign(el("a", `button${primary ? " primary" : ""}`, text), { href, target: "_blank", rel: "noopener" });
+const show = (...nodes: Node[]) => {
+  ghStep = true;
+  ghBox.replaceChildren(...nodes);
+};
+
+/** The usual view: signed out, or saving to a repo. */
 function renderGitHub(note = "") {
-  const inn = GH.signedIn(ghEnv);
+  if (ghStep) return;
+  if (!GH.signedIn(ghEnv)) return ghBox.replaceChildren(hint(note || "Keep a copy of every message, packet and tool call in a private repo of yours."), actions(action("Sign in with GitHub", signIn, true)));
+  if (!ghLogin) GH.login(ghEnv).then((l) => ((ghLogin = l), renderGitHub()), () => {});
   const repo = GH.savedRepo(ghEnv);
-  if (inn && !ghLogin) GH.login(ghEnv).then((l) => ((ghLogin = l), renderGitHub()), () => {});
-  $("gh-login").hidden = inn || !!ghSignIn;
-  $("gh-logout").hidden = !inn;
-  $("gh-sync").hidden = !(inn && repo);
-  $("gh-pick").hidden = !inn;
-  if (repo && document.activeElement !== ghRepo) ghRepo.value = `${repo.owner}/${repo.name}`;
-  const who = ghLogin ? `Signed in as ${ghLogin}. ` : "";
-  $("gh-status").textContent =
-    note ||
-    (!inn
-      ? "Keep a copy of every message, packet and tool call in a private repo of yours."
-      : repo
-        ? `${who}Each message saves to ${repo.owner}/${repo.name}${ghSaved ? `, last at ${ghSaved.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}.`
-        : `${who}Pick a private repo to save to.`);
+  if (!repo) return ghBox.replaceChildren(hint(note || "Signed in, but no repo yet."), actions(action("Find my repo", setUpRepo, true), action("Sign out", signOut)));
+  const when = ghSaved ? `, last at ${ghSaved.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "";
+  ghBox.replaceChildren(
+    hint(note || `${ghLogin ? `Signed in as ${ghLogin}. ` : ""}Each message saves to ${repo.owner}/${repo.name}${when}. Deleting here doesn't delete it there.`),
+    actions(action("Save now", () => saveToGitHub(true)), action("Change repo", pickRepo), action("Sign out", signOut)),
+  );
 }
 
-$("gh-login").addEventListener("click", async () => {
-  ghSignIn = new AbortController();
-  renderGitHub("Asking GitHub for a code…");
-  const code = $("gh-code");
+function fail(err: unknown) {
+  ghStep = false;
+  renderGitHub(errText(err));
+}
+
+async function signIn() {
+  show(hint("Asking GitHub for a code…"));
   try {
     const flow = await GH.startSignIn(ghEnv);
-    const link = Object.assign(el("a", "", "github.com/login/device"), { href: "https://github.com/login/device", target: "_blank", rel: "noopener" });
-    code.replaceChildren("Open ", link, " and enter ", el("b", "", flow.user_code));
-    code.hidden = false;
-    renderGitHub("Waiting for you to approve on GitHub…");
-    await GH.finishSignIn(ghEnv, flow, ghSignIn.signal);
-    ghSignIn = null;
-    code.hidden = true;
-    renderGitHub();
-    ghRepo.focus();
+    // One tap copies the code and opens GitHub's page, so it's just a paste there.
+    const go = action("Copy code and open GitHub", () => {
+      navigator.clipboard?.writeText(flow.user_code).catch(() => {});
+      window.open("https://github.com/login/device", "_blank", "noopener");
+      go.textContent = "Copied. Paste it on GitHub";
+    }, true);
+    show(hint("Enter this code on GitHub:"), el("div", "gh-code", flow.user_code), actions(go), hint("Waiting for you to approve… this continues on its own."));
+    go.focus();
+    await GH.finishSignIn(ghEnv, flow);
+    await setUpRepo();
   } catch (err) {
-    ghSignIn = null;
-    code.hidden = true;
-    renderGitHub(err instanceof Error ? err.message : String(err));
+    fail(err);
   }
-});
+}
 
-$("gh-logout").addEventListener("click", () => {
-  GH.signOut(ghEnv);
-  ghLogin = "";
-  renderGitHub();
-});
-
-async function useRepo() {
-  renderGitHub("Checking the repo…");
+/** After sign-in: make sure the app can see repos, then use the chats repo if there is one. */
+async function setUpRepo() {
+  show(hint("Signed in. Looking for your chats repo…"));
   try {
-    await GH.useRepo(ghEnv, ghRepo.value);
+    if (!(await GH.installed(ghEnv))) {
+      show(hint("Give the GitHub app access to your repos. This continues on its own when you come back."), actions(away("Give access on GitHub", GH.INSTALL_URL, true), action("I did it", setUpRepo)));
+      addEventListener("focus", setUpRepo, { once: true });
+      return;
+    }
+    const found = await GH.findRepo(ghEnv);
+    if (found) return await connect(found);
+    show(hint(`No chats repo yet. Long Con saves to a private repo of yours named ${GH.REPO_NAME}.`), actions(action(`Create ${GH.REPO_NAME}`, createRepo, true), action("Use another repo", pickRepo)));
+  } catch (err) {
+    fail(err);
+  }
+}
+
+async function createRepo() {
+  show(hint("Creating it…"));
+  try {
+    await connect(await GH.createRepo(ghEnv));
+  } catch (err) {
+    if ((err as { code?: string }).code !== "cannot-create") return fail(err);
+    // Squiggle's fallback: a pre-filled github.com/new, then give the app access, then find it.
+    show(
+      hint("GitHub didn't let Long Con make it, so it's two quick steps on GitHub:"),
+      actions(away("1. Create the repo", GH.NEW_REPO_URL, true), away("2. Give the app access", GH.INSTALL_URL)),
+      actions(action("Done, continue", setUpRepo)),
+    );
+  }
+}
+
+async function pickRepo() {
+  show(hint("Loading your repos…"));
+  try {
+    const repos = (await GH.accessibleRepos(ghEnv)).filter((r) => r.private);
+    const list = el("div", "gh-repos");
+    list.append(...repos.map((r) => action(r.full_name, () => connect(r.full_name))));
+    show(
+      hint(repos.length ? "Pick a private repo:" : "The GitHub app can't see any private repos yet."),
+      list,
+      actions(away("Give the app access to another", GH.INSTALL_URL), action("Refresh", pickRepo), action("Back", () => ((ghStep = false), renderGitHub()))),
+    );
+  } catch (err) {
+    fail(err);
+  }
+}
+
+async function connect(fullName: string) {
+  show(hint(`Connecting to ${fullName}…`));
+  try {
+    await GH.useRepo(ghEnv, fullName);
+    ghStep = false;
     renderGitHub();
     saveToGitHub();
   } catch (err) {
-    renderGitHub(err instanceof Error ? err.message : String(err));
+    show(hint(errText(err)), actions(action("Pick another repo", pickRepo)));
   }
 }
-$("gh-use").addEventListener("click", useRepo);
-ghRepo.addEventListener("keydown", (e) => {
-  if (e.key !== "Enter") return;
-  e.preventDefault(); // Enter would close the settings dialog.
-  useRepo();
-});
-$("gh-sync").addEventListener("click", () => saveToGitHub(true));
+
+function signOut() {
+  GH.signOut(ghEnv);
+  ghLogin = "";
+  ghStep = false;
+  renderGitHub();
+}
 
 // One sync at a time; each one sends whatever is new by then.
 let ghQueue = Promise.resolve();
@@ -355,7 +412,7 @@ function addTurn(sessionId: string, turn: number, role: "user" | "assistant", co
   row.append(bubble);
   const packet = packets[keyOf(sessionId, role === "user" ? turn : turn - 1)];
   if (packet && role === "user") {
-    row.append(...peek(`<path d="M21 16V8l-9-5-9 5v8l9 5 9-5zM3.3 7L12 12l8.7-5M12 22V12"/>`, `packet · ${packet.tokens} tokens`, packet.text));
+    row.append(...peek(`<path d="M21 16V8l-9-5-9 5v8l9 5 9-5zM3.3 7L12 12l8.7-5M12 22V12"/>`, GH.packetLabel(packet), packet.text));
   }
   if (packet?.steps?.length && role === "assistant") {
     const n = packet.steps.length;
@@ -452,7 +509,7 @@ form.addEventListener("submit", async (event) => {
     const onStep = (label: string) => (presence.textContent = label.length > 40 ? label.slice(0, 39) + "…" : label);
     const model = modelSelect.value;
     const result = await sendTurn(history, message, { apiKey, model, onStep });
-    packets[keyOf(result.sessionId, result.turn)] = { text: result.packet, tokens: result.packetTokens, model, ...(result.steps.length ? { steps: result.steps } : {}) };
+    packets[keyOf(result.sessionId, result.turn)] = { text: result.packet, tokens: result.packetTokens, model, raw: result.rawTurns, ...(result.steps.length ? { steps: result.steps } : {}) };
     saveChat();
     saveToGitHub();
     pending.remove();
@@ -475,6 +532,7 @@ form.addEventListener("submit", async (event) => {
 
 renderLog();
 renderGitHub();
+if (GH.signedIn(ghEnv) && !GH.savedRepo(ghEnv)) setUpRepo();
 saveToGitHub(); // Anything a failed save left behind.
 setSidebar(!narrow.matches && !!localStorage.getItem("long-con:sidebar"));
 if (!keyInput.value) settings.showModal();

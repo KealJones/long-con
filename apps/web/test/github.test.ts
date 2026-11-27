@@ -38,7 +38,7 @@ function fakeGitHub(opts: { empty?: boolean; conflictOnce?: boolean; publicRepo?
 
 const day = "2026/11/27 (Fri)";
 const history = (): Session[] => [{ id: day, date: day, turns: [{ role: "user", content: "hi" }, { role: "assistant", content: "hey!" }] }];
-const packets: GH.Packets = { [`${day}#0`]: { text: "PACKET ```x```", tokens: 12, model: "claude-opus-5-5", steps: [{ label: "$ ls", output: "a.txt" }] } };
+const packets: GH.Packets = { [`${day}#0`]: { text: "NOTICE\nPACKET ```x```", tokens: 12, model: "claude-opus-5-5", raw: 6, steps: [{ label: "$ ls", output: "a.txt" }] } };
 
 test("signs in with the device flow and refuses a public repo", async () => {
   const gh = fakeGitHub({ publicRepo: true });
@@ -62,8 +62,8 @@ test("an empty repo gets its marker, then one commit with the day and the turn",
   assert.equal(tree.base_tree, "t1");
   const files = Object.fromEntries(tree.tree.map((f: { path: string; content: string }) => [f.path, f.content]));
   assert.deepEqual(Object.keys(files).sort(), ["README.md", "days/2026-11-27.md", "turns/2026-11-27/001.json"]);
-  assert.match(files["days/2026-11-27.md"], /\*\*You\*\*\n\nhi[\s\S]*Packet · 12 tokens · claude-opus-5-5[\s\S]*````text\nPACKET ```x```\n````[\s\S]*1 tool call/);
-  assert.deepEqual(JSON.parse(files["turns/2026-11-27/001.json"]), { day, turn: 1, model: "claude-opus-5-5", message: "hi", packet: "PACKET ```x```", packetTokens: 12, steps: [{ label: "$ ls", output: "a.txt" }], answer: "hey!" });
+  assert.match(files["days/2026-11-27.md"], /\*\*You\*\*\n\nhi[\s\S]*packet · 12 tokens · plus the last 6 turns sent raw · claude-opus-5-5[\s\S]*````text\nNOTICE\nPACKET ```x```\n````[\s\S]*1 tool call/);
+  assert.deepEqual(JSON.parse(files["turns/2026-11-27/001.json"]), { day, turn: 1, model: "claude-opus-5-5", message: "hi", packet: "NOTICE\nPACKET ```x```", packetTokens: 12, rawTurns: 6, steps: [{ label: "$ ls", output: "a.txt" }], answer: "hey!" });
   // Nothing new: no commit.
   const before = gh.calls.length;
   assert.equal(await GH.sync(env, history(), packets), 0);
@@ -83,4 +83,34 @@ test("a later turn sends only its day and its own turn, and retries when someone
   assert.equal(trees.length, 2);
   assert.deepEqual(trees[1]!.body.tree.map((f: { path: string }) => f.path), ["days/2026-11-27.md", "turns/2026-11-27/002.json"]);
   assert.deepEqual(JSON.parse(env.store.getItem(GH.SYNCED_KEY)!), { [day]: 4 });
+});
+
+test("packet labels say when nothing matched and how many turns went raw", () => {
+  assert.equal(GH.packetLabel({ text: "Earlier chat history was left out to fit.", tokens: 9, raw: 2 }), "empty packet, nothing older matched · plus the last 2 turns sent raw");
+  assert.equal(GH.packetLabel({ text: "notice\n\nRetrieved:\nstuff", tokens: 40, raw: 0 }), "packet · 40 tokens · no turns sent raw");
+  assert.equal(GH.packetLabel({ text: "old\nentry", tokens: 5 }), "packet · 5 tokens");
+});
+
+test("finds a chats repo that already has the marker, else one named like long-con-chats", async () => {
+  const repos = [
+    { name: "notes", full_name: "KealJones/notes", private: true, owner: { login: "KealJones" } },
+    { name: "long-con", full_name: "KealJones/long-con", private: false, owner: { login: "KealJones" } },
+    { name: "long-con-chats", full_name: "KealJones/long-con-chats", private: true, owner: { login: "KealJones" } },
+  ];
+  const run = async (marked: string | null) => {
+    const fetch = (async (url: string): Promise<Response> => {
+      const p = url.replace("https://api.github.com", "");
+      if (p.startsWith("/user/installations?")) return new Response(JSON.stringify({ installations: [{ id: 7 }] }));
+      if (p.startsWith("/user/installations/7/repositories")) return new Response(JSON.stringify({ repositories: repos }));
+      if (marked && p === `/repos/${marked}/contents/.long-con.json`) return new Response("{}");
+      return new Response("{}", { status: 404 });
+    }) as typeof globalThis.fetch;
+    const env = { store: memStore(), fetch };
+    env.store.setItem(GH.AUTH_KEY, JSON.stringify({ access_token: "tok" }));
+    return GH.findRepo(env);
+  };
+  assert.equal(await run("KealJones/notes"), "KealJones/notes");
+  assert.equal(await run(null), "KealJones/long-con-chats");
+  repos.pop();
+  assert.equal(await run(null), null);
 });

@@ -4,7 +4,8 @@
 import { assemblePrompt, buildPacket, PROFILES, type Session } from "@long-con/core";
 import { runTool, toolDefs, type ToolContext } from "./tools.ts";
 
-export const PROFILE = PROFILES.claude;
+// The "best guess" trust note is off here: the R&D loop's 50-question run found it about tripled searches and doubled tokens with no accuracy gain.
+export const PROFILE = { ...PROFILES.claude, trustNote: false };
 /** Model calls per message at most; the last one gets no tools, so it has to answer. */
 export const MAX_ROUNDS = 12;
 
@@ -41,6 +42,8 @@ export interface TurnResult {
   answer: string;
   packet: string;
   packetTokens: number;
+  /** Today's latest turns, sent word for word after the packet. */
+  rawTurns: number;
   /** Where the new user turn sits, for keying the packet. */
   sessionId: string;
   turn: number;
@@ -101,7 +104,7 @@ export async function sendTurn(history: Session[], message: string, opts: TurnOp
   let session = history.find((s) => s.id === today);
   if (!session) history.push((session = { id: today, date: today, turns: [] }));
   session.turns.push({ role: "user", content: message }, { role: "assistant", content: answer });
-  return { answer, packet: packet.text, packetTokens: packet.tokens, sessionId: today, turn: session.turns.length - 2, steps };
+  return { answer, packet: packet.text, packetTokens: packet.tokens, rawTurns: packet.recentTurns.length, sessionId: today, turn: session.turns.length - 2, steps };
 }
 
 interface Block {

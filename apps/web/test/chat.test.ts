@@ -45,6 +45,9 @@ test("a turn sends system, packet, then the message, and saves both turns", asyn
   assert.equal(result.answer, "Probably, yes.");
   assert.equal(result.sessionId, "2026/11/26 (Thu)");
   assert.equal(result.turn, 0);
+  // The trust note is off in the web chat, and a new day has no turns to send raw yet.
+  assert.doesNotMatch(result.packet, /best guess/);
+  assert.equal(result.rawTurns, 0);
   assert.deepEqual(history.at(-1)!.turns, [
     { role: "user", content: "Does Biscuit still hate the vacuum?" },
     { role: "assistant", content: "Probably, yes." },
