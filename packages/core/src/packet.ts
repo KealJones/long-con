@@ -178,7 +178,8 @@ export function buildPacket({ history, message, profile, currentSessionId, code,
   // Pointer tier (P15): the units above were picked exactly as before, at whole cost, so the pointer tier can't let in
   // a unit that wouldn't have come in whole. Medium ones then shrink to a line, up to what the reader can
   // open, in pointerPick order; past that they drop. A unit shorter than its pointer stays whole.
-  // A medium unit reading too far from the message drops instead of taking a pointer line (pointerFloor).
+  // A medium unit reading too far from the message drops instead of taking a pointer line (pointerFloor), even one
+  // shorter than its pointer.
   const far = (c: (typeof chosen)[number]) => profile.pointerFloor !== undefined && c.sim !== undefined && c.sim < profile.pointerFloor;
   const medium = chosen
     .map((c, rank) => ({ c, rank, query: "", line: "" }))

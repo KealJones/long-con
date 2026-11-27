@@ -2,6 +2,20 @@
 
 One entry per idea tried by the hourly packet R&D loop. Newest run first. Numbers are dev unless marked held-out. Backlog: [prefetch-ideas-ranked.md](prefetch-ideas-ranked.md).
 
+## Run 12: 2026-11-26, 10:17 PM Arizona (ran through the 11:18 wake)
+
+Main went 28ce118 → this entry. A grouped-CV check of the embedding veto's floor and the dense retrieval channel (P10/P11, from run 11) get their own entries when their agents finish.
+
+### Pointer floor and cap (P15 follow-up, claude): kept
+
+- **Sources:** [SARA](https://arxiv.org/html/2507.05633v1) (keep the most relevant passages whole, compress the rest), [compact clue selection](https://arxiv.org/html/2502.11811v7).
+- **Tried:** which medium units fill the pointer cap: rank, gate probability, the embedding veto's best-turn cosine, or a mix (`pointerPick`); promoting a medium unit to whole on a high cosine (`pointerPromote`); and dropping a would-be pointer whose cosine is under `pointerFloor`. pointer-sweep.ts now passes the embedder (it built recall packets without it).
+- **Findings:** pick order doesn't change FI (on a should-be-empty prompt every pointer is wrong, so only the count matters); gate order loses the one question found through a pointer; cap 1 loses it in any order; promote at 0.4 adds FI for nothing and does nothing at 0.5-0.6. The cosine floor holds every row up to 0.35 and loses the pointer-found question at 0.4.
+- **Kept on claude:** `maxPointers` 3 → 2 and `pointerFloor` 0.3 (two steps back from the edge, as with the veto), rank order. Options pick and promote stay off.
+- **Numbers (claude, dev):** whole / pointers / readable 78.7 / 80.9 / 80.9% unchanged, turns 86.5% (87.6% with pointers) unchanged; tokens 3,567 → 3,561; FI t1 5.15 (1,260) → 4.55 (1,238), t1t 3.24 (797) → 2.97 (787), t2 7.72 (1,860) → 7.26 (1,843), t3 6.11 (1,330) → 5.70 (1,316); whole-unit FI unchanged, the cut is all pointers (t1 1.08 → 0.48); empty t1 48.0 → 49.3%; precision 12.8 → 13.0%. small-local packets byte-identical (pointers off); a pointer tier there at cap 1-2 still loses at least two questions whole and readable, so it stays off.
+- **Review (fresh Opus 5.5):** valid with notes. No labels reach the builder; readable and pointers-as-found count the capped, floored pointers correctly; empty-rate unchanged. Notes: a far medium unit shorter than its pointer line now drops instead of staying whole (comment updated); with the model files missing the floor turns off silently; the floor and cap are fit in-sample and readable recall rests on one question, so this is a tuning number until a held-out run.
+- **Next ideas:** fit the pointer floor together with the gate instead of a separate threshold; a reader run to see whether models open pointers at all.
+
 ## Run 11: 2026-11-26, 8:17 PM Arizona (ran through the 9:17 wake)
 
 Main went f4111df → 74e9d3f. The static embedders from the repo release (potion-base-8M and potion-retrieval-32M, model2vec, MIT) were tried two ways. The veto is kept; the dense retrieval channel (P10/P11) gets its own entry when its agent finishes.
