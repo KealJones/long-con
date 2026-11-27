@@ -30,7 +30,7 @@ System prompt, search tool definition, packet and question; then the same plus o
 
 | Profile | Context window | First call, mean | First call, largest | With one search, mean | With one search, largest | Fits with room to answer |
 | --- | --- | --- | --- | --- | --- | --- |
-| claude | 200,000 | 3,524 | 8,145 | 4,348 | 9,006 | 50 of 50 |
+| claude | 200,000 | 3,524 | 8,145 | 4,349 | 9,006 | 50 of 50 |
 | small-local | 6,000 | 1,447 | 2,654 | 1,741 | 3,075 | 50 of 50 |
 
 ## Recall against packet size

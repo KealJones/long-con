@@ -202,7 +202,7 @@ async function readerLoop(cfg: ArmConfig, calls: Call[], messages: Anthropic.Mes
         content: res.toolCalls.map((tc) => ({
           type: "tool_result" as const,
           tool_use_id: tc.id,
-          content: searchHistory(q.sessions, String(tc.input.query ?? ""), cfg.profile),
+          content: searchHistory(q.sessions, String(tc.input.query ?? ""), cfg.profile, embedderFor(cfg.profile)),
         })),
       },
     ];

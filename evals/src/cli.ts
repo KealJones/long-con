@@ -286,7 +286,7 @@ function readerInput(q: Question, profile: Profile): { first: number; withSearch
   const text = messages.map((m) => (typeof m.content === "string" ? m.content : JSON.stringify(m.content))).join("\n");
   const tool = profile.maxToolRounds > 0 ? JSON.stringify(SEARCH_TOOL) : "";
   const first = estimateTokens(SYSTEM + tool + text);
-  const search = profile.maxToolRounds > 0 ? estimateTokens(searchHistory(q.sessions, q.question, profile)) + 50 : 0;
+  const search = profile.maxToolRounds > 0 ? estimateTokens(searchHistory(q.sessions, q.question, profile, embedderFor(profile))) + 50 : 0;
   return { first, withSearch: first + search };
 }
 

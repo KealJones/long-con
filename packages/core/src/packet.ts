@@ -325,23 +325,52 @@ export function unitSimilarity(embed: Embed, query: string, mode: "segment" | "m
   };
 }
 
+/** One search_history result: the unit, its labels, and whether the tool vouches for it. */
+export interface SearchResult {
+  segment: Segment;
+  confidence: number;
+  matched: string[];
+  /** False when the packet would have left the unit out; the tool then shows it marked low confidence. */
+  strong: boolean;
+  /** The query's cosine to the unit, when an embedder judged it. */
+  sim?: number;
+}
+
 /**
  * The search_history tool: the same fused search the packet uses, so a better ranking helps both. Where the packet
- * abstains, the tool still answers: a unit the packet would leave out comes back marked low confidence.
+ * abstains, the tool still answers: a unit the packet would leave out comes back marked low confidence. With an embedder,
+ * that includes the packet's embedding veto (embedFloor): on dev it marked no evidence hit low on either profile.
  */
-export function searchHistory(history: Session[], query: string, profile: Profile): string {
-  const { hits } = searchUnits(history, query, profile.segmentTokens, undefined, 0, profile.stemmer, profile.gateKey);
-  if (!hits.length) return "No matches.";
-  const found = hits.some((h) => h.score >= profile.minScore);
+export function searchHistory(history: Session[], query: string, profile: Profile, embed?: Embed): string {
+  const results = searchResults(history, query, profile, embed);
+  if (!results.length) return "No matches.";
   const rejected = buildRegisters(history, profile.recentAnswers).rejected;
-  return hits
-    .slice(0, profile.searchResults)
-    .map(({ hit, confidence, features }) => {
-      const strong = found && confidence >= profile.minConfidence && !(profile.unitGate > 0 && unitProbability(features, profile.unitWeights) < profile.unitGate);
-      const text = renderSegment(hit.item, rejected, confidence, hit.matched);
+  return results
+    .map(({ segment, confidence, matched, strong }) => {
+      const text = renderSegment(segment, rejected, confidence, matched);
       return strong ? text : text.replace("\n", " · low confidence, likely not what you asked about\n");
     })
     .join("\n\n");
+}
+
+/** The units search_history returns, best first, with their marks. */
+export function searchResults(history: Session[], query: string, profile: Profile, embed?: Embed): SearchResult[] {
+  const { hits } = searchUnits(history, query, profile.segmentTokens, undefined, 0, profile.stemmer, profile.gateKey);
+  return markResults(hits, profile, embed && profile.embedSim ? unitSimilarity(embed, query, profile.embedSim) : undefined);
+}
+
+/**
+ * The tool's marks over searchUnits hits, split out so an eval can sweep settings over one search. Order stays the
+ * search's: re-ranking the top 10 or 20 by a mix of confidence and cosine lost evidence on dev (evals/loop/search-tool.ts).
+ */
+export function markResults(hits: ReturnType<typeof searchUnits>["hits"], profile: Profile, sim?: (seg: Segment) => number): SearchResult[] {
+  const found = hits.some((h) => h.score >= profile.minScore);
+  return hits.slice(0, profile.searchResults).map(({ hit, confidence, features }) => {
+    const s = sim?.(hit.item);
+    const vetoed = s !== undefined && (profile.embedFloor ?? 0) > 0 && s < profile.embedFloor!;
+    const gated = profile.unitGate > 0 && unitProbability(features, profile.unitWeights) < profile.unitGate;
+    return { segment: hit.item, confidence, matched: hit.matched, strong: found && confidence >= profile.minConfidence && !gated && !vetoed, sim: s };
+  });
 }
 
 /** Reciprocal-rank fusion, keeping the matched words from both lists. */

@@ -1,6 +1,6 @@
 // @long-con/core: the engine every front end shares.
 export type { Session, Turn, TurnRef } from "./chat.ts";
-export { buildPacket, pickPointers, searchHistory, searchUnits, unitSimilarity, HISTORY_NOTICE, TRUST_NOTE, type Packet, type PacketSegment, type PacketPointer, type BuildPacketInput } from "./packet.ts";
+export { buildPacket, pickPointers, searchHistory, searchResults, markResults, searchUnits, unitSimilarity, HISTORY_NOTICE, TRUST_NOTE, type Packet, type PacketSegment, type PacketPointer, type BuildPacketInput, type SearchResult } from "./packet.ts";
 export { assemblePrompt, type AssembledPrompt, type PromptParts } from "./prompt.ts";
 export { PROFILES, profileByName, type PointerPick, type Profile } from "./profiles.ts";
 export { Bm25, type Hit } from "./bm25.ts";
