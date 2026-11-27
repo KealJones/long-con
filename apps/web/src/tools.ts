@@ -5,7 +5,7 @@
 // Files: /home is kept in this browser (localStorage) between chats; /tmp and the rest live for the page.
 // shortcut: no git or gh yet (Squiggle's need isomorphic-git and a GitHub sign-in); add them if Keal wants them here.
 
-import { searchHistory, type Embed, type Profile, type Session } from "@long-con/core";
+import { SEARCH_TOOL, searchHistory, type Embed, type Profile, type Session } from "@long-con/core";
 import { calculate } from "./calc.ts";
 
 export const FILES_KEY = "long-con:files";
@@ -46,11 +46,7 @@ export function toolDefs(model: string) {
         required: ["command"],
       },
     },
-    {
-      name: "search_history",
-      description: "Search all past chats with the user. Returns the best-matching passages with their dates.",
-      input_schema: { type: "object", properties: { query: { type: "string", description: "What to look for" } }, required: ["query"] },
-    },
+    SEARCH_TOOL,
     { type: basic ? "web_search_20250305" : "web_search_20260209", name: "web_search", max_uses: 5 },
     { type: basic ? "web_fetch_20250910" : "web_fetch_20260209", name: "web_fetch", max_uses: 5 },
   ];

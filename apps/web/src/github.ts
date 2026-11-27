@@ -33,7 +33,8 @@ export interface Repo {
 export type Packets = Record<string, { text: string; tokens: number; steps?: Step[]; model?: string; raw?: number }>;
 
 /** The packet always opens with the history notice; a packet of that line alone found nothing. */
-export const packetEmpty = (text: string) => !text.includes("\n");
+import { packetEmpty } from "@long-con/core";
+export { packetEmpty };
 
 /** "packet · 58 tokens · plus the last 6 turns sent raw", or "no packet · 0 tokens · …" when it found nothing and none was sent. */
 export function packetLabel(p: Packets[string]): string {

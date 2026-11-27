@@ -1,8 +1,7 @@
 // One chat turn: build the packet from history, send it to Claude, and add both turns to history.
 // No DOM here, so the test can run it in Node with a fake fetch.
 
-import { assemblePrompt, buildPacket, PROFILES, type Embed, type Session } from "@long-con/core";
-import { packetEmpty } from "./github.ts";
+import { messagePrompt, PROFILES, type Embed, type Session } from "@long-con/core";
 import { costOf, decide, DEFAULT_PERMISSIONS, offeredTools, siteOf, spentLastHour, type Permissions, type Spend, type Usage } from "./permissions.ts";
 import { runTool, toolDefs, type ToolContext } from "./tools.ts";
 
@@ -95,12 +94,10 @@ export async function sendTurn(history: Session[], message: string, opts: TurnOp
   // Always a packet, even on a short chat (the profile's switchAt would send it whole), since seeing it is the point.
   const profile = { ...PROFILE, rawTurns: opts.rawTurns ?? PROFILE.rawTurns };
   const searchable = opts.extraSessions?.length ? [...history, ...opts.extraSessions] : history;
-  const packet = buildPacket({ history: searchable, message, profile, currentSessionId: today, embed: opts.embed });
-  // A packet that found nothing older isn't sent at all: just today's latest turns and the message.
-  const found = packetEmpty(packet.text) ? "" : packet.text;
-  const sent = [found, opts.note ?? ""].filter(Boolean).join("\n\n");
-  const prompt = assemblePrompt({ system: `${SYSTEM}${opts.voice ? `\n\n${VOICE_NOTE}` : ""}\n\nToday is ${today}.`, packet: sent, recentTurns: packet.recentTurns, message });
-  const messages: unknown[] = sent ? [...prompt.messages] : prompt.messages.slice(1);
+  // core's messagePrompt, the code the evals run: a packet that found nothing older isn't sent at all.
+  const system = `${SYSTEM}${opts.voice ? `\n\n${VOICE_NOTE}` : ""}\n\nToday is ${today}.`;
+  const { packet, sent, prompt } = messagePrompt({ system, history: searchable, message, profile, currentSessionId: today, embed: opts.embed, note: opts.note });
+  const messages: unknown[] = [...prompt.messages];
   withAttachments(messages, opts.attachments);
   const { answer, steps } = await runModel(prompt.system, messages, opts, { history: searchable, profile, store: opts.store, fetch: opts.fetch, embed: opts.embed });
 

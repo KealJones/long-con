@@ -1,20 +1,10 @@
-// Loads the profile's static embedder in the browser: the exact files the evals use (evals/scripts/embedders.sha256),
-// fetched from Hugging Face at the revision the repo's mirror release records, and checked by sha256 before use.
+// Loads the profile's embedder in the browser: core's pinned files (EMBED_FILES), fetched from Hugging Face at their
+// revision, checked by sha256, then built by core's fileEmbedder, the same function the evals use.
 
-import { staticEmbedder, type Embed, type Profile } from "@long-con/core";
+import { EMBED_FILES, embedModelOf, fileEmbedder, type Embed, type Profile } from "@long-con/core";
 
-const FILES: Record<string, { revision: string; sha256: Record<string, string> }> = {
-  "potion-base-8M": {
-    revision: "bf8b056651a2c21b8d2565580b8569da283cab23",
-    sha256: {
-      "tokenizer.json": "e67e803f624fb4d67dea1c730d06e1067e1b14d830e2c2202569e3ef0f70bb50",
-      "model.safetensors": "f65d0f325faadc1e121c319e2faa41170d3fa07d8c89abd48ca5358d9a223de2",
-    },
-  },
-};
-
-async function file(name: string, f: string, doFetch: typeof fetch): Promise<Uint8Array> {
-  const { revision, sha256 } = FILES[name]!;
+async function file(name: string, f: "tokenizer.json" | "model.safetensors", doFetch: typeof fetch): Promise<Uint8Array> {
+  const { revision, sha256 } = EMBED_FILES[name]!;
   const res = await doFetch(`https://huggingface.co/minishlab/${name}/resolve/${revision}/${f}`);
   if (!res.ok) throw new Error(`${name}/${f}: HTTP ${res.status}`);
   const bytes = new Uint8Array(await res.arrayBuffer());
@@ -23,16 +13,11 @@ async function file(name: string, f: string, doFetch: typeof fetch): Promise<Uin
   return bytes;
 }
 
-/** The embedder the profile was tuned with, cached per text like the evals' loader; undefined when the profile has none. */
+/** The embedder the profile was tuned with; undefined when the profile has none. */
 export async function loadEmbedder(profile: Profile, doFetch: typeof fetch = fetch): Promise<Embed | undefined> {
-  if (!profile.embedModel || !profile.embedSim) return undefined;
-  if (!FILES[profile.embedModel]) throw new Error(`no pinned files for ${profile.embedModel}`);
-  const [tokenizer, model] = await Promise.all([file(profile.embedModel, "tokenizer.json", doFetch), file(profile.embedModel, "model.safetensors", doFetch)]);
-  const embed = staticEmbedder(JSON.parse(new TextDecoder().decode(tokenizer)), model);
-  const cache = new Map<string, Float32Array>();
-  return (text) => {
-    let v = cache.get(text);
-    if (!v) cache.set(text, (v = embed(text)));
-    return v;
-  };
+  const name = embedModelOf(profile);
+  if (!name) return undefined;
+  if (!EMBED_FILES[name]) throw new Error(`no pinned files for ${name}`);
+  const [tokenizer, model] = await Promise.all([file(name, "tokenizer.json", doFetch), file(name, "model.safetensors", doFetch)]);
+  return fileEmbedder(tokenizer, model);
 }

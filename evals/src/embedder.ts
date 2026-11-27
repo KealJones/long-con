@@ -1,10 +1,10 @@
-// Loads a model2vec model fetched by evals/scripts/fetch-embedders.sh from disk, with a per-text cache, since the
-// evals embed the same units over and over.
+// Loads a model2vec model fetched by evals/scripts/fetch-embedders.sh from disk (files checked against the sums in
+// embedders.sha256, which a test keeps equal to core's EMBED_FILES).
 
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { staticEmbedder, type Embed, type Profile } from "@long-con/core";
+import { embedModelOf, fileEmbedder, type Embed, type Profile } from "@long-con/core";
 
 export const MODELS = join(dirname(fileURLToPath(import.meta.url)), "../data/models");
 
@@ -15,24 +15,20 @@ export function loadEmbedder(name: string): Embed {
   const have = loaded.get(name);
   if (have) return have;
   const dir = join(MODELS, name);
-  const embed = staticEmbedder(JSON.parse(readFileSync(join(dir, "tokenizer.json"), "utf8")), readFileSync(join(dir, "model.safetensors")));
-  const cache = new Map<string, Float32Array>();
-  const cached: Embed = (text) => {
-    let v = cache.get(text);
-    if (!v) cache.set(text, (v = embed(text)));
-    return v;
-  };
-  loaded.set(name, cached);
-  return cached;
+  // core's fileEmbedder, the same one the web chat builds from the same pinned files (EMBED_FILES).
+  const embed = fileEmbedder(readFileSync(join(dir, "tokenizer.json")), readFileSync(join(dir, "model.safetensors")));
+  loaded.set(name, embed);
+  return embed;
 }
 
 /** The embedder a profile's embedding gate was tuned with, or undefined (with a warning) when its files aren't fetched. */
 export function embedderFor(profile: Profile): Embed | undefined {
-  if (!profile.embedModel || !profile.embedSim) return undefined;
-  if (!existsSync(join(MODELS, profile.embedModel, "model.safetensors"))) {
-    if (!warned.has(profile.embedModel)) console.error(`No ${profile.embedModel} under ${MODELS}; run evals/scripts/fetch-embedders.sh. Packets skip the embedding gate.`);
-    warned.add(profile.embedModel);
+  const name = embedModelOf(profile);
+  if (!name) return undefined;
+  if (!existsSync(join(MODELS, name, "model.safetensors"))) {
+    if (!warned.has(name)) console.error(`No ${name} under ${MODELS}; run evals/scripts/fetch-embedders.sh. Packets skip the embedding gate.`);
+    warned.add(name);
     return undefined;
   }
-  return loadEmbedder(profile.embedModel);
+  return loadEmbedder(name);
 }
