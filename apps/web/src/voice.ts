@@ -130,7 +130,11 @@ export function startCall(opts: CallOptions): () => void {
       const reply = await opts.ask(text);
       if (!reply || signal.aborted) continue;
       opts.state("speaking");
-      await speak(reply, analyser, signal);
+      // A voice that fails mid-reply hands over to the built-in one for the rest of the call.
+      await speak(reply, analyser, signal).catch((err) => {
+        console.warn(err);
+        tooSlow = true;
+      });
       opts.spoken();
     }
   })().catch((err) => {
@@ -144,7 +148,7 @@ export function startCall(opts: CallOptions): () => void {
     const barge = new AbortController();
     const off = () => barge.abort();
     signal.addEventListener("abort", off);
-    const watching = watchForTalk(analyser, barge.signal);
+    const watching = watchForTalk(analyser, barge);
     let next = tts ? timed(tts.generate(parts[0]!, { voice: opts.voice() })) : null;
     try {
       for (let i = 0; i < parts.length; i++) {
@@ -152,7 +156,7 @@ export function startCall(opts: CallOptions): () => void {
         if (tts && next && !tooSlow) {
           const { value, ms } = await next;
           const seconds = value.audio.length / value.sampling_rate;
-          // Making audio slower than half real time means gaps; the built-in voice takes over for the rest of the call.
+          // Taking over twice as long to make as to play means long gaps; the built-in voice takes over for the rest of the call.
           if (ms / 1000 > seconds * 2) tooSlow = true;
           next = i + 1 < parts.length ? timed(tts.generate(parts[i + 1]!, { voice: opts.voice() })) : null;
           played = await play(audio, value, barge.signal);
@@ -169,8 +173,8 @@ export function startCall(opts: CallOptions): () => void {
     }
   }
 
-  /** Resolves when talking is heard (and stops what's playing), or when `done` aborts. */
-  function watchForTalk(analyser: AnalyserNode, done: AbortSignal): Promise<void> {
+  /** Aborts `barge` (which stops what's playing) when talking is heard; resolves once `barge` is aborted either way. */
+  function watchForTalk(analyser: AnalyserNode, barge: AbortController): Promise<void> {
     const data = new Float32Array(analyser.fftSize);
     let loudSince = 0;
     return new Promise((resolve) => {
@@ -180,17 +184,11 @@ export function startCall(opts: CallOptions): () => void {
         const now = performance.now();
         if (rms < BARGE_LEVEL) loudSince = 0;
         else if (!loudSince) loudSince = now;
-        else if (now - loudSince > BARGE_MS) finish(true);
+        else if (now - loudSince > BARGE_MS) barge.abort();
       }, 30);
-      const finish = (talked: boolean) => {
-        clearInterval(tick);
-        if (talked && !done.aborted) bargeIn();
-        resolve();
-      };
-      done.addEventListener("abort", () => finish(false), { once: true });
+      barge.signal.addEventListener("abort", () => (clearInterval(tick), resolve()), { once: true });
     });
   }
-  let bargeIn = () => {};
 
   function play(ctx: AudioContext, a: { audio: Float32Array; sampling_rate: number }, cut: AbortSignal): Promise<number> {
     return new Promise((resolve) => {
@@ -201,13 +199,11 @@ export function startCall(opts: CallOptions): () => void {
       src.connect(ctx.destination);
       const start = ctx.currentTime;
       const end = (fraction: number) => {
-        bargeIn = () => {};
         src.onended = null;
         try { src.stop(); } catch {}
         resolve(fraction);
       };
       src.onended = () => end(1);
-      bargeIn = () => end((ctx.currentTime - start) / buffer.duration);
       if (cut.aborted) return end(0);
       cut.addEventListener("abort", () => end((ctx.currentTime - start) / buffer.duration), { once: true });
       src.start();
@@ -220,14 +216,12 @@ export function startCall(opts: CallOptions): () => void {
       const start = performance.now();
       const guess = text.split(" ").length * 330; // ~180 words a minute
       const end = (fraction: number) => {
-        bargeIn = () => {};
         u.onend = null;
         speechSynthesis.cancel();
         resolve(fraction);
       };
       u.onend = () => end(1);
       u.onerror = () => end(1);
-      bargeIn = () => end(Math.min(0.99, (performance.now() - start) / guess));
       if (cut.aborted) return end(0);
       cut.addEventListener("abort", () => end(Math.min(0.99, (performance.now() - start) / guess)), { once: true });
       speechSynthesis.speak(u);
@@ -236,7 +230,6 @@ export function startCall(opts: CallOptions): () => void {
 
   return () => {
     stop.abort();
-    bargeIn();
     speechSynthesis.cancel();
     void audio.close();
   };
