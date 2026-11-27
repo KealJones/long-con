@@ -2,9 +2,50 @@
 
 One entry per idea tried by the hourly packet R&D loop. Newest run first. Numbers are dev unless marked held-out. Backlog: [prefetch-ideas-ranked.md](prefetch-ideas-ranked.md).
 
+## Run 8: 2026-11-26, 4:17 PM Arizona
+
+Baseline is main at 49379d0 (P26 gate keys and the URL set in). Dev numbers only unless marked held-out, tuning-grade; one question is 2.1 points. FI is false inclusions per prompt, retrieved tokens in brackets. No paid runs.
+
+**Net for the run, before → after (claude; small-local packets byte-identical):**
+
+| | claude |
+| --- | --- |
+| All evidence, whole units | 80.9 → 78.7% |
+| All evidence, pointers counted (readable in 3 searches) | 80.9% |
+| Mean packet tokens | 4,472 → 3,949 |
+| Tier 1 / 1t / 2 / 3 FI | 10.52 / 6.73 / 12.06 / 9.28 → 7.09 / 4.99 / 9.52 / 7.17 |
+| Tier 1 / 1t / 2 / 3 retrieved tokens | 3,167 / 1,938 / 3,272 / 2,366 → 1,700 / 1,217 / 2,299 / 1,521 |
+| Answerable precision | 10.5 → 11.4% |
+
+### P15. Pointer tier: kept on claude, off on small-local
+
+- **Sources:** the prefetch survey's pointer section; [Anthropic, effective context engineering](https://anthropic.com/engineering/effective-context-engineering-for-ai-agents); [ACC-RAG](https://arxiv.org/pdf/2507.22931); [AttnComp](https://arxiv.org/pdf/2509.17486).
+- **Changed:** units the unit gate lets in with gate probability under `pointerGate` render as one line (date, first 8 words, the unit's 4 rarest words as a `search_history` query) instead of whole. Selection is unchanged and charged at whole cost, so a pointer can't let in a unit that wouldn't come in whole (a first version charged only the pointer and FI rose on every tier). Past `maxPointers`, medium units drop. Off without a search tool. claude: 0.004, cap 3. `eval recall` adds a "pointers as found" row; `empty-rate.ts` counts pointers as inclusions and splits whole and pointer FI and tokens. Sweep in `evals/loop/pointer-sweep.ts`.
+- **Readable recall** (sweep only): every missing evidence turn has a pointer, pointers needed fit the profile's search rounds, and each pointer's query brings its unit back in the search tool's top results. All 27 answerable pointers on claude come back in the top 3.
+- **small-local, not taken:** 0.05 with no cap halves tokens (1,425 → 752) at the same FI, but whole all-evidence falls 66.0 → 46.8% (63.8% readable in one search). That bets a 1.7B model runs the pointer search, so it waits for a reader run. Packets are byte-identical to main (SHA-256 over all 2,047 dev and probe packets).
+- **Review (Opus 5.5):** valid, no code fixes; every claude number and the small-local hash reproduced; no label leak (pointer text reads only the unit and the history's IDF). Caveats: the whole FI cut comes from the cap; with no cap FI equals main's. In effect it raises the unit gate to 0.004 (one whole question lost) and spends 3 pointers to keep that one question readable, about +0.6 to 1.3 FI per prompt over dropping medium units outright. The gain is one question in 47, inside the interval. Settings are in-sample on dev. "Readable" means a pointer could be opened; no reader run shows a model opens it. Precision counts an evidence pointer as an evidence unit, which is generous.
+- **Pushed:** 8ced698, results 984b0b6.
+- **Next:** a reader run on whether pointers get opened (the small-local question hangs on it), readable recall inside `eval recall`, better pointer queries (rare words read as noise).
+
+### P12. URL reading, retried on the real-page set: not kept
+
+- **Sources:** run 1's P12 entry (Squiggle's body, article and landmark approach); the P21 set above.
+- **Tried:** `urlpage.ts` with `readPage` (the `<main>` or `role=main` landmark when it holds 20% of the text, else a lone `<article>`, else the body; drops nav, aside, top-level header and footer, hidden nodes and link-only lists; nothing by class name; flags HTTP 400+, near-empty and JavaScript-only pages as failures) and `pickRange` (BM25 over heading sections with the title and heading path as prefix, a 16-line window that must hold the section's rarest query word, an abstain bar at 0.35 of the message's IDF weight, then trimmed to lines with query words, 8 at least). Not wired into `buildPacket`, so memory packets are unchanged.
+- **Dev (settings picked here):** hit@1 33 → 49%, IoU 0.10 → 0.14, hard subset at 3 lines 29 → 43%, abstain right 13 → 14 of 15 (every failure page abstains), wrong ranges 10 of 23 → 5 of 24, 200 → 152 tokens per non-empty. Bar 0.30 hits more (54%) with 7 wrong; 0.40 hits 38% with 4 wrong; 0.35 was picked for fewer wrong ranges.
+- **Held-out, run once after freezing:** hit@1 12% for both, IoU 0.08 vs 0.06, abstain 10/11 for both, 3 wrong of 5 returned vs 5 of 7. P12 leaves 76% of answerable held-out prompts empty, and a post-freeze look at why was blocked. One held-out prompt is about 6 points.
+- **Why not kept:** the dev gain didn't carry to held-out, so it fails the wiring bar. The URL set's held-out split is now spent for tuning. Known miss: two answers on the gem page sit in an `<aside>` outside `<main>`. Branch `loop/p12-url-retry` (c259066).
+- **Next:** read labeled asides, a static-embedding tie-break for vocabulary gaps, more hosts and a second labeler before the next held-out look.
+
+### Tally gate keys: not kept
+
+- **Sources:** run 6's P26 entry; [SeCom](https://arxiv.org/abs/2502.05589); Bendersky and Croft on verbose-query reduction.
+- **Tried:** (a) P26's denoising for tally pieces. P26's key only edits assistant turns and pieces are user sentences, so the closest real version drops user sentences that match the boilerplate pattern from the piece index. (b) The tally gate's segment features computed on the question minus its counting words, behind a profile flag.
+- **Numbers:** (a) claude recall unchanged, tier 2 lost 2 false units, tier 3 retrieved tokens +54; small-local no change. (b) claude tier 2 +1 false unit (+128 retrieved tokens). small-local passes by one packet: tokens 1,425 → 1,422, tier 2 retrieved 309 → 308, precision 24.9 → 25.0%, no per-question flips.
+- **Why not kept:** both fail on claude, and the small-local pass is one packet and costs a second segment search in the browser. Claude's 0.002 tally gate rarely binds. Branch `loop/tally-gate-keys` (0bd429d).
+
 ## Run 7: 2026-11-26, 3:17 PM Arizona
 
-Baseline is main at 58113b9. Dev numbers only, tuning-grade. No paid runs. The pointer tier (P15) was still running when this entry was written and gets its own entry when it lands.
+Baseline is main at 58113b9. Dev numbers only, tuning-grade. No paid runs. The pointer tier (P15) landed in run 8.
 
 ### P21. URL eval set from real pages: kept (measurement)
 

@@ -35,7 +35,7 @@ Score = expected gain × confidence ÷ cost, roughly. Measurement and safety ite
 | 12 | P12 | URL to file with a line range | Both | Medium | dropped (retry with real pages) |
 | 13 | P13 | Identifier-exact `path:line` from a symbol index | Both | Medium | kept, wired as an optional source (run 6) |
 | 14 | P14 | Work-saved paired eval | Both (measurement) | Medium | open |
-| 15 | P15 | Pointer tier for medium confidence | small-local | Low | running (run 7) |
+| 15 | P15 | Pointer tier for medium confidence | small-local | Low | kept on claude, off on small-local (run 8) |
 | 16 | P16 | Fact keys and predicted questions at write time | small-local | Medium | open |
 | 17 | P17 | Fusion hygiene: RRF k, weights, BM25F, stemming | Both | Low | Porter kept for small-local (run 4); BM25F open |
 | 18 | P18 | Prefetched date arithmetic labels | small-local | Low | open |
