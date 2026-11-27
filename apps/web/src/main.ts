@@ -980,12 +980,14 @@ menu.addEventListener("click", (e) => {
     reading = Voice.readAloud(menuText, voiceSelect.value, (s) => {
       reader.hidden = s === "done";
       readerState.textContent = s === "loading" ? "Loading the voice…" : s === "paused" ? "Paused" : "Reading aloud";
-      readerPause.textContent = s === "paused" ? "Resume" : "Pause";
+      reader.classList.toggle("paused", s === "paused");
+      reader.classList.toggle("loading", s === "loading");
+      readerPause.setAttribute("aria-label", s === "paused" ? "Resume" : "Pause");
       if (s === "playing" && Voice.voiceError && voiceSelect.value !== "builtin") setStatus(`Using this device's voice; Kokoro didn't load: ${Voice.voiceError}`);
     });
   }
 });
-readerPause.addEventListener("click", () => (readerPause.textContent === "Pause" ? reading?.pause() : reading?.resume()));
+readerPause.addEventListener("click", () => (reader.classList.contains("paused") ? reading?.resume() : reading?.pause()));
 $("reader-restart").addEventListener("click", () => reading?.restart());
 $("reader-stop").addEventListener("click", () => reading?.stop());
 

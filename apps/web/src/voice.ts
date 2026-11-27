@@ -52,29 +52,50 @@ export function interruptNote(parts: string[], done: number, fraction: number): 
 
 // ---- Browser side ----
 
-type Kokoro = { generate(text: string, o: { voice: string }): Promise<{ audio: Float32Array; sampling_rate: number }> };
+type Kokoro = {
+  generate(text: string, o: { voice: string }): Promise<{ audio: Float32Array; sampling_rate: number }>;
+  /** Drops speech that's queued but not started. */
+  cancel(): void;
+};
 let kokoro: Promise<Kokoro | null> | undefined;
 /** Why Kokoro didn't load, so the page can say why it fell back to the built-in voice. */
 export let voiceError = "";
 
-/** Loads once per page; the model files stay in the browser's cache after the first time. */
+/** Loads once per page, in a worker; the model files stay in the browser's cache after the first time. */
 export function loadKokoro(onProgress: (pct: number) => void): Promise<Kokoro | null> {
-  return (kokoro ??= (async () => {
-    const { KokoroTTS, env } = await import("kokoro-js");
-    // The bundler copies ONNX Runtime's .wasm but not the .mjs loader it imports next to it, so both come from the CDN.
-    env.wasmPaths = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/dist/";
-    // q8 on WASM: ~90 MB and runs everywhere, iPhone included. WebGPU needs the 326 MB fp32 model, too big for a phone tab.
-    return (await KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-v1.0-ONNX", {
-      dtype: "q8",
-      device: "wasm",
-      progress_callback: (p: { status: string; file?: string; progress?: number }) => {
-        if (p.status === "progress" && p.file?.endsWith(".onnx")) onProgress(Math.round(p.progress ?? 0));
-      },
-    })) as unknown as Kokoro;
-  })().catch((err) => {
-    console.warn("Kokoro didn't load, using the built-in voice", err);
-    voiceError = err instanceof Error ? err.message : String(err);
-    return null;
+  return (kokoro ??= new Promise((resolve) => {
+    const worker = new Worker(new URL("./kokoro-worker.ts", import.meta.url), { type: "module" });
+    const waiting = new Map<number, { ok: (v: { audio: Float32Array; sampling_rate: number }) => void; no: (e: Error) => void }>();
+    let n = 0;
+    const failed = (message: string) => {
+      console.warn("Kokoro didn't load, using the built-in voice:", message);
+      voiceError = message;
+      resolve(null);
+    };
+    worker.onerror = (e) => failed(e.message || "the voice worker didn't start");
+    worker.onmessage = ({ data: m }) => {
+      if (m.type === "progress") onProgress(m.pct);
+      else if (m.type === "error") failed(m.message);
+      else if (m.type === "audio" || m.type === "failed") {
+        const w = waiting.get(m.id);
+        waiting.delete(m.id);
+        if (m.type === "audio") w?.ok({ audio: m.audio, sampling_rate: m.rate });
+        else w?.no(new Error(m.message));
+      } else if (m.type === "ready")
+        resolve({
+          generate: (text, o) =>
+            new Promise((ok, no) => {
+              waiting.set(++n, { ok, no });
+              worker.postMessage({ type: "generate", id: n, text, voice: o.voice });
+            }),
+          cancel: () => {
+            worker.postMessage({ type: "cancel" });
+            for (const w of waiting.values()) w.no(new Error("cancelled"));
+            waiting.clear();
+          },
+        });
+    };
+    worker.postMessage({ type: "load" });
   }));
 }
 
@@ -323,10 +344,11 @@ export function readAloud(text: string, voice: string, state: (s: ReadState) => 
 
   async function go(me: number) {
     state(builtin ? "playing" : "loading");
+    // Queue every sentence now, so the worker never sits idle while one plays (that idling was the gap between sentences).
+    if (!builtin) parts.forEach((_, i) => void make(i).catch(() => {}));
     for (let i = 0; i < parts.length && me === run; i++) {
       const buffer = builtin ? null : await make(i).catch(() => null);
       if (me !== run) return;
-      if (i + 1 < parts.length && !builtin) void make(i + 1).catch(() => {});
       if (ctx.state !== "suspended") state("playing");
       await new Promise<void>((done) => {
         if (buffer) {
@@ -359,6 +381,7 @@ export function readAloud(text: string, voice: string, state: (s: ReadState) => 
     restart: () => (halt(), void ctx.resume(), void go(run)),
     stop: () => {
       halt();
+      if (!builtin) void loadKokoro(() => {}).then((tts) => tts?.cancel());
       void ctx.close();
       if (reading === reader) reading = null;
       state("done");
