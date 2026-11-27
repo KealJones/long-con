@@ -11,3 +11,4 @@ export { SymbolIndex, indexSource, identifiersIn, lookupSymbols, type SymbolDef,
 export { UNIT_FEATURES, UNIT_WEIGHTS, unitProbability } from "./gate.ts";
 export { staticEmbedder, wordPiece, readSafetensors, cosine, type Embed } from "./embed.ts";
 export { isTallyQuestion, tallySearch, TALLY_FEATURES } from "./tally.ts";
+export { fuseDense, type DenseSettings } from "./dense.ts";

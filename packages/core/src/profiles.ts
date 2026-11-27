@@ -1,5 +1,6 @@
 // Per-model settings. Defaults are starting points; the evals sweep them per model.
 
+import type { DenseSettings } from "./dense.ts";
 import type { KeyDenoise } from "./segments.ts";
 import type { Stemmer } from "./text.ts";
 
@@ -68,6 +69,8 @@ export interface Profile {
   embedSim?: "segment" | "maxsim";
   /** Embedding veto: a unit the gate kept stays out when its cosine to the message is under this. 0 or absent: off. */
   embedFloor?: number;
+  /** P10 dense channel (dense.ts), on the same embedder as the veto. Runs only when set and the caller passes `embed`. */
+  dense?: DenseSettings;
   /** How many of the model's own latest answers in this chat go in the registers. */
   recentAnswers: number;
   /** Whether a per-turn gate can skip retrieval for messages that need none, like "thanks". */
