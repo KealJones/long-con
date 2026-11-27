@@ -108,7 +108,7 @@ export function loadKokoro(onProgress: (pct: number) => void): Promise<Kokoro | 
 type Recognition = EventTarget & {
   lang: string; continuous: boolean; interimResults: boolean;
   start(): void; stop(): void; abort(): void;
-  onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+  onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal?: boolean }> }) => void) | null;
   onerror: ((e: { error: string }) => void) | null;
   onend: (() => void) | null;
 };
@@ -117,17 +117,52 @@ const Recognizer = (globalThis as unknown as { SpeechRecognition?: new () => Rec
 export const canCall = !!Recognizer && !!navigator.mediaDevices?.getUserMedia;
 export const canDictate = !!Recognizer;
 
-/** Dictation into the box: shows what's heard so far, until stopped or the browser ends it. Returns stop. */
+/** Dictation into the box: shows what's heard so far, until stopped. Returns stop. */
 export function dictate(onText: (text: string) => void, onEnd: () => void): () => void {
-  const rec = new Recognizer!();
-  rec.lang = navigator.language;
-  rec.continuous = true;
-  rec.interimResults = true;
-  rec.onresult = (e) => onText(Array.from(e.results, (r) => r[0]!.transcript).join(""));
-  rec.onerror = () => onEnd();
-  rec.onend = onEnd;
-  rec.start();
-  return () => rec.stop();
+  return recognize(onText, () => onEnd()).stop;
+}
+
+const join = (...parts: string[]) => parts.join(" ").replace(/\s+/g, " ").trim();
+
+/**
+ * Listening that outlives the browser's own: Safari ends recognition after a pause or about a minute, mid-sentence or
+ * not, so this starts it again and keeps what was heard, until stop or abort. onText gets everything so far, and
+ * whether its end is still the recognizer's guess. onEnd fires once, with an error if it can't listen at all.
+ */
+function recognize(onText: (text: string, interim: boolean) => void, onEnd: (err?: Error) => void) {
+  let stopped = false, ended = false, kept = "", rec: Recognition | null = null;
+  const starts: number[] = [];
+  const finish = (err?: Error) => {
+    stopped = true;
+    if (!ended) (ended = true), onEnd(err);
+  };
+  const start = () => {
+    if (stopped) return finish();
+    const now = Date.now();
+    while (starts.length && now - starts[0]! > 4000) starts.shift();
+    if (starts.push(now) > 12) return finish(new Error("speech recognition keeps stopping; check the microphone"));
+    const r = (rec = new Recognizer!());
+    r.lang = navigator.language;
+    r.continuous = true;
+    r.interimResults = true;
+    let said = "";
+    r.onresult = (e) => {
+      const results = Array.from(e.results);
+      said = join(...results.map((x) => x[0]!.transcript));
+      onText(join(kept, said), !results.at(-1)?.isFinal);
+    };
+    r.onerror = (e) => {
+      if (e.error === "not-allowed" || e.error === "service-not-allowed") finish(new Error("speech recognition is blocked; on iPhone, turn on Siri & Dictation"));
+    };
+    r.onend = () => {
+      kept = join(kept, said);
+      if (stopped) finish();
+      else setTimeout(start, 250);
+    };
+    r.start();
+  };
+  start();
+  return { stop: () => ((stopped = true), rec?.stop()), abort: () => ((stopped = true), rec?.abort()) };
 }
 
 export type CallState = "loading" | "listening" | "thinking" | "speaking";
@@ -143,7 +178,13 @@ export interface CallOptions {
   state: (s: CallState, note?: string) => void;
 }
 
-const SILENCE_MS = 1200;
+/**
+ * How long a pause ends your turn on a call: Squiggle's 1.2 s after a settled phrase, 2.2 s while the recognizer is
+ * still guessing, and 3.5 s after "um" or a word a sentence rarely ends on ("play the", "do you have like").
+ */
+export const pauseMs = (text: string, interim: boolean) => (TRAILING.test(text) ? 3500 : interim ? 2200 : 1200);
+const TRAILING =
+  /\b(?:u+h+|u+m+|h?m+|e+r+m*|ah+|like|and|but|or|so|because|cause|the|a|an|to|of|for|with|in|on|at|from|about|my|your|his|her|their|our|i|i'm|is|was|are|were|be|that|if|then|than|just|actually|really|want|wanna|gonna|gotta|kinda|can|could|would|should|will|do|does|did|have|has|it's|what's|um+)[\s,.…-]*$/i;
 // Talking over a reply: this loud (RMS, after echo cancellation) for this long. The phone's own speaker shouldn't reach it.
 const BARGE_LEVEL = 0.05;
 const BARGE_MS = 300;
@@ -288,31 +329,26 @@ async function timed<T>(p: Promise<T>) {
   return { value, ms: performance.now() - t };
 }
 
-/** Listens until a pause after some words. Resolves "" if nothing was said, so the caller listens again. */
+/** Listens until a pause after some words (see pauseMs), through the browser's own restarts. */
 function listen(signal: AbortSignal, heard: (text: string) => void): Promise<string> {
   return new Promise((resolve, reject) => {
     if (signal.aborted) return resolve("");
-    const rec = new Recognizer!();
-    rec.lang = navigator.language;
-    rec.continuous = true;
-    rec.interimResults = true;
     let text = "";
     let timer: ReturnType<typeof setTimeout> | undefined;
-    rec.onresult = (e) => {
-      text = Array.from(e.results, (r) => r[0]!.transcript).join(" ").replace(/\s+/g, " ").trim();
-      heard(text);
-      clearTimeout(timer);
-      timer = setTimeout(() => rec.stop(), SILENCE_MS);
-    };
-    rec.onerror = (e) => {
-      if (e.error === "not-allowed" || e.error === "service-not-allowed") reject(new Error("speech recognition is blocked; on iPhone, turn on Siri & Dictation"));
-    };
-    rec.onend = () => {
-      clearTimeout(timer);
-      resolve(text);
-    };
-    signal.addEventListener("abort", () => rec.abort(), { once: true });
-    rec.start();
+    const session = recognize(
+      (t, interim) => {
+        text = t;
+        heard(t);
+        clearTimeout(timer);
+        if (t) timer = setTimeout(() => session.stop(), pauseMs(t, interim));
+      },
+      (err) => {
+        clearTimeout(timer);
+        if (err) reject(err);
+        else resolve(signal.aborted ? "" : text);
+      },
+    );
+    signal.addEventListener("abort", () => session.abort(), { once: true });
   });
 }
 
