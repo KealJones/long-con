@@ -8,10 +8,10 @@ These are tuning numbers, not results: the segment cap and the cutoff were picke
 
 | Profile | Budget ceiling | Evidence chats found | Evidence turns found | All evidence in packet | 95% interval | Mean packet tokens | Largest packet |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| claude | 8,000 | 92.1% | 86.5% | 78.7% | 66.0% to 89.4% | 3,949 | 7,978 |
+| claude | 8,000 | 92.1% | 86.5% | 78.7% | 66.0% to 89.4% | 3,965 | 7,986 |
 | claude: pointers as found | | | 87.6% | 80.9% | | | |
 | claude: plain BM25 top-k | 8,000 | 93.0% | 85.1% | 76.6% | 63.8% to 87.2% | 7,886 | 8,000 |
-| small-local | 2,500 | 77.8% | 72.2% | 66.0% | 53.2% to 78.7% | 1,425 | 2,497 |
+| small-local | 2,500 | 77.8% | 72.2% | 66.0% | 53.2% to 78.7% | 1,421 | 2,492 |
 | small-local: plain BM25 top-k | 2,500 | 85.9% | 72.5% | 59.6% | 44.7% to 72.3% | 2,476 | 2,499 |
 
 Packet against plain BM25 top-k on the same questions:
@@ -29,8 +29,8 @@ System prompt, search tool definition, packet and question; then the same plus o
 
 | Profile | Context window | First call, mean | First call, largest | With one search, mean | With one search, largest | Fits with room to answer |
 | --- | --- | --- | --- | --- | --- | --- |
-| claude | 200,000 | 3,912 | 8,148 | 4,736 | 9,059 | 50 of 50 |
-| small-local | 6,000 | 1,517 | 2,655 | 1,811 | 3,120 | 50 of 50 |
+| claude | 200,000 | 3,930 | 8,150 | 4,763 | 9,239 | 50 of 50 |
+| small-local | 6,000 | 1,515 | 2,668 | 1,813 | 3,120 | 50 of 50 |
 
 ## Recall against packet size
 
@@ -40,14 +40,14 @@ System prompt, search tool definition, packet and question; then the same plus o
 
 | Budget ceiling | Fixed: all evidence | Fixed: mean tokens | Adaptive: all evidence | Adaptive: mean tokens |
 | --- | --- | --- | --- | --- |
-| 1,000 | 51.1% | 872 | 51.1% | 844 |
-| 1,500 | 61.7% | 1,270 | 63.8% | 1,205 |
-| 2,000 | 68.1% | 1,667 | 70.2% | 1,574 |
-| 2,500 | 68.1% | 2,038 | 70.2% | 1,891 |
-| 3,000 | 72.3% | 2,377 | 74.5% | 2,163 |
-| 4,000 | 74.5% | 3,032 | 76.6% | 2,635 |
-| 6,000 | 74.5% | 4,205 | 76.6% | 3,398 |
-| 8,000 | 76.6% | 5,433 | 78.7% | 3,949 |
+| 1,000 | 51.1% | 872 | 51.1% | 839 |
+| 1,500 | 63.8% | 1,278 | 66.0% | 1,223 |
+| 2,000 | 68.1% | 1,664 | 70.2% | 1,570 |
+| 2,500 | 68.1% | 2,038 | 70.2% | 1,894 |
+| 3,000 | 72.3% | 2,381 | 74.5% | 2,165 |
+| 4,000 | 74.5% | 3,024 | 76.6% | 2,642 |
+| 6,000 | 74.5% | 4,203 | 76.6% | 3,399 |
+| 8,000 | 76.6% | 5,422 | 78.7% | 3,965 |
 
 Smallest ceiling within 2 points of its own 8K score: fixed 8,000, adaptive 8,000.
 
@@ -55,14 +55,14 @@ Smallest ceiling within 2 points of its own 8K score: fixed 8,000, adaptive 8,00
 
 | Budget ceiling | Fixed: all evidence | Fixed: mean tokens | Adaptive: all evidence | Adaptive: mean tokens |
 | --- | --- | --- | --- | --- |
-| 1,000 | 46.8% | 719 | 46.8% | 699 |
-| 1,500 | 53.2% | 1,014 | 55.3% | 980 |
-| 2,000 | 57.4% | 1,270 | 59.6% | 1,219 |
-| 2,500 | 63.8% | 1,500 | 66.0% | 1,425 |
-| 3,000 | 63.8% | 1,731 | 66.0% | 1,614 |
-| 4,000 | 63.8% | 2,117 | 66.0% | 1,890 |
-| 6,000 | 66.0% | 2,606 | 66.0% | 2,140 |
-| 8,000 | 66.0% | 2,872 | 66.0% | 2,191 |
+| 1,000 | 46.8% | 713 | 46.8% | 682 |
+| 1,500 | 57.4% | 1,009 | 59.6% | 980 |
+| 2,000 | 59.6% | 1,262 | 61.7% | 1,212 |
+| 2,500 | 63.8% | 1,497 | 66.0% | 1,421 |
+| 3,000 | 63.8% | 1,722 | 66.0% | 1,604 |
+| 4,000 | 63.8% | 2,116 | 66.0% | 1,871 |
+| 6,000 | 66.0% | 2,607 | 66.0% | 2,144 |
+| 8,000 | 66.0% | 2,878 | 66.0% | 2,187 |
 
 Smallest ceiling within 2 points of its own 8K score: fixed 6,000, adaptive 2,500.
 
@@ -72,20 +72,20 @@ Smallest ceiling within 2 points of its own 8K score: fixed 6,000, adaptive 2,50
 
 | Type | Questions | Evidence turns found | All evidence in packet | Mean packet tokens |
 | --- | --- | --- | --- | --- |
-| knowledge-update | 8 | 93.8% | 87.5% | 3,490 |
-| multi-session | 11 | 72.7% | 54.5% | 1,280 |
+| knowledge-update | 8 | 93.8% | 87.5% | 3,493 |
+| multi-session | 11 | 72.7% | 54.5% | 1,284 |
 | single-session-assistant | 6 | 100.0% | 100.0% | 3,079 |
-| single-session-preference | 3 | 83.3% | 66.7% | 5,853 |
-| single-session-user | 6 | 100.0% | 100.0% | 4,545 |
-| temporal-reasoning | 13 | 82.1% | 76.9% | 6,176 |
+| single-session-preference | 3 | 83.3% | 66.7% | 5,868 |
+| single-session-user | 6 | 100.0% | 100.0% | 4,587 |
+| temporal-reasoning | 13 | 82.1% | 76.9% | 6,206 |
 
 ### small-local
 
 | Type | Questions | Evidence turns found | All evidence in packet | Mean packet tokens |
 | --- | --- | --- | --- | --- |
-| knowledge-update | 8 | 87.5% | 87.5% | 1,367 |
-| multi-session | 11 | 58.3% | 36.4% | 644 |
-| single-session-assistant | 6 | 100.0% | 100.0% | 2,129 |
-| single-session-preference | 3 | 16.7% | 0.0% | 960 |
-| single-session-user | 6 | 100.0% | 100.0% | 1,991 |
-| temporal-reasoning | 13 | 61.5% | 61.5% | 1,643 |
+| knowledge-update | 8 | 87.5% | 87.5% | 1,353 |
+| multi-session | 11 | 58.3% | 36.4% | 649 |
+| single-session-assistant | 6 | 100.0% | 100.0% | 2,117 |
+| single-session-preference | 3 | 16.7% | 0.0% | 977 |
+| single-session-user | 6 | 100.0% | 100.0% | 1,982 |
+| temporal-reasoning | 13 | 61.5% | 61.5% | 1,641 |

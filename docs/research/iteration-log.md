@@ -2,6 +2,21 @@
 
 One entry per idea tried by the hourly packet R&D loop. Newest run first. Numbers are dev unless marked held-out. Backlog: [prefetch-ideas-ranked.md](prefetch-ideas-ranked.md).
 
+## Write-time registers (stacked on PR 1): 2026-11-26
+
+Baseline is 425801d. Dev only, tuning-grade; one question is 2.1 points. No paid runs. These changes target follow-ups LongMemEval can't test ("go", "do all that", "multiply it by 32", "thanks!!", "you forgot"), so the bar here is no harm: recall and false inclusions at least as good, tokens about flat.
+
+| | claude | small-local |
+| --- | --- | --- |
+| All evidence, default budget | 78.7 → 78.7% | 66.0 → 66.0% |
+| All evidence at a 1,500 ceiling, fixed / adaptive | 61.7 / 63.8 → 63.8 / 66.0% | 53.2 / 55.3 → 57.4 / 59.6% |
+| Mean packet tokens | 3,949 → 3,965 | 1,425 → 1,421 |
+| Tier 1 / 1t / 2 / 3 FI | 7.09 / 4.99 / 9.52 / 7.17 → 7.06 / 4.94 / 9.48 / 7.17 | 1.43 / 0.21 / 1.18 / 1.00 → 1.42 / 0.21 / 1.18 / 1.00 |
+
+- **Kept:** act cues tagged at write time (offers, acks, bundles, corrections, updates, rules), a typed results register, update links, the "check before repeating" note on old price and version answers, and small talk closing the gate. The low-ceiling gain most likely comes from the rules fix: "remember to" no longer pins pasted advice, which freed room. Not checked turn by turn.
+- **Not kept as a default:** pulling in the answer unit after a question hit. claude tokens 3,949 → 4,335 and tier 1 FI 7.09 → 8.05 for no recall change at the default ceiling. It's behind `answerFollows`, on in the web app only, where questions about the assistant's own answers are common and LongMemEval's are rare (95% of its evidence turns are user turns).
+- **Can't be measured here:** the topic window and the not-found line (LongMemEval asks in a fresh session, and its should-be-empty tiers aren't phrased as questions about the past). Both are on in the web app only, and wait for the pain-mined set.
+
 ## Run 8: 2026-11-26, 4:17 PM Arizona
 
 Baseline is main at 49379d0 (P26 gate keys and the URL set in). Dev numbers only unless marked held-out, tuning-grade; one question is 2.1 points. FI is false inclusions per prompt, retrieved tokens in brackets. No paid runs.

@@ -4,6 +4,13 @@ Newest first. Each entry says what was decided and, where it matters, what it re
 
 ## 2026-11-26
 
+- **Storage is either/or.** GitHub sync for people who want their history in a repo they own (built in the web app), and a hosted service with accounts for everyone else (not built). Replaces the 2026-11-25 entry that ruled GitHub out for regular users.
+- **Follow-ups are read at write time, with no search.** Each turn is tagged by cue words in English and Spanish: offers ("want me to…"), acks ("go"), bundles ("do all that"), corrections ("you forgot"), updates ("actually it's the 24th") and rules. "Go" takes up the newest reply's single offer or asks which. "Do all that" takes up every open offer of the session, including ones talked over in a voice call. "It" in a calculation means the headline number of the last answer, never a number in a list. An update links to the earlier turn it replaces, and that turn shows as changed when it's retrieved.
+- **Rules need "from now on", "always" or "never",** and the whole sentence is kept so its scope comes with it. "Remember to" no longer counts, since it mostly caught pasted advice. The web app shows each pinned rule under its message with undo.
+- **Small talk and bare acks build no packet** and no "reference unclear" line.
+- **Old answers about prices, versions or availability carry a "check before repeating" note** when retrieved, since those go stale (GitHub Models was retired after we'd recommended it).
+- **Web app only, until measured:** the raw window widens over earlier same-topic turns (up to 2K tokens), a question that asks about the past gets a "nothing relevant found" line when the search comes back empty, and a hit on a question brings the unit with its answer. The eval profiles keep them off: the answer pull-in cost about 10% more tokens for no recall gain on the dev slice, and the other two can't be measured there.
+- **The composer never blocks.** A message sent during a reply shows right away and goes out after it.
 - **Interest notes:** expressed interests, preferences and changes to them are saved as dated notes (topic, value, date, source turn), newest wins with history kept, by a background noter after each turn plus a remember tool for explicit asks. Both paths are measured before either is kept.
 - **Minimal sufficient context:** the smallest packet that still has what's needed; the budget is a ceiling, not a target. The builder stops adding items below a per-profile confidence cutoff and drops duplicates and filler. Replaces filling every packet to its budget.
 - **Unit size capped per profile:** a turn too long for the cap splits at paragraph breaks and is marked as part of a longer turn. Replaces cutting only between exchanges, which let a single unit run to 12K tokens. Small units beat whole exchanges at every budget on the LongMemEval dev slice.
@@ -32,7 +39,7 @@ Evidence in [research/prefetch.md](research/prefetch.md).
 - **Name and repo: Long Con,** in its own repo so the git history shows how it evolved. Picked after a long search for a goofy everyday name that isn't crowded on GitHub or among AI products.
 - **Front ends:** one shared core with thin front ends. Command line first (phase 1 is evals), web app next, Mac app last if ever. Other front ends may live in their own repos.
 - **License:** Apache-2.0.
-- **History storage moves off GitHub.** Syncing history to a git repo was the original plan. Rejected for regular users: GitHub is the wrong home for non-developers, and repo access is too broad. The replacement is a normal hosted service with accounts. Which service, and where encryption happens, is open: see [open-questions.md](open-questions.md).
+- **History storage moves off GitHub** (replaced 2026-11-26: either/or). Syncing history to a git repo was the original plan. Rejected for regular users: GitHub is the wrong home for non-developers, and repo access is too broad. The replacement is a normal hosted service with accounts. Which service, and where encryption happens, is open: see [open-questions.md](open-questions.md).
 
 ## 2026-11-24
 

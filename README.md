@@ -8,15 +8,15 @@ The bet: a good packet beats classic compaction, and matches the full long conve
 
 ## Status
 
-Early. Phase 1 is the eval harness: the goal posts every packet builder is judged against. Nothing in the core is built yet.
+Early, but the core works end to end. The packet builder runs in the web app every turn and is tuned on a LongMemEval dev slice. It hasn't been scored on held-out yet, or against compaction with a real reader.
 
 | Step | What | State |
 | --- | --- | --- |
-| 1 | Eval harness, canary set and scorer, run from the CLI | next |
-| 2 | Core log, session splitter and sorter | planned |
-| 3 | Packet builder v1 on a frontier model, tuned until it beats compaction | planned |
-| 4 | Web app on the same core | bare-bones chat live at [kealjones.com/long-con](https://kealjones.com/long-con/) |
-| 5 | Small-model track with ~3K-token packets | planned |
+| 1 | Eval harness, canary set and scorer, run from the CLI | LongMemEval harness, free recall and should-be-empty scorers, and the nightly R&D loop are built. Canaries and the pain-mined set are waiting on a real chat export |
+| 2 | Core log, session splitter and sorter | log and size-based splitter built; the topic sorter isn't |
+| 3 | Packet builder v1 on a frontier model, tuned until it beats compaction | built: hybrid BM25, unit gate, registers (rules, open offers, results, corrections, updates), resolver, interest notes, code lookup. Beating compaction isn't shown yet |
+| 4 | Web app on the same core | chat with packets, tools, side threads, voice and GitHub sync, live at [kealjones.com/long-con](https://kealjones.com/long-con/) |
+| 5 | Small-model track with ~3K-token packets | a small-local profile is measured in the recall evals; no local model is wired in yet |
 | 6 | Mac app, only if the web app hits a wall | maybe |
 
 Evidence so far: hand-built packets let a frontier model pass 12/12 recall tests at about 7% of the words of the full history. Automated packets with a 1.7B model passed 1 to 3 of 12. The idea holds; the packet builder is the hard part. See [docs/research/context-packet-experiments.md](docs/research/context-packet-experiments.md).
