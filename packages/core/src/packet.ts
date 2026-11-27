@@ -225,9 +225,9 @@ export function searchUnits(history: Session[], query: string, segmentTokens: nu
   const key = gateKey ? new Bm25<Segment>() : all;
   const length = new Map<Segment, number>();
   for (const session of history) {
-    for (const seg of splitIntoSegments(session, segmentTokens)) {
-      // Turns already riding along raw don't need retrieving.
-      if (session.id === currentId && seg.end >= recentStart) continue;
+    // Turns already riding along raw don't need retrieving, but every turn before them does, so the cut comes before segmenting.
+    const searchable = session.id === currentId ? { ...session, turns: session.turns.slice(0, recentStart) } : session;
+    for (const seg of splitIntoSegments(searchable, segmentTokens)) {
       const words = contentWords(seg.turns.map((t) => t.content).join("\n"), stemmer);
       length.set(seg, words.length);
       all.add(seg, words);

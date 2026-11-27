@@ -1,7 +1,7 @@
 // The page: a texting-style chat, a settings dialog, and a sidebar for topics and your data.
 
 import type { Session } from "@long-con/core";
-import { MODELS, sendTurn } from "./chat.ts";
+import { MODELS, PROFILE, sendTurn } from "./chat.ts";
 import * as GH from "./github.ts";
 import { FILES_KEY, resetShell } from "./tools.ts";
 import { dayName, topics } from "./topics.ts";
@@ -52,6 +52,10 @@ keyInput.addEventListener("input", () => localStorage.setItem("long-con:key", ke
 for (const m of MODELS) modelSelect.add(new Option(m, m));
 modelSelect.value = localStorage.getItem("long-con:model") ?? MODELS[0]!;
 modelSelect.addEventListener("change", () => localStorage.setItem("long-con:model", modelSelect.value));
+const rawSelect = $<HTMLSelectElement>("raw-turns");
+for (let n = 0; n <= PROFILE.rawTurns; n++) rawSelect.append(new Option(n === PROFILE.rawTurns ? `${n} (default)` : String(n), String(n)));
+rawSelect.value = localStorage.getItem("long-con:raw-turns") ?? String(PROFILE.rawTurns);
+rawSelect.addEventListener("change", () => localStorage.setItem("long-con:raw-turns", rawSelect.value));
 $("show-key").addEventListener("click", (e) => {
   const show = keyInput.type === "password";
   keyInput.type = show ? "text" : "password";
@@ -508,7 +512,7 @@ form.addEventListener("submit", async (event) => {
   try {
     const onStep = (label: string) => (presence.textContent = label.length > 40 ? label.slice(0, 39) + "…" : label);
     const model = modelSelect.value;
-    const result = await sendTurn(history, message, { apiKey, model, onStep });
+    const result = await sendTurn(history, message, { apiKey, model, rawTurns: Number(rawSelect.value), onStep });
     packets[keyOf(result.sessionId, result.turn)] = { text: result.packet, tokens: result.packetTokens, model, raw: result.rawTurns, ...(result.steps.length ? { steps: result.steps } : {}) };
     saveChat();
     saveToGitHub();

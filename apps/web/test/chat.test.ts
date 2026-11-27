@@ -107,3 +107,14 @@ test("tool calls run and go back until the model answers", async () => {
   // Only the question and the final answer join the history.
   assert.deepEqual(history[0]!.turns.map((t) => t.content), ["what's 6 times 7?", "It's 42."]);
 });
+
+test("with 0 raw turns, today's earlier turns come back through the packet instead", async () => {
+  const history: Session[] = [];
+  await sendTurn(history, "My cat Mochi loves cardboard boxes.", { apiKey: "k", model: "m", now, fetch: fakeApi("Cute!").fetch });
+  const api = fakeApi("Yes.");
+  const result = await sendTurn(history, "What does Mochi love?", { apiKey: "k", model: "m", now, rawTurns: 0, fetch: api.fetch });
+  const { messages } = JSON.parse(String(api.calls[0]!.init.body));
+  assert.equal(messages.length, 2);
+  assert.match(messages[0].content, /^<packet>[\s\S]*cardboard boxes[\s\S]*<\/packet>$/);
+  assert.equal(result.rawTurns, 0);
+});

@@ -29,6 +29,8 @@ export interface TurnOptions {
   fetch?: typeof fetch;
   /** Where the shell keeps /home (localStorage when left out). */
   store?: ToolContext["store"];
+  /** How many of today's latest turns go word for word; the packet searches everything else. */
+  rawTurns?: number;
   /** Called as each tool runs, for a live "typing" line. */
   onStep?: (label: string) => void;
 }
@@ -55,7 +57,8 @@ export interface TurnResult {
 export async function sendTurn(history: Session[], message: string, opts: TurnOptions): Promise<TurnResult> {
   const today = dayLabel(opts.now ?? new Date());
   // Always a packet, even on a short chat (the profile's switchAt would send it whole), since seeing it is the point.
-  const packet = buildPacket({ history, message, profile: PROFILE, currentSessionId: today });
+  const profile = { ...PROFILE, rawTurns: opts.rawTurns ?? PROFILE.rawTurns };
+  const packet = buildPacket({ history, message, profile, currentSessionId: today });
   const prompt = assemblePrompt({ system: `${SYSTEM}\n\nToday is ${today}.`, packet: packet.text, recentTurns: packet.recentTurns, message });
 
   // A packet that found nothing older isn't sent at all: just today's latest turns and the message.
@@ -63,7 +66,7 @@ export async function sendTurn(history: Session[], message: string, opts: TurnOp
   const doFetch = opts.fetch ?? fetch;
   const messages: unknown[] = sent ? [...prompt.messages] : prompt.messages.slice(1);
   const steps: Step[] = [];
-  const toolCtx: ToolContext = { history, profile: PROFILE, store: opts.store, fetch: opts.fetch };
+  const toolCtx: ToolContext = { history, profile, store: opts.store, fetch: opts.fetch };
   let body: { content?: Block[]; stop_reason?: string } | null = null;
   for (let round = 1; ; round++) {
     const res = await doFetch("https://api.anthropic.com/v1/messages", {
