@@ -13,13 +13,20 @@ const STOPWORDS = new Set(
     .filter(Boolean),
 );
 
-// Crude suffix stripping. It misses some pairs ("wedding" -> "wedd" but "weddings" -> "wedding"), yet on the claude profile
-// it beat Porter and an inflection-only Porter2 at every gate bar on the dev slice: fuller conflation let in more wrong units (P17).
-function suffix(word: string): string {
+// Crude suffix stripping. On the claude profile it beat Porter and an inflection-only Porter2 at every gate bar on the dev
+// slice: fuller conflation let in more wrong units (P17).
+function strip(word: string): string {
   if (word.length > 5 && word.endsWith("ies")) return word.slice(0, -3) + "y";
   if (word.length > 5 && word.endsWith("ing")) return word.slice(0, -3);
   if (word.length > 4 && word.endsWith("ed")) return word.slice(0, -2);
   if (word.length > 3 && word.endsWith("s") && !word.endsWith("ss")) return word.slice(0, -1);
+  return word;
+}
+
+// Stripped to a fixed point, so "weddings" -> "wedding" -> "wedd" meets "wedding" and stem(stem(w)) == stem(w).
+// Dev: +1 evidence turn on claude, no question, FI +0.05 to +0.12 on tiers 1/1t/3 at bars 0.17 and 0.175 (not kept on main).
+function suffix(word: string): string {
+  for (let next = strip(word); next !== word; next = strip(word)) word = next;
   return word;
 }
 

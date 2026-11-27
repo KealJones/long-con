@@ -8,10 +8,10 @@ These are tuning numbers, not results: the segment cap and the cutoff were picke
 
 | Profile | Budget ceiling | Evidence chats found | Evidence turns found | All evidence in packet | 95% interval | Mean packet tokens | Largest packet |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| claude | 8,000 | 92.1% | 86.5% | 78.7% | 66.0% to 89.4% | 3,949 | 7,978 |
-| claude: pointers as found | | | 87.6% | 80.9% | | | |
+| claude | 8,000 | 92.8% | 87.2% | 78.7% | 66.0% to 89.4% | 3,974 | 7,978 |
+| claude: pointers as found | | | 88.3% | 80.9% | | | |
 | claude: readable (pointers open in 3 searches) | | | | 80.9% | | | |
-| claude: plain BM25 top-k | 8,000 | 93.0% | 85.1% | 76.6% | 63.8% to 87.2% | 7,886 | 8,000 |
+| claude: plain BM25 top-k | 8,000 | 93.7% | 86.5% | 78.7% | 66.0% to 89.4% | 7,884 | 8,000 |
 | small-local | 2,500 | 77.8% | 72.2% | 66.0% | 53.2% to 78.7% | 1,425 | 2,497 |
 | small-local: plain BM25 top-k | 2,500 | 85.9% | 72.5% | 59.6% | 44.7% to 72.3% | 2,476 | 2,499 |
 
@@ -19,7 +19,7 @@ Packet against plain BM25 top-k on the same questions:
 
 | Profile | All-evidence difference | 95% interval | Questions only the packet gets whole | Questions only BM25 gets whole |
 | --- | --- | --- | --- | --- |
-| claude | +2.1 | +0.0 to +6.4 | 1 | 0 |
+| claude | +0.0 | -6.4 to +6.4 | 1 | 1 |
 | small-local | +6.4 | -6.4 to +19.1 | 7 | 4 |
 
 Plain BM25 top-k is the baseline: the same units ranked by BM25 over all words and filled to the same ceiling, with nothing else. It also shows what ranking by the user's words adds, which suits LongMemEval, where 95% of the dev slice's evidence turns are user turns, and may not carry over to real chats.
@@ -30,7 +30,7 @@ System prompt, search tool definition, packet and question; then the same plus o
 
 | Profile | Context window | First call, mean | First call, largest | With one search, mean | With one search, largest | Fits with room to answer |
 | --- | --- | --- | --- | --- | --- | --- |
-| claude | 200,000 | 3,912 | 8,148 | 4,736 | 9,059 | 50 of 50 |
+| claude | 200,000 | 3,936 | 8,148 | 4,772 | 9,059 | 50 of 50 |
 | small-local | 6,000 | 1,517 | 2,655 | 1,811 | 3,120 | 50 of 50 |
 
 ## Recall against packet size
@@ -42,13 +42,13 @@ System prompt, search tool definition, packet and question; then the same plus o
 | Budget ceiling | Fixed: all evidence | Fixed: mean tokens | Adaptive: all evidence | Adaptive: mean tokens |
 | --- | --- | --- | --- | --- |
 | 1,000 | 51.1% | 872 | 51.1% | 844 |
-| 1,500 | 61.7% | 1,270 | 63.8% | 1,205 |
+| 1,500 | 61.7% | 1,269 | 63.8% | 1,205 |
 | 2,000 | 68.1% | 1,667 | 70.2% | 1,574 |
-| 2,500 | 68.1% | 2,038 | 70.2% | 1,891 |
-| 3,000 | 72.3% | 2,377 | 74.5% | 2,163 |
-| 4,000 | 74.5% | 3,032 | 76.6% | 2,635 |
-| 6,000 | 74.5% | 4,205 | 76.6% | 3,398 |
-| 8,000 | 76.6% | 5,433 | 78.7% | 3,949 |
+| 2,500 | 68.1% | 2,043 | 70.2% | 1,896 |
+| 3,000 | 72.3% | 2,392 | 74.5% | 2,177 |
+| 4,000 | 74.5% | 3,057 | 76.6% | 2,660 |
+| 6,000 | 74.5% | 4,230 | 76.6% | 3,423 |
+| 8,000 | 76.6% | 5,459 | 78.7% | 3,974 |
 
 Smallest ceiling within 2 points of its own 8K score: fixed 8,000, adaptive 8,000.
 
@@ -74,7 +74,7 @@ Smallest ceiling within 2 points of its own 8K score: fixed 6,000, adaptive 2,50
 | Type | Questions | Evidence turns found | All evidence in packet | Mean packet tokens |
 | --- | --- | --- | --- | --- |
 | knowledge-update | 8 | 93.8% | 87.5% | 3,490 |
-| multi-session | 11 | 72.7% | 54.5% | 1,280 |
+| multi-session | 11 | 75.8% | 54.5% | 1,389 |
 | single-session-assistant | 6 | 100.0% | 100.0% | 3,079 |
 | single-session-preference | 3 | 83.3% | 66.7% | 5,853 |
 | single-session-user | 6 | 100.0% | 100.0% | 4,545 |
