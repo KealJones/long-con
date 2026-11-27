@@ -390,7 +390,7 @@ function recallReport(dev: Question[], profiles: Profile[]): { report: string; c
   const report = [
     `# Packet recall: LongMemEval_S dev slice`,
     "",
-    `${answerable.length} answerable questions of the ${dev.length}-question dev slice (${dev.length - answerable.length} abstention questions have no evidence to find). Full history averages ${fmt(fullTokens)} tokens per question. Builder: BM25 search, size-based segments, and a static-embedder veto on the units the gate keeps (embedModel in each profile). No model calls. "All evidence in packet" means every labeled evidence turn is in it.`,
+    `${answerable.length} answerable questions of the ${dev.length}-question dev slice (${dev.length - answerable.length} abstention questions have no evidence to find). Full history averages ${fmt(fullTokens)} tokens per question. Builder: BM25 search, size-based segments, ${profiles.every((p) => embedderFor(p)) ? "and a static-embedder veto on the units the gate keeps (embedModel in each profile)" : "and no embedding veto (model files not fetched; run evals/scripts/fetch-embedders.sh)"}. No model calls. "All evidence in packet" means every labeled evidence turn is in it.`,
     "",
     `These are tuning numbers, not results: the segment cap and the cutoff were picked on this same slice, so they flatter the builder. With ${answerable.length} questions, one question moves "All evidence in packet" by ${pct(1 / answerable.length)}. Intervals are 95% bootstraps over questions. Two limits: an evidence chat with no labeled turn isn't counted, and recall leaves out what a reader would find by searching.`,
     "",
