@@ -1,10 +1,10 @@
 # Survey slice B: fusion, reranking, query-side techniques, compression
 
-Researched 2026-11-26 for Long Con. Scope: what happens after "find candidates" (fuse, rerank, cut) and before it (reshape the query or the index), plus shrinking what's kept. Conversational rewriting and the general prefetch picture are in `docs/research/prefetch.md` in the repo; this extends it and doesn't repeat it.
+Researched 2026-11-26 for Beep. Scope: what happens after "find candidates" (fuse, rerank, cut) and before it (reshape the query or the index), plus shrinking what's kept. Conversational rewriting and the general prefetch picture are in `docs/research/prefetch.md` in the repo; this extends it and doesn't repeat it.
 
 **How sources were read.** Most pages were read through a fetch tool that summarizes the page, so the numbers below come from those summaries and from the pages' own tables. Where only the abstract or part of a page came through, it says so. Nothing here was re-run.
 
-## Where Long Con stands today (from the code)
+## Where Beep stands today (from the code)
 
 - `packages/core/src/packet.ts` `search()`: two BM25 indexes over ~400-token segments (all words; user words only), fused by RRF with k=60.
 - Confidence is a unit's best score **as a share of the top score in either list**, and units below 0.3 are dropped.
@@ -17,7 +17,7 @@ Researched 2026-11-26 for Long Con. Scope: what happens after "find candidates" 
 1. **On LongMemEval-style data, BM25 is already near the ceiling for finding candidates. The win is in ordering.** A June 2026 study found BM25 alone gets R@5 0.948 on a LongMemEval-S subset, and fusing with dense adds a non-significant +0.67 pp. SmartSearch (March 2026) found a cross-encoder moved the first gold passage from **mean rank 47 to rank 2** on LongMemEval-S, and from 195 to 8 on LoCoMo. That is exactly what a 2.5K budget needs.
 2. **A bad reranker hurts.** The same June 2026 study saw ms-marco-MiniLM-L-6-v2 *lower* LoCoMo Hit@1 by 6.9 pp. SmartSearch got its gains from mxbai-rerank-large-v1 (435M). Reranker quality matters more than whether you rerank.
 3. **Rule-based pseudo-relevance feedback is the best zero-model query trick in conversational memory.** SmartSearch's PRF (content words found in at least 2 of the top 10 passages, one more pass at half weight) added +6.0 pp on LongMemEval-S, and +9.2 pp combined with entity discovery. The largest gain, +12.8 pp, was on temporal questions. No model is involved.
-4. **Model-per-turn query expansion (HyDE, query2doc, multi-query) is weak value for Long Con.** It needs a capable LLM: query2doc with a 1.3B model barely beat BM25. Its recall gains get "largely neutralized after re-ranking and truncation" in a 2026 enterprise study. It adds 0.9-2 s per turn. Skip it for small-local, and treat it as optional for claude.
+4. **Model-per-turn query expansion (HyDE, query2doc, multi-query) is weak value for Beep.** It needs a capable LLM: query2doc with a 1.3B model barely beat BM25. Its recall gains get "largely neutralized after re-ranking and truncation" in a 2026 enterprise study. It adds 0.9-2 s per turn. Skip it for small-local, and treat it as optional for claude.
 5. **Expanding the index, not the query, moves the model cost off the hot path.** LongMemEval's own paper: keys = segment text plus extracted facts gave +9.4% recall@k and +5.4% accuracy on average. Doc2Query-- (generate questions per passage, then filter out bad ones) gives up to +16% over unfiltered doc2query. Anthropic's contextual BM25 (a 50-100 token prefix per chunk) cut top-20 failures 49%, and 67% with reranking. All of this is done once, at write time.
 6. **Score fusion beats RRF when the two retrievers aren't balanced. RRF wins when they are.** Bruch et al.: convex combination beats RRF and needs only a handful of labeled queries to tune. The 2026 "fusion tax" paper: RRF's net change was negative on 5 of 7 BEIR sets when dense clearly led. Elastic found k=20 beat 60 for its model. Weaviate's min-max score fusion gave about 6% more recall than RRF on FIQA.
 7. **Compress the key, not the value.** SeCom (ICLR 2025) ran LLMLingua-2 over memory segments before indexing. Removing that step cost 9.5 GPT4Score points on LoCoMo with MPNet. Token-level compression of what the *reader* sees costs accuracy elsewhere (prefetch.md's SWE-Pruner table). The two fit together: denoise the copy you index, and hand the reader the whole segment.
@@ -40,7 +40,7 @@ Researched 2026-11-26 for Long Con. Scope: what happens after "find candidates" 
 
 **Cost.** Microseconds. Runs anywhere.
 
-**For Long Con.** Today's two lists are **two BM25 views of the same text**, so they are highly correlated. RRF over them mostly breaks ties in favor of units that match in the user's own words. That's a sensible prior for LongMemEval, where 94% of evidence sits in user turns, and the eval table shows it helped small-local most (59.6% → 70.2%, though the cutoff contributes to that too). Two cheap things to try:
+**For Beep.** Today's two lists are **two BM25 views of the same text**, so they are highly correlated. RRF over them mostly breaks ties in favor of units that match in the user's own words. That's a sensible prior for LongMemEval, where 94% of evidence sits in user turns, and the eval table shows it helped small-local most (59.6% → 70.2%, though the cutoff contributes to that too). Two cheap things to try:
 - **A k sweep (10, 20, 60).** Small k sharpens the top, which matters more at 2.5K than at 8K.
 - **Weighted RRF.**
 
@@ -61,13 +61,13 @@ Unlike RRF, how far apart two scores are carries information.
 - Elastic: about 40 labeled queries were enough to beat RRF on ArguAna.
 - The Fusion Tax recommends α≈0.6-0.7 toward the stronger retriever, and RRF or α≈0.5 when the two are balanced. It also found that per-query routing on cheap features didn't pay (AUC 0.59).
 
-**For Long Con.** This matters once embeddings land. LongMemEval-S is a "lexical regime": BM25 R@5 0.948 against dense max-sim 0.953 and dense mean-pooled 0.920 ([arXiv 2606.04194](https://arxiv.org/html/2606.04194)). So the two will be close on the benchmark and possibly not on real chat. Tune α on the dev slice per profile, and keep "BM25 only" as an arm. One more option within BM25: **BM25F**, a single BM25 with weighted fields (user words weighted higher), is the principled form of what the two-list RRF approximates. It's worth one comparison.
+**For Beep.** This matters once embeddings land. LongMemEval-S is a "lexical regime": BM25 R@5 0.948 against dense max-sim 0.953 and dense mean-pooled 0.920 ([arXiv 2606.04194](https://arxiv.org/html/2606.04194)). So the two will be close on the benchmark and possibly not on real chat. Tune α on the dev slice per profile, and keep "BM25 only" as an arm. One more option within BM25: **BM25F**, a single BM25 with weighted fields (user words weighted higher), is the principled form of what the two-list RRF approximates. It's worth one comparison.
 
 ### 1c. Relative score fusion and "max" fusion
 
 **What it is.** Weaviate's relative score fusion is min-max normalization per list, then a weighted sum. Cloudflare's `max` takes the higher of the two normalized scores, which suits cases where one retriever usually wins outright.
 
-**For Long Con.** The current "confidence" is already a relative score in this sense, a per-list share of the top. It works as a **within-query** filter, but it can't say "nothing here is relevant" (see "Where Long Con stands"). Fusion and abstention want different signals: rank or score fusion to order the units, and a calibrated absolute score (section 2f) to decide whether to include any at all.
+**For Beep.** The current "confidence" is already a relative score in this sense, a per-list share of the top. It works as a **within-query** filter, but it can't say "nothing here is relevant" (see "Where Beep stands"). Fusion and abstention want different signals: rank or score fusion to order the units, and a calibrated absolute score (section 2f) to decide whether to include any at all.
 
 ### 1d. When hybrid beats either alone: conversational-memory numbers
 
@@ -83,7 +83,7 @@ Three readings:
 - It barely helps on LongMemEval-S, where BM25 is already near the ceiling at session level.
 - Weighted score fusion beat RRF in the conversational study.
 
-**Expected for Long Con.** Embeddings plus fusion should lift the **preference** and paraphrase-heavy cases, the ones BM25 structurally misses ("what should I cook" against an earlier chat about being vegetarian). Small-local's preference score of 0/3 is the obvious target. The headline LongMemEval number may move only 1-3 pp. Real chats with paraphrase will probably gain more, but that's untested.
+**Expected for Beep.** Embeddings plus fusion should lift the **preference** and paraphrase-heavy cases, the ones BM25 structurally misses ("what should I cook" against an earlier chat about being vegetarian). Small-local's preference score of 0/3 is the obvious target. The headline LongMemEval number may move only 1-3 pp. Real chats with paraphrase will probably gain more, but that's untested.
 
 ---
 
@@ -136,14 +136,14 @@ A cross-encoder scores each candidate alone. Multi-session questions ("how many 
 
 ### 2f. Rerank score as a calibrated signal for abstention
 
-**What it is.** A cross-encoder outputs a relevance probability (bge via sigmoid, Qwen3 via P(yes)), and unlike BM25 it means roughly the same thing across queries. So "best candidate scored 0.08" is a usable "nothing here" signal. That's the absolute signal Long Con's packet currently lacks.
+**What it is.** A cross-encoder outputs a relevance probability (bge via sigmoid, Qwen3 via P(yes)), and unlike BM25 it means roughly the same thing across queries. So "best candidate scored 0.08" is a usable "nothing here" signal. That's the absolute signal Beep's packet currently lacks.
 
 **Evidence.**
 - "Towards Trustworthy Reranking" ([arXiv 2402.12997](https://arxiv.org/html/2402.12997v5), read through the method section; results tables not reached). Reference-free confidence features computed from the score list: the max, the standard deviation, and the gap between the top two. A small linear regression on the sorted scores, fit on a labeled reference set, beat those heuristics at no inference cost. MIT code.
-- SmartSearch uses τ = α·max(CE) with α=0.03, inside a 4,000-word ceiling. That gave worst-case recall 0.945 at an average 2,891 tokens. It's a *relative* threshold on top of reranker scores, the same shape as Long Con's 0.3 cutoff but on a better score.
+- SmartSearch uses τ = α·max(CE) with α=0.03, inside a 4,000-word ceiling. That gave worst-case recall 0.945 at an average 2,891 tokens. It's a *relative* threshold on top of reranker scores, the same shape as Beep's 0.3 cutoff but on a better score.
 - A practitioner post argues fixed 0.5 cutoffs fail across queries ([dev.to](https://dev.to/ji_ai/cross-encoder-reranker-score-calibration-why-05-cutoffs-fail-1k9b); title seen in search results only, not read).
 
-**For Long Con.** Use two thresholds:
+**For Beep.** Use two thresholds:
 1. **Absolute**: drop everything if the max reranker probability is below τ_abs. Fit τ_abs on dev turns that should get nothing: abstention questions, small talk, off-topic. This is what makes an empty packet possible after the gate.
 2. **Relative**: keep units with score ≥ α·max.
 
@@ -190,7 +190,7 @@ The question for each technique: does it need a model **per turn** (expensive on
 
 **Evidence.** LongMemEval paper ([arXiv 2410.10813](https://arxiv.org/html/2410.10813v2)): with GPT-4o extracting the range, recall rose ~11.3% (rounds) and ~6.8% (sessions) on the temporal subset. Llama 3.1 8B "struggles to generate accurate time ranges."
 
-**For Long Con.** An LLM extractor is out for small-local, but **explicit and relative dates are a solved rules problem** (chrono-style parsers). Session dates are already in the packet and sort order. Boost in-range units rather than hard-filtering, since "before my trip" style anchors are relative to an event, not a date. Temporal is the biggest question type on the dev slice (13 of 47), so even a partial win shows.
+**For Beep.** An LLM extractor is out for small-local, but **explicit and relative dates are a solved rules problem** (chrono-style parsers). Session dates are already in the packet and sort order. Boost in-range units rather than hard-filtering, since "before my trip" style anchors are relative to an event, not a date. Temporal is the biggest question type on the dev slice (13 of 47), so even a partial win shows.
 
 ### 3c. Contextual chunk prefixes (Anthropic "contextual retrieval")
 
@@ -203,7 +203,7 @@ The question for each technique: does it need a model **per turn** (expensive on
 
 That's about $1.02 per M document tokens with Claude 3 Haiku and prompt caching. The fusion method isn't specified ("rank fusion techniques").
 
-**For Long Con.** Segments of a chat lose their context worse than document chunks do: "yeah do that one" means nothing alone. A **zero-model prefix** gets much of the benefit:
+**For Beep.** Segments of a chat lose their context worse than document chunks do: "yeah do that one" means nothing alone. A **zero-model prefix** gets much of the benefit:
 - session date;
 - the session's topic label;
 - the user's opening question in that session or topic;
@@ -222,7 +222,7 @@ The LLM-written version can run in the background on Workers AI for claude, or a
 
 **Cost.** One small-LLM call per segment at write time, zero at query time. On Cloudflare that's a Workers AI text model run from a queue after each turn. In the browser, LFM3 can do it while idle, but it competes with chat. A 20-40 token fact line per segment is cheap.
 
-**Expected.** Multi-session is Long Con's weakest type, and it's the type facts helped most. **Guess +3-8 pp on multi-session**, smaller overall. Watch for hallucinated facts: index them, but never show them as if the user said them. They are keys, not values.
+**Expected.** Multi-session is Beep's weakest type, and it's the type facts helped most. **Guess +3-8 pp on multi-session**, smaller overall. Watch for hallucinated facts: index them, but never show them as if the user said them. They are keys, not values.
 
 ### 3e. HyDE, query2doc, multi-query (model per turn)
 
@@ -271,9 +271,9 @@ The model-per-turn version (multi-query) has the weakest evidence of the lot.
 
 ### When compression hurts and when whole units win
 
-- prefetch.md already has the SWE-Pruner table: LLMLingua-2 dropped SWE-bench success 62% → 54%, while whole-line selection lifted it to 64%. Long Con's "whole units" rule stands for what the **reader** sees.
+- prefetch.md already has the SWE-Pruner table: LLMLingua-2 dropped SWE-bench success 62% → 54%, while whole-line selection lifted it to 64%. Beep's "whole units" rule stands for what the **reader** sees.
 - RECOMP's own numbers show the cost: EM drops 2-3 points at ~6% of tokens. That's a fine trade for a 20B reader with no budget pressure, and a bad one when the recall target is "all evidence in packet".
-- Two places compression *does* fit Long Con:
+- Two places compression *does* fit Beep:
   1. **Denoising the index (SeCom).** Compress the copy that BM25 and embeddings see, keep the original as what the reader gets. Fillers like "yeah, totally, haha" dilute BM25's length normalization and embedding means. This is a pure retrieval change with no reader-side loss. Zero cost per turn: LLMLingua-2 small (110M) at write time in the browser or a Worker. An even cheaper first try: a stopword and filler strip before indexing, which BM25 `contentWords` partly does already.
   2. **Fitting one more segment on small-local.** With a 2.5K budget, a Provence-style pruner that removes the obviously unrelated half of a 400-token segment could make room for one or two more segments. That's directly the multi-session failure mode. It's a gamble against the whole-unit evidence, so test it only as "prune within segment *only* to admit another segment that would otherwise be cut", and score multi-session. The safer cousin is **smaller units** (the current 400 already beat bigger ones).
 
@@ -294,9 +294,9 @@ The model-per-turn version (multi-query) has the weakest evidence of the lot.
 | Segment units beat turn and session units for both BM25 and MPNet; LLMLingua-2 index denoising matters | LoCoMo, Long-MT-Bench+ | [SeCom](https://arxiv.org/html/2502.05589v2) |
 | Rewrites beat raw history as the query; ~4 turns of history best (CORAL) | MTRAG, CORAL | covered in prefetch.md |
 
-The striking agreement: two independent 2026 systems that use **no LLM in the retrieval loop** reach LongMemEval-S evidence recall in the high 0.9s at 3-4K tokens. They get there with lexical candidates, a good reranker and rule-based expansion. That's Long Con's architecture plus a reranker and PRF.
+The striking agreement: two independent 2026 systems that use **no LLM in the retrieval loop** reach LongMemEval-S evidence recall in the high 0.9s at 3-4K tokens. They get there with lexical candidates, a good reranker and rule-based expansion. That's Beep's architecture plus a reranker and PRF.
 
-**Caveat.** SmartSearch's labels are passage-level, derived from turn labels, and its recall is "evidence in the compiled context" in a slightly different sense from Long Con's "all evidence turns in packet". Treat its numbers as direction, not a target.
+**Caveat.** SmartSearch's labels are passage-level, derived from turn labels, and its recall is "evidence in the compiled context" in a slightly different sense from Beep's "all evidence turns in packet". Treat its numbers as direction, not a target.
 
 ---
 
@@ -316,7 +316,7 @@ The striking agreement: two independent 2026 systems that use **no LLM in the re
 
 ---
 
-## Top ideas for Long Con from this slice
+## Top ideas for Beep from this slice
 
 Each is a dev-slice experiment against the current builder, reporting all-evidence %, mean tokens, per-type rows (multi-session, temporal, preference) and, where it applies, a harm or empty-packet rate.
 
@@ -351,5 +351,5 @@ Each is a dev-slice experiment against the current builder, reporting all-eviden
 - Every paper above was read through a page-summarizing fetch. For Bruch et al., Provence and "Towards Trustworthy Reranking", the results tables didn't come through, so only their method and stated conclusions are used.
 - Browser reranker latencies are estimates extrapolated from an M4 Max CPU benchmark, not measured on a phone.
 - Workers AI bge-reranker-base latency and its input length limit weren't found.
-- SmartSearch's and the June 2026 study's LongMemEval numbers use their own labels and subsets, so they aren't directly comparable to Long Con's metric.
+- SmartSearch's and the June 2026 study's LongMemEval numbers use their own labels and subsets, so they aren't directly comparable to Beep's metric.
 - Step-back prompting, RankGPT and RankZephyr's original papers, and Cormack's original RRF paper weren't opened this session.

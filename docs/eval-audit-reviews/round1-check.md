@@ -22,9 +22,9 @@
 **What I ran:**
 - `npm test`: 41 of 41 pass.
 - `npx tsc -p .`: clean, exit 0.
-- `eval recall`, `eval estimate` and `eval estimate --profile small-local`, run in a copy at `/tmp/claude-0/-home-user-long-con/20a8eb28-71a3-56f9-b3ba-5051337ca9eb/scratchpad/copy`. All three reproduce the committed results byte for byte. The real repo is untouched (`git status` is empty).
-- My own checks on the real data: `/tmp/claude-0/-home-user-long-con/20a8eb28-71a3-56f9-b3ba-5051337ca9eb/scratchpad/check.ts`, `check2.ts`, `check3.ts` and `near.py` in the same folder.
-- A mutation script, `/tmp/claude-0/-home-user-long-con/20a8eb28-71a3-56f9-b3ba-5051337ca9eb/scratchpad/mutate.sh`. It undoes one fix at a time in a throwaway copy and runs the tests. Results are in `mutate.out` in the same folder.
+- `eval recall`, `eval estimate` and `eval estimate --profile small-local`, run in a copy at `/tmp/claude-0/-home-user-beep/20a8eb28-71a3-56f9-b3ba-5051337ca9eb/scratchpad/copy`. All three reproduce the committed results byte for byte. The real repo is untouched (`git status` is empty).
+- My own checks on the real data: `/tmp/claude-0/-home-user-beep/20a8eb28-71a3-56f9-b3ba-5051337ca9eb/scratchpad/check.ts`, `check2.ts`, `check3.ts` and `near.py` in the same folder.
+- A mutation script, `/tmp/claude-0/-home-user-beep/20a8eb28-71a3-56f9-b3ba-5051337ca9eb/scratchpad/mutate.sh`. It undoes one fix at a time in a throwaway copy and runs the tests. Results are in `mutate.out` in the same folder.
 
 ---
 

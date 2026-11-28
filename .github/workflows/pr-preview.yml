@@ -1,5 +1,5 @@
 # A live preview of the web chat for every pull request from this repo, at
-#   https://kealjones.com/long-con/pr-preview/pr-<number>/
+#   https://kealjones.com/beep/pr-preview/pr-<number>/
 # Published to the gh-pages branch next to the deployed app (pages.yml), linked from a comment on the PR,
 # and removed when the PR closes. Previews share the main site's origin, so they see the same saved key and history.
 # Pull requests from forks get no preview: they can't be trusted with the write token this needs.
@@ -30,7 +30,7 @@ jobs:
           cache: npm
       - run: npm ci
         if: github.event.action != 'closed'
-      - run: npm run build -w @long-con/web
+      - run: npm run build -w @beep/web
         if: github.event.action != 'closed'
       - name: Publish or remove the preview
         uses: rossjrw/pr-preview-action@v1

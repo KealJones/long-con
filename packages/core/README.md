@@ -1,4 +1,4 @@
-# @long-con/core
+# @beep/core
 
 The engine. Every front end (CLI, web, anything later) is a thin layer over this package, so behaviour and evals stay identical across them.
 

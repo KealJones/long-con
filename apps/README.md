@@ -1,11 +1,11 @@
 # Front ends
 
-Each app is a thin face on [`@long-con/core`](../packages/core). No app holds logic another app would need; that goes in the core.
+Each app is a thin face on [`@beep/core`](../packages/core). No app holds logic another app would need; that goes in the core.
 
 | App | State | Notes |
 | --- | --- | --- |
 | [`cli`](cli) | started | First, because phase 1 is evals. Later also a plain terminal chat. |
-| [`web`](web) | started | The first real chat screen, live at [kealjones.com/long-con](https://kealjones.com/long-con/). A web app also covers the Mac and phones. |
+| [`web`](web) | started | The first real chat screen, live at [kealjones.com/beep](https://kealjones.com/beep/). A web app also covers the Mac and phones. |
 | `mac` | maybe | Only if the web app hits a wall. |
 
 A front end with its own toolchain (for example a native Mac app) may live in its own repo and depend on the core instead of sitting here.

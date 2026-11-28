@@ -1,5 +1,5 @@
 {
-  "name": "@long-con/web",
+  "name": "@beep/web",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@long-con/core": "0.0.0",
+    "@beep/core": "0.0.0",
     "just-bash": "3.6.0",
     "phonemizer": "^1.2.1"
   },

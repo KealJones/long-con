@@ -97,7 +97,7 @@ No fully deterministic resolver is competitive on open-domain rewrite benchmarks
 - **From LlamaIndex:** priority-ordered sections, pinned ones never truncated.
 - **From the disputes:** publish the harness and settings, or the numbers won't be believed.
 
-**Long Con's own part:** one thread forever that sorts itself, full-detail recall from a lossless log you own, deterministic references, and resurfacing what you forgot.
+**Beep's own part:** one thread forever that sorts itself, full-detail recall from a lossless log you own, deterministic references, and resurfacing what you forgot.
 
 ## Not verified
 

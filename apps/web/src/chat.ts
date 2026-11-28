@@ -1,7 +1,7 @@
 // One chat turn: build the packet from history, send it to Claude, and add both turns to history.
 // No DOM here, so the test can run it in Node with a fake fetch.
 
-import { assemblePrompt, buildPacket, PROFILES, type Session } from "@long-con/core";
+import { assemblePrompt, buildPacket, PROFILES, type Session } from "@beep/core";
 import { packetEmpty } from "./github.ts";
 import { costOf, decide, DEFAULT_PERMISSIONS, offeredTools, siteOf, spentLastHour, type Permissions, type Spend, type Usage } from "./permissions.ts";
 import { runTool, toolDefs, type ToolContext } from "./tools.ts";

@@ -1,25 +1,25 @@
 # Survey C: structure and memory systems
 
-Slice: graphs, temporal indexes, memory products, profiles and people, aggregation, superseded facts. Surveyed 2026-11-26. Builds on [prior-art.md](/home/user/long-con/docs/research/prior-art.md) and [memory-benchmarks.md](/home/user/long-con/docs/research/memory-benchmarks.md) and does not repeat them: Threader, SeCom, LightMem, Mem0's base numbers, the Zep/Mem0 dispute, Hindsight, EverMemOS's headline, MIRIX-2.0 and the "explicit memory vs raw RAG" result are covered there.
+Slice: graphs, temporal indexes, memory products, profiles and people, aggregation, superseded facts. Surveyed 2026-11-26. Builds on [prior-art.md](../prior-art.md) and [memory-benchmarks.md](/home/user/beep/docs/research/memory-benchmarks.md) and does not repeat them: Threader, SeCom, LightMem, Mem0's base numbers, the Zep/Mem0 dispute, Hindsight, EverMemOS's headline, MIRIX-2.0 and the "explicit memory vs raw RAG" result are covered there.
 
 **Read every vendor number as self-reported unless marked otherwise.** "Seen" means I read the page; "abstract only" means I saw only the abstract or a summary page.
 
 ## Short answer
 
-1. **The structure that wins on LongMemEval is a hybrid: raw spans plus a thin layer of extracted facts used as keys or as a compact view, never as a replacement.** Every system that replaced raw turns with facts collapsed on single-session-assistant (Mem0 26.8%, Memobase 23.2% in MemOS's run), and Engram reports "facts alone lose recall". That matches Long Con's lossless-log bet.
+1. **The structure that wins on LongMemEval is a hybrid: raw spans plus a thin layer of extracted facts used as keys or as a compact view, never as a replacement.** Every system that replaced raw turns with facts collapsed on single-session-assistant (Mem0 26.8%, Memobase 23.2% in MemOS's run), and Engram reports "facts alone lose recall". That matches Beep's lossless-log bet.
 2. **Our three weak types each have a cheap, mostly deterministic fix in the literature:**
    - **Multi-session** is an aggregation problem: retrieve one hit per session for the counted thing and hand the reader a compact tally, not whole segments (TallyMem: ledger 93.8% vs reading 82.8% vs long context 49.3% on counting).
    - **Temporal** needs event dates, not just session dates, resolved at index time with a rule parser, plus date arithmetic done by code (TSM, SodaMem, TReMu).
    - **Preference** fails because the question shares no words with the evidence (preference hit@1 0.367 vs 0.810 overall in one LongMemEval study). Profile-extracting systems score 80-97% there.
-3. **Full knowledge graphs (GraphRAG, LightRAG, Graphiti, Mem0g) are a bad trade for Long Con.** They cost 0.3-0.65M tokens to index a 56K-token book, tie or lose on simple lookups, and help multi-hop mainly with 7B+ readers. Mem0g scored *below* plain Mem0 on LoCoMo multi-hop. Graphiti's entity merging wiped every fact about departed group members (0.00 in SocialMemBench). The parts worth stealing are cheap: a deterministic noun-phrase graph (LazyGraphRAG), a subject (person) index, and live/dead marks on superseded facts.
+3. **Full knowledge graphs (GraphRAG, LightRAG, Graphiti, Mem0g) are a bad trade for Beep.** They cost 0.3-0.65M tokens to index a 56K-token book, tie or lose on simple lookups, and help multi-hop mainly with 7B+ readers. Mem0g scored *below* plain Mem0 on LoCoMo multi-hop. Graphiti's entity merging wiped every fact about departed group members (0.00 in SocialMemBench). The parts worth stealing are cheap: a deterministic noun-phrase graph (LazyGraphRAG), a subject (person) index, and live/dead marks on superseded facts.
 4. **For superseded facts, coarse live/dead is enough.** A controlled 2026 study found that fine-grained revision typing adds about +0.02 (inside noise). Most of the apparent gain comes from how the facts are *rendered* to the reader (+0.16). What matters is keeping the old value visible and dated for "what was it before?" questions.
-5. **Prefetch computation, not only text.** The strongest small-model wins come from doing the reader's arithmetic in advance: date deltas and counts. This fits Long Con's "deterministic compute before the turn" bet better than any graph.
+5. **Prefetch computation, not only text.** The strongest small-model wins come from doing the reader's arithmetic in advance: date deltas and counts. This fits Beep's "deterministic compute before the turn" bet better than any graph.
 
 ---
 
 ## 1. Entity and knowledge graphs
 
-| Technique | Plain English | Index cost | Query cost | Browser / Cloudflare | Verdict for Long Con |
+| Technique | Plain English | Index cost | Query cost | Browser / Cloudflare | Verdict for Beep |
 | --- | --- | --- | --- | --- | --- |
 | **Microsoft GraphRAG** | An LLM reads every chunk and pulls out entities and relations. The graph is clustered into "communities" (Leiden), and an LLM writes a summary report for each community. "Global" questions are answered map-reduce style over those reports | Highest: ~655K tokens and ~292 s for a 56K-token book (GraphRAG-Bench) | Global search ~331K prompt tokens per query on the same book | D1 can hold the tables, but the LLM bill makes it a non-starter per chat | No. Built for "summarize this corpus" questions, which a chat log rarely gets |
 | **LazyGraphRAG** (Microsoft, Nov 2024) | No LLM at index time. Noun phrases and their co-occurrence form a concept graph with communities from graph statistics. LLM work is deferred to query time and capped by a "relevance test budget" | ~ vector RAG; ~0.1% of GraphRAG | Configurable; claims GraphRAG-global quality at >700x lower query cost | Index side is pure JS/SQL: fits browser and D1 | **Steal the index half.** A deterministic phrase graph is a cheap second retrieval channel |
@@ -40,7 +40,7 @@ What the evidence says about when graphs help:
   - Mem0g's main claim is temporal, through invalidated rather than deleted relations.
 - **Survey of graph memory** ([arXiv 2602.05665](https://arxiv.org/pdf/2602.05665), seen, truncated): graphs struggle with fuzzy information and are costly to update; vectors stay better for fuzzy recall. No numbers.
 
-**Expected gain for Long Con:**
+**Expected gain for Beep:**
 - **Full LLM-built KG:** negative on cost for both profiles. Unclear on recall: likely + on multi-session, 0 or − on single-session types.
 - **Deterministic phrase graph + PPR, gated to multi-session and "what do I know about X" queries:** guess +0 to +8 points on multi-session all-evidence recall for claude, less for small-local. Low confidence: no published chat-memory result tests exactly this.
 
@@ -148,7 +148,7 @@ The lesson is direct: **index raw spans by who they are about, and never merge o
 | **Earlier advice and how it landed** | Assistant advice spans about this person, plus the user's next reply, carrying the existing negative-reply mark ("tried that, didn't work") | Subject postings ∩ assistant turns, joined to the next user turn | ~100 tokens |
 | **Open loops about them** | From the existing open-loops register | Existing | — |
 
-Anthropic's result (per-entity pages that quote verbatim beat a shared fact table, 57/57 vs 41/57) argues the card should **quote and point**, not paraphrase. That is the same as Long Con's "registers point at spans" rule.
+Anthropic's result (per-entity pages that quote verbatim beat a shared fact table, 57/57 vs 41/57) argues the card should **quote and point**, not paraphrase. That is the same as Beep's "registers point at spans" rule.
 
 ## 5. Aggregation and multi-session ("how many", "list all")
 
@@ -165,7 +165,7 @@ Anthropic's result (per-entity pages that quote verbatim beat a shared fact tabl
 - **TSM and Engram** report multi-session at 69.2 and 79.3, both using event-level facts.
 - **xmemory** ([arXiv 2604.27906](https://arxiv.org/abs/2604.27906), abstract only) argues aggregation needs stateful computation over validated stored entries, not re-reading retrieved text.
 
-**Implication.** For a "how many" question, the packet shouldn't hold four whole 400-token segments. It should hold **one dated sentence per session that mentions the counted thing**, across as many sessions as match, deduplicated: a tally block. A count register that increments at write time is the TallyMem ledger in its simplest form. That needs typed events, which Long Con only has for results and lists today.
+**Implication.** For a "how many" question, the packet shouldn't hold four whole 400-token segments. It should hold **one dated sentence per session that mentions the counted thing**, across as many sessions as match, deduplicated: a tally block. A count register that increments at write time is the TallyMem ledger in its simplest form. That needs typed events, which Beep only has for results and lists today.
 
 ## 6. Knowledge updates and superseded facts
 
@@ -188,7 +188,7 @@ Anthropic's result (per-entity pages that quote verbatim beat a shared fact tabl
 - **EvalMem** ([arXiv 2609.22231](https://arxiv.org/pdf/2609.22231), seen) found retrieval defects dominate (LoCoMo: retrieval 22.1%, encoding 7.7%, generation 6.5%). Systems "keep outdated evidence after state changes", and rollback cases were hardest (47.3%).
 - **StateMemBench** is noted in memory-benchmarks.md.
 
-**For Long Con:** knowledge-update recall is already 100% (claude) and 87.5% (small-local), so the gap is in *answering*, not finding. The existing rejected/superseded mark is the coarse live/dead that the study says suffices. The work left:
+**For Beep:** knowledge-update recall is already 100% (claude) and 87.5% (small-local), so the gap is in *answering*, not finding. The existing rejected/superseded mark is the coarse live/dead that the study says suffices. The work left:
 
 1. Keep the old value in the packet when the question asks about history ("before", "originally", "used to"), and drop it otherwise.
 2. Render both on one line in time order: "now X (since 2023-06-02); earlier Y".
@@ -217,7 +217,7 @@ One fetched vendor blog page carried instructions addressed to AI agents (instal
 
 ---
 
-## Top ideas for Long Con from this slice
+## Top ideas for Beep from this slice
 
 Each is testable on the existing recall harness (`evals/src/recall.ts`) without model calls unless noted. Gains are guesses; dev50 has only 11 multi-session, 13 temporal and 3 preference questions, so confirm on held-out or full-type slices.
 

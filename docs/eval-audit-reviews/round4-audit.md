@@ -1,8 +1,8 @@
-# Audit of the long-con eval harness (LongMemEval_S, five arms)
+# Audit of the beep eval harness (LongMemEval_S, five arms)
 
 **Bottom line:** I found nothing that lets the packet builder see answers or evidence labels. Nothing in the harness strongly favours the packet arm, and I found no high-severity issue. Two medium issues could skew a real API run. One makes the compaction baseline weaker than it should be. The other turns API failures into "wrong" answers, and those failures will pile up in the `full` arm. The rest are low-severity accounting, test and doc gaps.
 
-What I ran: `npm test` (63/63 pass), `npx tsc -p .` (clean), `eval recall --profile claude` and `--profile small-local` (print only; the output matches the committed report exactly), and my own scripts in `/tmp/claude-0/-home-user-long-con/20a8eb28-71a3-56f9-b3ba-5051337ca9eb/scratchpad/` (`a1.ts`–`a6.ts`). I edited nothing, made no paid calls and used no network.
+What I ran: `npm test` (63/63 pass), `npx tsc -p .` (clean), `eval recall --profile claude` and `--profile small-local` (print only; the output matches the committed report exactly), and my own scripts in `/tmp/claude-0/-home-user-beep/20a8eb28-71a3-56f9-b3ba-5051337ca9eb/scratchpad/` (`a1.ts`–`a6.ts`). I edited nothing, made no paid calls and used no network.
 
 ## Medium
 

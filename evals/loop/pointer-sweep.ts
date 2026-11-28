@@ -8,7 +8,7 @@
 //   node --experimental-strip-types evals/loop/pointer-sweep.ts --profile small-local --gates 0,0.02,0.05,0.1 --caps Infinity,1 [--json]
 
 import { parseArgs } from "node:util";
-import { buildPacket, profileByName, type PointerPick, type Profile } from "@long-con/core";
+import { buildPacket, profileByName, type PointerPick, type Profile } from "@beep/core";
 import { embedderFor } from "../src/embedder.ts";
 import { loadLongMemEval } from "../src/longmemeval.ts";
 import { packetRecall, pointerOpens, readableRecall } from "../src/recall.ts";

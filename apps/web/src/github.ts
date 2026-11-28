@@ -3,21 +3,23 @@
 // One commit per sync: each day as readable markdown, and each turn as JSON with its exact packet.
 // No DOM here, so the test can run it in Node with a fake fetch.
 
-import type { Session } from "@long-con/core";
+import type { Session } from "@beep/core";
 import type { Step } from "./chat.ts";
 
-// shortcut: borrows Squiggle's relay and GitHub App (it already allows kealjones.com); give Long Con its own
+// shortcut: borrows Squiggle's relay and GitHub App (it already allows kealjones.com); give Beep its own
 // App and relay if it should show its own name on the GitHub sign-in page.
 export const RELAY = "https://squiggle-relay.kealjones.workers.dev/api";
 export const INSTALL_URL = "https://github.com/apps/squiggle-github/installations/new";
-export const REPO_NAME = "long-con-chats";
-export const NEW_REPO_URL = `https://github.com/new?name=${REPO_NAME}&visibility=private&description=Long%20Con%20chats`;
+export const REPO_NAME = "beep-chats";
+export const NEW_REPO_URL = `https://github.com/new?name=${REPO_NAME}&visibility=private&description=Beep%20chats`;
 const REST = "https://api.github.com";
-export const AUTH_KEY = "long-con:github";
-export const REPO_KEY = "long-con:github-repo";
+export const AUTH_KEY = "beep:github";
+export const REPO_KEY = "beep:github-repo";
 /** Day id → how many turns of it are in the repo, so a sync only sends what's new. */
-export const SYNCED_KEY = "long-con:github-synced";
-const MARKER = ".long-con.json";
+export const SYNCED_KEY = "beep:github-synced";
+const MARKER = ".beep.json";
+/** Chats repos set up before the rename carry this marker instead. */
+const OLD_MARKER = ".long-con.json";
 
 export interface Auth {
   access_token: string;
@@ -151,29 +153,29 @@ export async function accessibleRepos(env: Env): Promise<GhRepo[]> {
   return out;
 }
 
-/** Like Squiggle's findExistingStorage: a private repo that already has Long Con's marker, else one named like long-con-chats. */
+/** Like Squiggle's findExistingStorage: a private repo that already has Beep's marker, else one named like beep-chats. */
 export async function findRepo(env: Env): Promise<string | null> {
   const repos = (await accessibleRepos(env)).filter((r) => r.private);
-  const named = (r: GhRepo) => (r.name.toLowerCase() === REPO_NAME ? 2 : /long-?con/i.test(r.name) ? 1 : 0);
+  const named = (r: GhRepo) => (r.name.toLowerCase() === REPO_NAME ? 2 : /beep|long-?con/i.test(r.name) ? 1 : 0);
   repos.sort((a, b) => named(b) - named(a));
-  for (const r of repos.slice(0, 25)) {
-    try {
-      await gh(env, `/repos/${r.full_name}/contents/${MARKER}`);
-      return r.full_name;
-    } catch {
-      // Not this one.
-    }
-  }
+  for (const r of repos.slice(0, 25))
+    for (const marker of [MARKER, OLD_MARKER])
+      try {
+        await gh(env, `/repos/${r.full_name}/contents/${marker}`);
+        return r.full_name;
+      } catch {
+        // Not this one.
+      }
   return repos.find(named)?.full_name ?? null;
 }
 
 /** Makes a new private repo. Throws with code "cannot-create" when the app isn't allowed to (then the page links to github.com/new). */
 export async function createRepo(env: Env, name = REPO_NAME): Promise<string> {
   try {
-    return (await gh(env, "/user/repos", "POST", { name, private: true, auto_init: true, description: "Long Con chats: transcripts and packets. Private." })).full_name;
+    return (await gh(env, "/user/repos", "POST", { name, private: true, auto_init: true, description: "Beep chats: transcripts and packets. Private." })).full_name;
   } catch (e) {
     const status = (e as { status?: number }).status;
-    if (status === 401 || status === 403 || status === 404) throw Object.assign(new Error("GitHub didn't let Long Con create the repo."), { code: "cannot-create" });
+    if (status === 401 || status === 403 || status === 404) throw Object.assign(new Error("GitHub didn't let Beep create the repo."), { code: "cannot-create" });
     if (status === 422) throw new Error(`You already have a repo named ${name}. Give the GitHub app access to it and it'll be found.`);
     throw e;
   }
@@ -191,7 +193,7 @@ export async function useRepo(env: Env, spec: string): Promise<Repo> {
     throw e;
   }
   if (!r.private) throw new Error("That repo is public, so your chats would be visible to everyone. Make it private or pick another.");
-  if (r.permissions && !r.permissions.push) throw new Error("Long Con can read that repo but not write to it. Give the GitHub app access to it.");
+  if (r.permissions && !r.permissions.push) throw new Error("Beep can read that repo but not write to it. Give the GitHub app access to it.");
   const repo = { owner: r.owner.login, name: r.name, branch: r.default_branch || "main" };
   write(env, REPO_KEY, repo);
   env.store.removeItem(SYNCED_KEY); // A new repo gets everything.
@@ -234,7 +236,7 @@ function dayMarkdown(s: Session, packets: Packets): string {
   };
   const out = [`# ${s.id}`, ""];
   s.turns.forEach((t, i) => {
-    out.push(`**${t.role === "user" ? "You" : "Long Con"}**`, "", t.content, "");
+    out.push(`**${t.role === "user" ? "You" : "Beep"}**`, "", t.content, "");
     const p = packets[keyOf(s.id, t.role === "user" ? i : i - 1)];
     if (p && t.role === "user") out.push(`<details><summary>${packetLabel(p)}${p.model ? ` · ${p.model}` : ""}</summary>`, "", fence(p.text), "", "</details>", "");
     if (p?.steps?.length && t.role === "assistant") {
@@ -245,9 +247,9 @@ function dayMarkdown(s: Session, packets: Packets): string {
   return out.join("\n");
 }
 
-const README = `# Long Con chats
+const README = `# Beep chats
 
-Saved by the Long Con web chat. \`days/\` has each day as you'd read it, with the packet behind each message and the tools behind each answer. \`turns/\` has every turn as JSON with the exact packet the model was given.
+Saved by the Beep web chat. \`days/\` has each day as you'd read it, with the packet behind each message and the tools behind each answer. \`turns/\` has every turn as JSON with the exact packet the model was given.
 `;
 
 /** Where a message's attached file goes in the repo: next to that day's turns. */
@@ -270,7 +272,7 @@ export async function sync(env: Env, history: Session[], packets: Packets, now =
     } catch (e) {
       // An empty repo has no branch yet, and the tree API can't start one, so the marker file's commit does.
       if (![404, 409].includes((e as { status?: number }).status ?? 0) || attempt) throw e;
-      await gh(env, `${base}/contents/${MARKER}`, "PUT", { message: "Start Long Con chats", content: b64(JSON.stringify({ app: "long-con", v: 1, created: now.toISOString() }, null, 2) + "\n"), branch: repo.branch });
+      await gh(env, `${base}/contents/${MARKER}`, "PUT", { message: "Start Beep chats", content: b64(JSON.stringify({ app: "beep", v: 1, created: now.toISOString() }, null, 2) + "\n"), branch: repo.branch });
       files["README.md"] = README;
       continue;
     }

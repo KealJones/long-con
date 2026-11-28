@@ -18,7 +18,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { parseArgs } from "node:util";
-import { extractRules } from "@long-con/core";
+import { extractRules } from "@beep/core";
 import { isAck, isBundle } from "../../packages/core/src/registers.ts";
 
 interface ExportMessage {

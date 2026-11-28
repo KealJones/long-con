@@ -1,9 +1,9 @@
-// `long-con eval <command>`: recall, estimate, run. See evals/README.md.
+// `beep eval <command>`: recall, estimate, run. See evals/README.md.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
-import { Bm25, buildPacket, contentWords, estimateTokens, PROFILES, profileByName, searchHistory, splitIntoSegments, type Profile, type Segment } from "@long-con/core";
+import { Bm25, buildPacket, contentWords, estimateTokens, PROFILES, profileByName, searchHistory, splitIntoSegments, type Profile, type Segment } from "@beep/core";
 import { ARMS, DEFAULT_ARMS, firstMessages, SEARCH_TOOL, SYSTEM, type ArmName } from "./arms.ts";
 import { recallChart, type Series } from "./chart.ts";
 import { EstimatingModel } from "./estimate.ts";
@@ -22,7 +22,7 @@ const PROFILE_NAMES = Object.values(PROFILES).map((p) => p.name);
 const COST_CAVEATS = "Cost caveats: Haiku 5.5 bills prompts over 100K tokens at 5x, which every full-history call crosses; prompt caching isn't modeled, though in a long chat a cached history costs about a tenth; each question pays for its own compaction summaries, which a real chat spreads over many turns.";
 const SWEEP = [1000, 1500, 2000, 2500, 3000, 4000, 6000, 8000];
 
-const usage = `Usage: long-con eval <command> [options]
+const usage = `Usage: beep eval <command> [options]
 
 Commands:
   recall     Free check: is each question's evidence in the packet? No model calls.
@@ -192,7 +192,7 @@ export async function main(argv: string[]): Promise<number> {
     return 1;
   }
   if (!process.env.ANTHROPIC_API_KEY) {
-    console.error("ANTHROPIC_API_KEY isn't set, so there's no real run. `long-con eval recall` and `estimate` work without it.");
+    console.error("ANTHROPIC_API_KEY isn't set, so there's no real run. `beep eval recall` and `estimate` work without it.");
     return 1;
   }
   const maxCost = Number(values["max-cost"]);

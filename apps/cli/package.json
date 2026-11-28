@@ -1,13 +1,13 @@
 {
-  "name": "@long-con/cli",
+  "name": "@beep/cli",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "bin": {
-    "long-con": "./src/main.ts"
+    "beep": "./src/main.ts"
   },
   "dependencies": {
-    "@long-con/core": "0.0.0",
-    "@long-con/evals": "0.0.0"
+    "@beep/core": "0.0.0",
+    "@beep/evals": "0.0.0"
   }
 }

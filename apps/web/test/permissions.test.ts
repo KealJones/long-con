@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { Session } from "@long-con/core";
+import type { Session } from "@beep/core";
 import { sendTurn, type Ask } from "../src/chat.ts";
 import { costOf, decide, DEFAULT_PERMISSIONS, offeredTools, risky, siteOf, spentLastHour, type Permissions } from "../src/permissions.ts";
 import { toolDefs } from "../src/tools.ts";

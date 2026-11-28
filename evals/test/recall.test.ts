@@ -1,9 +1,9 @@
 // Packet recall counts evidence turns whose whole text landed in the packet.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { Session } from "@long-con/core";
+import type { Session } from "@beep/core";
 import type { Question } from "../src/longmemeval.ts";
-import { searchUnits } from "@long-con/core";
+import { searchUnits } from "@beep/core";
 import { packetRecall, readableRecall } from "../src/recall.ts";
 
 const chat = (id: string, contents: string[]): Session => ({ id, turns: contents.map((content, i) => ({ role: i % 2 ? ("assistant" as const) : ("user" as const), content })) });

@@ -1,6 +1,6 @@
 # What is worth remembering about a person (and what isn't)
 
-Research for Long Con's people cards and dated interest notes. Every source below was read as a page, not just a search snippet. Tags: **[peer-reviewed]** (journal or conference paper), **[preprint]** (arXiv, not yet reviewed or venue unconfirmed), **[vendor]** (written by the company selling the product), **[practitioner]** (trade blog or guide).
+Research for Beep's people cards and dated interest notes. Every source below was read as a page, not just a search snippet. Tags: **[peer-reviewed]** (journal or conference paper), **[preprint]** (arXiv, not yet reviewed or venue unconfirmed), **[vendor]** (written by the company selling the product), **[practitioner]** (trade blog or guide).
 
 ---
 

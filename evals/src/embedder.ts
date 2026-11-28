@@ -4,7 +4,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { staticEmbedder, type Embed, type Profile } from "@long-con/core";
+import { staticEmbedder, type Embed, type Profile } from "@beep/core";
 
 export const MODELS = join(dirname(fileURLToPath(import.meta.url)), "../data/models");
 

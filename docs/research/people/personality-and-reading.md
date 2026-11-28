@@ -1,6 +1,6 @@
 # Personality frameworks and reading people: what to trust
 
-Research note for Long Con's person notes. The question: which personality models and people-reading techniques are solid enough to shape what an assistant stores and does, and which are pseudoscience? Long Con's rule, that an empty packet beats a wrong one, turns out to match what the literature supports.
+Research note for Beep's person notes. The question: which personality models and people-reading techniques are solid enough to shape what an assistant stores and does, and which are pseudoscience? Beep's rule, that an empty packet beats a wrong one, turns out to match what the literature supports.
 
 **Bottom line.** Trait *dimensions* measured by validated questionnaires (Big Five, HEXACO, attachment anxiety/avoidance) are real and fairly stable. Even so, they predict any single moment weakly (around r = .30). Type systems (MBTI, DISC, Enneagram, love languages, learning styles) range from weak to unsupported. Inferring traits from text works only modestly (r ≈ .2 to .4, at best ~.56 with large behavioral datasets). People, LLMs included, are bad at reading lies and emotions from surface cues. The safe kind of tailoring follows what a person *said* they want. The risky kind targets traits the system *inferred*.
 

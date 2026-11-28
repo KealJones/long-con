@@ -3,7 +3,7 @@
 // tool, so `compaction` stays the classic approach and `compaction-search` is the fair comparison.
 
 import type Anthropic from "@anthropic-ai/sdk";
-import { assemblePrompt, buildPacket, searchHistory, estimateTokens, HISTORY_NOTICE, type Packet, type Profile, type Session } from "@long-con/core";
+import { assemblePrompt, buildPacket, searchHistory, estimateTokens, HISTORY_NOTICE, type Packet, type Profile, type Session } from "@beep/core";
 import { embedderFor } from "./embedder.ts";
 import type { Question } from "./longmemeval.ts";
 import { BilledError, costOf, type ModelClient, type ModelRequest } from "./model.ts";

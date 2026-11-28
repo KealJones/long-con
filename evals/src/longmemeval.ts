@@ -5,7 +5,7 @@
 
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import type { Session } from "@long-con/core";
+import type { Session } from "@beep/core";
 
 export interface Question {
   id: string;

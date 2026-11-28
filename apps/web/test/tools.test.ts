@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { PROFILES, type Session } from "@long-con/core";
+import { PROFILES, type Session } from "@beep/core";
 import { FILES_KEY, resetShell, runTool } from "../src/tools.ts";
 
 function ctx(fetch?: typeof globalThis.fetch) {

@@ -27,7 +27,7 @@ Notes from mid-November 2026. Nothing here is verified against official pages ye
 
 ## Later ideas
 
-- Long Con as a Claude.ai connector (v2).
+- Beep as a Claude.ai connector (v2).
 
 ## To verify before building on any of this
 

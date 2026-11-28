@@ -2,7 +2,7 @@
 
 ## Thesis
 
-Long Con is one endless chat that never compacts. Each turn, the model gets a fresh, small context packet built from a lossless log of everything said. It wins if it beats classic compaction and matches the full long conversation on recall, at a fraction of the tokens.
+Beep is one endless chat that never compacts. Each turn, the model gets a fresh, small context packet built from a lossless log of everything said. It wins if it beats classic compaction and matches the full long conversation on recall, at a fraction of the tokens.
 
 ## Why it can work
 
@@ -19,7 +19,7 @@ Hand-built packets with a frontier model passed 12/12 recall tests at about 7% o
 - **Every packet source is also a model tool:** labels, references, past questions and answers, open loops, registers, chat search, memory, facts and files. The packet is a head start, never the only path, so the model can look things up itself when the packet looks incomplete, irrelevant or wrong. Every packet also carries a one- or two-line notice that earlier history was left out, how far back it goes, and that the tools can search it. A tool call right after the packet is logged as a packet miss.
 - **Labels on every message:** a message can carry more than one topic label. Negative replies ("no", "that didn't work", "not that one") mark the idea or answer they reply to as rejected or superseded, so the packet leaves it out. Tagging rides on the reply call or a tiny classifier, never a separate model call per message. Labels stay only if they beat plain retrieval in the evals.
 
-- **Every model, set per model profile.** Long Con is for all models, not just Claude. Each profile sets the raw-turn window, when packets switch on (from turn one if wanted), the packet token budget, whether the retrieval gate runs, and which tools the model gets. Two default profiles:
+- **Every model, set per model profile.** Beep is for all models, not just Claude. Each profile sets the raw-turn window, when packets switch on (from turn one if wanted), the packet token budget, whether the retrieval gate runs, and which tools the model gets. Two default profiles:
   - **Claude:** long windows. The win is token cost.
   - **Small local, e.g. LFM3 1.7B:** short, de-duplicated context with junk turns dropped, since small models fall apart on long, repetitive context. Caching is about speed here (reusing the prompt prefix's KV cache, as in llama.cpp), not cost.
 - **Normal chat first, then packets.** A chat runs as a plain chat until its history crosses the profile's threshold, then switches to packets. After that, a gate decides on each turn whether retrieval runs at all. A turn that needs nothing gets the rules, the recent turns and the new message. The evals find the threshold for each model.

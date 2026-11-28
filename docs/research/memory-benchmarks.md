@@ -1,6 +1,6 @@
 # Memory benchmarks
 
-Which long-term memory benchmarks Long Con should try to beat with one message and a packet: the answering model sees only the packet plus the question, never the full history. Surveyed 2026-11-25.
+Which long-term memory benchmarks Beep should try to beat with one message and a packet: the answering model sees only the packet plus the question, never the full history. Surveyed 2026-11-25.
 
 **Read every score below as self-reported unless it says otherwise.** Vendors use different reader models, judges and prompts, so cross-vendor numbers rarely compare. Where an independent rerun exists, it's listed.
 

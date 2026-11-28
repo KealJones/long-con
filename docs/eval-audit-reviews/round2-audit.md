@@ -1,4 +1,4 @@
-# Audit of the long-con eval harness
+# Audit of the beep eval harness
 
 I found no answer leakage and no split contamination. The main problems are uneven treatment between arms and metrics that mislead. None of the problems below is a correctness bug that hands the packet labels. I found 4 medium findings and 10 low ones.
 
