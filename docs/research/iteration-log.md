@@ -2,9 +2,17 @@
 
 One entry per idea tried by the hourly packet R&D loop. Newest run first. Numbers are dev unless marked held-out. Backlog: [prefetch-ideas-ranked.md](prefetch-ideas-ranked.md).
 
+## Note: 2026-11-27, 2:30 PM Arizona: entry points must match
+
+From now on the eval harness, the CLI and the web chat must run the same packet code with the same options, and a change counts as kept only once every entry point runs it. Today they don't match: the web chat (apps/web/src/chat.ts) calls the builder without the embedder, so the embedding veto kept in run 11 and the search tool's low-confidence marks from run 13 run only in the harness. Either the web chat gets the veto (the embedder is plain TypeScript, so it can run in the browser once the model file is served there) or the harness drops it; the web chat's thread decides. Until then those two results are "kept in core, waiting on web wiring".
+
+## Note: 2026-11-27, 2:45 PM Arizona: meaning channel back on the table
+
+Per the web chat thread's measurement, the static embedder ranked within one chat finds the right turn in the top 10 on 39 of 47 questions against 35 for BM25 (5 BM25 misses found, 1 lost). Run 12's "missing evidence at cosine 0.20-0.25 against about 0.6 for noise" held only for the hardest misses against a fixed bar, so P10/P11's "not kept" is a verdict on the fixed bar, not on the channel. A per-chat relative bar is the open idea; the web chat thread owns that test. The packet, search and meaning code now run one shared path in the evals and the web chat.
+
 ## Run 13: 2026-11-27, 1:17 AM Arizona
 
-Main went c806fb3 → this entry. An embedding re-rank inside tally mode and the veto-floor CV check (run 12) get their own entries when their agents finish.
+Main went c806fb3 → c198760. The veto-floor CV check started in run 12 finished here.
 
 ### Search tool marks hits with the packet's embedding veto (shared search): kept
 
@@ -17,6 +25,22 @@ Main went c806fb3 → this entry. An embedding re-rank inside tally mode and the
 - **Review (fresh Opus 5.5):** valid with notes. The metric and the tool share `markResults`; floor 0 reproduces the old marking; labels are used only for scoring; dev only. Notes: with the model files missing, reader runs fall back to the old marking with only a warning while the metric throws; a long evidence turn split into parts counts each part as evidence (shared with existing metrics, fair before and after).
 - **Kept:** branch `loop/search-tool-embed`, merged. apps/web's tool isn't wired yet.
 - **Next ideas:** a fitted gate probability as the tool's strong/low cut; a reader run to see whether the marks change answers.
+
+### Embedding cosine inside tally mode: not kept
+
+- **Sources:** [Bruch et al. 2022](https://arxiv.org/abs/2210.11934); arXiv 2606.04194 (skimmed); the run 12 dense-channel entry's next idea.
+- **Tried:** `rankTallyPieces` in tally.ts: (a) re-rank tally pieces by a mix of BM25 place and best-turn cosine (`tallyMix`, 0-1); (b) a cosine floor on pieces (`tallyFloor`); (c) a cosine bar on how many pieces count (`tallyBar`). New sweeps `evals/loop/tally-cosine.ts` (with tally-subset rows) and `tally-cosine-cv.ts` (grouped 5-fold CV).
+- **Findings:** the mix changes nothing on either profile at any setting: counting packets never fill their budget (the tally subset averages 821 tokens on claude, 455 on small-local), so order never decides what gets in. No tier 1 or 1t prompt trips the tally check; 12 tier 2 and 11 tier 3 prompts do. claude floor 0.25 holds every row (tally-trip t3 FI 5.55 → 4.00) but 0.3 loses a multi-session question, and CV picks 0.3 in one fold and loses it there (76.6% against 78.7%). small-local bar 0.35 (two steps back from its edge at 0.45) holds every row with tokens 1,351 → 1,337, FI t2 0.98 → 0.88 and t3 0.70 → 0.66, t1 and t1t unchanged, precision 26.6 → 27.4%.
+- **Why not kept:** claude fails CV, and the small-local gain is about five fewer pieces over 50 tier 2 prompts and 1% fewer tokens, inside noise, for three new options; the CV picker there ignored turns and chose 0.5 in 4 of 5 folds. Branch `loop/tally-cosine` (ab30e77).
+- **Next ideas:** the missed multi-session evidence is a lexical miss, not an order or budget problem, so tally recall needs more candidates in the pool (cosine-only pieces behind the bar), not a better order.
+
+### Embedding veto floor under cross-validation, and a query-relative floor: floors confirmed, nothing changed
+
+- **Sources:** [Relevance Filtering for Embedding-based Retrieval](https://arxiv.org/html/2408.04887v1) on query-dependent cosine thresholds.
+- **Tried:** `evals/loop/veto-cv.ts` runs the real builder at every floor × ratio and cross-validates the "highest floor that keeps recall" choice, 5-fold and leave-one-question-out, grouped by question (dev only, on 28ce118, before the pointer change). Also a query-relative floor, `max(floor, r × best kept cosine)`, r 0.5-0.9.
+- **Findings:** the in-sample edge (first question lost) is claude 0.275 and small-local 0.375, and choosing "the highest floor that keeps recall" lands on it and loses held-out questions (claude 5-fold 74.5 / 76.6 / 76.6%, LOO 76.6 / 78.7 / 78.7%; small-local both 63.8%). But every fold picks at least 0.25 on claude and 0.35 on small-local, and no floor up to those loses a question, so the shipped 0.2 and 0.25 sit inside the CV-safe range: the "two steps back" rule held out of fold. The tightest claude question's evidence sits at cosine 0.252, about 0.05 above its floor; the claude edge rests on about three questions. The query-relative floor loses a claude question at r 0.5 at any floor and is noise on small-local (t1 FI 1.05 against 1.07); a joint CV pick chose a ratio once in ten folds.
+- **Not changed:** small-local at 0.3 keeps whole recall (1,318 tokens, FI 0.89 / 0.10 / 0.80 / 0.45) but run 11's sweep shows it loses an evidence turn (72.2 → 71.6%), so it isn't taken. `embedRatio` stays on branch `loop/veto-cv` (2500ba9) with the CV script.
+- **Next ideas:** more answerable questions whose evidence sits near cosine 0.25-0.3, so the floor's edge rests on more than three; a held-out check of the veto before it's called a result.
 
 ## Run 12: 2026-11-26, 10:17 PM Arizona (ran through the 11:18 wake)
 
