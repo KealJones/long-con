@@ -290,6 +290,14 @@ test("a medium-confidence unit comes in as a one-line pointer whose words find i
 });
 
 
+test("today's turns older than the raw ones stay searchable, even when they share a unit with raw turns", () => {
+  const turns = Array.from({ length: 10 }, (_, i) => ({ role: (i % 2 ? "assistant" : "user") as "user" | "assistant", content: i === 0 ? "my bike lock code is the year we met" : `ok ${i}` }));
+  const history = [...filler, chat({ id: "today", date: "2026/03/20 (Fri)", turns })];
+  const packet = packetFor(history, "what was my bike lock code again", "today");
+  assert.equal(packet.recentTurns.length, profile.rawTurns);
+  assert.match(packet.text, /bike lock code is the year we met/);
+});
+
 test("the pointer cap is filled by rank, gate probability, cosine or both", () => {
   const units = [
     { rank: 0, p: 0.0021, sim: 0.3 },

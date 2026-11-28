@@ -3,7 +3,7 @@
 // tool, so `compaction` stays the classic approach and `compaction-search` is the fair comparison.
 
 import type Anthropic from "@anthropic-ai/sdk";
-import { assemblePrompt, buildPacket, searchHistory, estimateTokens, HISTORY_NOTICE, type Packet, type Profile, type Session } from "@beep/core";
+import { assemblePrompt, buildPacket, messagePrompt, searchHistory, estimateTokens, HISTORY_NOTICE, SEARCH_TOOL as CORE_SEARCH_TOOL, type Packet, type Profile, type Session } from "@beep/core";
 import { embedderFor } from "./embedder.ts";
 import type { Question } from "./longmemeval.ts";
 import { BilledError, costOf, type ModelClient, type ModelRequest } from "./model.ts";
@@ -54,15 +54,8 @@ export interface ArmResult {
 export const SYSTEM =
   "You are a helpful assistant in a long-running chat with the user. Use what you know from your past chats with them to answer. If the past chats don't say, say so instead of guessing.";
 
-export const SEARCH_TOOL: Anthropic.Tool = {
-  name: "search_history",
-  description: "Search all past chats with the user. Returns the best-matching passages with their dates.",
-  input_schema: {
-    type: "object",
-    properties: { query: { type: "string", description: "What to look for" } },
-    required: ["query"],
-  },
-};
+/** core's definition, the one the web chat offers. */
+export const SEARCH_TOOL: Anthropic.Tool = CORE_SEARCH_TOOL;
 
 export const SUMMARY_NOTE = (canSearch: boolean) =>
   `Earlier chat history was summarized to fit, and the summary may leave details out.${canSearch ? " The search_history tool can reach all of it." : ""}`;
@@ -79,8 +72,9 @@ export function firstMessages(arm: Exclude<ArmName, "compaction" | "compaction-s
     case "packet": {
       // Below the profile's switch point the chat is still short enough to send whole.
       if (estimateTokens(renderChats(q.sessions)) <= profile.switchAt) return firstMessages("full", q, profile);
-      const packet = buildPacket({ history: q.sessions, message: q.question, profile, embed: embedderFor(profile) });
-      return { messages: assemblePrompt({ system: SYSTEM, packet: packet.text, recentTurns: packet.recentTurns, message: ask(q) }).messages, contextTokens: packet.tokens };
+      // core's messagePrompt, the code the web chat runs: a packet that found nothing older isn't sent.
+      const { packet, sent, prompt } = messagePrompt({ system: SYSTEM, history: q.sessions, message: q.question, sendAs: ask(q), profile, embed: embedderFor(profile) });
+      return { messages: prompt.messages, contextTokens: sent ? packet.tokens : 0 };
     }
     // Ablations: the same packet with one part of its head left out. The builder drops it, so the freed tokens go back to the budget.
     case "packet-notrust":

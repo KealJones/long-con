@@ -42,19 +42,8 @@ export interface ModelClient {
   complete(req: ModelRequest): Promise<ModelResponse>;
 }
 
-/** USD per million tokens. Haiku 5.5 bills more once a prompt passes 100K tokens. */
-export const PRICES: Record<string, { input: number; output: number; longAbove?: number; longInput?: number; longOutput?: number }> = {
-  "claude-haiku-5-5": { input: 0.1, output: 0.5, longAbove: 100_000, longInput: 0.5, longOutput: 2.5 },
-  "claude-sonnet-5-5": { input: 2, output: 10 },
-  "claude-opus-5-5": { input: 4, output: 20 },
-};
-
-export function costOf(model: string, usage: { input: number; output: number }): number {
-  const p = PRICES[model];
-  if (!p) throw new Error(`No price for ${model}; add it to PRICES in evals/src/model.ts`);
-  const long = p.longAbove !== undefined && usage.input > p.longAbove;
-  return (usage.input * (long ? p.longInput! : p.input) + usage.output * (long ? p.longOutput! : p.output)) / 1e6;
-}
+// Prices live in core, so the evals, the CLI and the web chat bill the same way.
+export { costOf, PRICES } from "@beep/core";
 
 export class AnthropicModel implements ModelClient {
   // Retries rate limits and overloads with backoff, so they don't turn into wrong answers.

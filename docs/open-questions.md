@@ -4,7 +4,7 @@ Each has a current lean. None is settled until it moves to [decisions.md](decisi
 
 ## History storage and encryption
 
-GitHub storage is out for regular users. The replacement is a normal hosted service with accounts. Leading option: its own backend on Cloudflare (Workers plus D1), where deleting history is a row delete rather than a git history rewrite. Lookups hit a local copy either way, so the backend is about sync, accounts and deletes, not speed.
+Storage is either/or: GitHub sync (built in the web app) for people who want history in a repo they own, and a hosted service with accounts for everyone else. Leading option: its own backend on Cloudflare (Workers plus D1), where deleting history is a row delete rather than a git history rewrite. Lookups hit a local copy either way, so the backend is about sync, accounts and deletes, not speed.
 
 Where encryption happens is the real choice:
 
@@ -19,7 +19,7 @@ Lean: on the device. Pending a pick. Background in [research/history-storage.md]
 
 ## Topic window vs fully fresh packet
 
-The last few turns now always ride along raw, with the count set per model profile (it can be zero). Still open: whether a wider topic window adds anything on top of that. Lean: eval both, per model.
+The last few turns always ride along raw, with the count set per model profile (it can be zero). The web app now widens that window back over earlier turns that share words with it, up to 2K tokens (`topicTokens`). Still open: whether that beats the fixed window. LongMemEval can't say, since its question always comes in a fresh session, so it waits on the pain-mined set.
 
 ## Sticky packets
 

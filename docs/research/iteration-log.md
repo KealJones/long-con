@@ -10,6 +10,23 @@ From now on the eval harness, the CLI and the web chat must run the same packet 
 
 Per the web chat thread's measurement, the static embedder ranked within one chat finds the right turn in the top 10 on 39 of 47 questions against 35 for BM25 (5 BM25 misses found, 1 lost). Run 12's "missing evidence at cosine 0.20-0.25 against about 0.6 for noise" held only for the hardest misses against a fixed bar, so P10/P11's "not kept" is a verdict on the fixed bar, not on the channel. A per-chat relative bar is the open idea; the web chat thread owns that test. The packet, search and meaning code now run one shared path in the evals and the web chat.
 
+## Write-time registers (stacked on PR 1): 2026-11-26
+
+Baseline is 3631d2a (PR 1 with main merged in: embedding veto, pointer floor). Dev only, tuning-grade; one question is 2.1 points. No paid runs. These changes target follow-ups LongMemEval can't test ("go", "do all that", "multiply it by 32", "thanks!!", "you forgot"), so the bar here is no harm: recall and false inclusions at least as good, tokens about flat.
+
+| | claude | small-local |
+| --- | --- | --- |
+| All evidence, default budget | 78.7 → 78.7% | 66.0 → 66.0% |
+| All evidence at a 1,500 ceiling, fixed / adaptive | 61.7 / 63.8 → 63.8 / 66.0% | 53.2 / 55.3 → 55.3 / 57.4% |
+| Mean packet tokens | 3,561 → 3,578 | 1,351 → 1,348 |
+| Tier 1 / 1t / 2 / 3 FI | 4.55 / 2.97 / 7.26 / 5.70 → 4.53 / 2.95 / 7.22 / 5.68 | 1.07 / 0.13 / 0.98 / 0.70 → unchanged |
+
+The same comparison against 425801d, before the merge, came out the same way.
+
+- **Kept:** act cues tagged at write time (offers, acks, bundles, corrections, updates, rules), a typed results register, update links, the "check before repeating" note on old price and version answers, and small talk closing the gate. The low-ceiling gain most likely comes from the rules fix: "remember to" no longer pins pasted advice, which freed room. Not checked turn by turn.
+- **Not kept as a default:** pulling in the answer unit after a question hit. On 425801d it took claude tokens 3,949 → 4,335 and tier 1 FI 7.09 → 8.05 for no recall change at the default ceiling. It's behind `answerFollows`, on in the web app only, where questions about the assistant's own answers are common and LongMemEval's are rare (95% of its evidence turns are user turns).
+- **Can't be measured here:** the topic window and the not-found line (LongMemEval asks in a fresh session, and its should-be-empty tiers aren't phrased as questions about the past). Both are on in the web app only, and wait for the pain-mined set.
+
 ## Run 13: 2026-11-27, 1:17 AM Arizona
 
 Main went c806fb3 → c198760. The veto-floor CV check started in run 12 finished here.

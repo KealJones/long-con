@@ -9,7 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@beep/core": "0.0.0"
+    "@beep/core": "0.0.0",
+    "just-bash": "3.6.0",
+    "phonemizer": "^1.2.1"
   },
   "devDependencies": {
     "vite": "8.3.8"
