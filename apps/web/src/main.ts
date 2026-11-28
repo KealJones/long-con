@@ -323,6 +323,12 @@ function saveToGitHub(loud = false) {
       // Side threads go up whole as one file whenever they've changed since the last save.
       const threadsJson = JSON.stringify(threads, null, 2);
       if (threads.length && threadsJson !== localStorage.getItem("long-con:threads-saved")) sending["threads.json"] = Files.toBase64(new TextEncoder().encode(threadsJson + "\n"));
+      // Turns saved from another browser come in first, so this save never writes over them.
+      if (!busy && (await GH.pull(ghEnv, history, packets, () => !busy))) {
+        saveChat();
+        renderLog();
+        renderSidebar();
+      }
       await GH.sync(ghEnv, history, packets, new Date(), sending);
       for (const k of Object.keys(sending)) delete unsavedFiles[k];
       if (sending["threads.json"]) localStorage.setItem("long-con:threads-saved", threadsJson);
@@ -391,6 +397,7 @@ function renderSidebar() {
     del.addEventListener("click", () => {
       if (!confirm(`Delete everything from ${dayName(s.id)}? This can't be undone.`)) return;
       history.splice(history.indexOf(s), 1);
+      GH.skipDays(ghEnv, [s.id]);
       for (const k of Object.keys(packets)) if (k.startsWith(`${s.id}#`)) delete packets[k];
       saveChat();
       GH.resend(ghEnv);
@@ -483,6 +490,7 @@ $<HTMLInputElement>("import").addEventListener("change", async (e) => {
 
 $("clear").addEventListener("click", () => {
   if (!confirm("Delete the whole chat and its files from this browser? This can't be undone. Export first if you want a copy.")) return;
+  GH.skipDays(ghEnv, history.map((s) => s.id));
   history.length = 0;
   localStorage.removeItem(FILES_KEY);
   resetShell();
@@ -1042,7 +1050,8 @@ sync();
 renderLog();
 renderGitHub();
 if (GH.signedIn(ghEnv) && !GH.savedRepo(ghEnv)) setUpRepo();
-saveToGitHub(); // Anything a failed save left behind.
+saveToGitHub(); // Anything a failed save left behind, after pulling what other browsers saved.
+document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && saveToGitHub());
 setSidebar(!narrow.matches && !!localStorage.getItem("long-con:sidebar"));
 if (!keyInput.value) settings.showModal();
 else input.focus();
