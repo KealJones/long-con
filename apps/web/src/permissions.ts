@@ -1,3 +1,4 @@
+import { costOf as coreCost, type Usage as CoreUsage } from "@long-con/core";
 // What the model may do without asking, and how much it may spend. No DOM, so it tests in Node.
 
 export type Rule = "allow" | "ask" | "deny";
@@ -102,13 +103,7 @@ const stub = (name: string, description: string, field: string): Def => ({
 
 // ── Spending ──────────────────────────────────────────────────────────────
 
-/** Dollars per million tokens, input then output. */
-const PRICES: [RegExp, number, number][] = [
-  [/opus/, 4, 20],
-  [/sonnet/, 2, 10],
-  [/haiku/, 0.1, 0.5],
-];
-
+/** Usage as the API reports it. */
 export interface Usage {
   input_tokens?: number;
   output_tokens?: number;
@@ -117,13 +112,16 @@ export interface Usage {
   server_tool_use?: { web_search_requests?: number };
 }
 
-/** What one API response cost, in dollars. Unknown models are priced like Opus, to stay on the safe side. */
-export function costOf(model: string, u: Usage = {}): number {
-  const [, inp, out] = PRICES.find(([re]) => re.test(model)) ?? PRICES[0]!;
-  const readRate = model.includes("haiku") ? 0.1 : 0.05;
-  const tokens = (u.input_tokens ?? 0) * inp + (u.cache_creation_input_tokens ?? 0) * inp * 1.25 + (u.cache_read_input_tokens ?? 0) * inp * readRate + (u.output_tokens ?? 0) * out;
-  return tokens / 1e6 + (u.server_tool_use?.web_search_requests ?? 0) * 0.01;
-}
+export const usageOf = (u: Usage = {}): CoreUsage => ({
+  input: u.input_tokens ?? 0,
+  output: u.output_tokens ?? 0,
+  cacheRead: u.cache_read_input_tokens ?? 0,
+  cacheWrite: u.cache_creation_input_tokens ?? 0,
+  webSearches: u.server_tool_use?.web_search_requests ?? 0,
+});
+
+/** What one API response cost, in dollars, at core's prices (unknown models are priced like Opus). */
+export const costOf = (model: string, u: Usage = {}): number => coreCost(model, usageOf(u));
 
 export interface Spend {
   at: number;

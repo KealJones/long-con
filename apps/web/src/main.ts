@@ -1,6 +1,6 @@
 // The page: a texting-style chat, a settings dialog, and a sidebar for topics and your data.
 
-import type { Session } from "@long-con/core";
+import { compareCost, MINUTE, priceOf, type CostTurn, type Session } from "@long-con/core";
 import { attachedNote, dayLabel, MODELS, PROFILE, sendTurn, type Ask, type Attachment } from "./chat.ts";
 import * as Files from "./files.ts";
 import * as P from "./permissions.ts";
@@ -386,6 +386,7 @@ function renderSidebar() {
   const messages = history.reduce((n, s) => n + s.turns.length, 0);
   const bytes = ["long-con:history", "long-con:packets", FILES_KEY].reduce((n, k) => n + (localStorage.getItem(k)?.length ?? 0), 0);
   $("stats").replaceChildren(stat(messages, "messages"), stat(history.length, "days"), stat(`${bytes ? Math.max(1, Math.round(bytes / 1024)) : 0} KB`, "stored"));
+  renderCost();
   $("days").replaceChildren(...[...history].reverse().map((s) => {
     const li = el("li");
     const go = btn("go", dayName(s.id));
@@ -407,6 +408,36 @@ function renderSidebar() {
     li.append(go, del);
     return li;
   }));
+}
+
+/** Long Con's real bill since the meter started, next to a classic chat that resends everything, at both cache lifetimes. */
+function renderCost() {
+  const turns: CostTurn[] = history.flatMap((s) =>
+    s.turns.flatMap((t, i) => {
+      if (t.role !== "user") return [];
+      const p = packets[keyOf(s.id, i)];
+      return [{ model: p?.model, message: t.content, answer: s.turns[i + 1]?.content, context: p?.context, calls: p?.calls }];
+    }),
+  );
+  const short = compareCost(turns, { ttl: 5 * MINUTE });
+  const long = compareCost(turns, { ttl: 60 * MINUTE });
+  if (!short.turns) return $("cost").replaceChildren(el("p", "hint", "Starts counting with your next message: what it really costs here, next to what a classic chat that resends everything would."));
+  const top = Math.max(short.longCon, short.classic, long.classic);
+  const row = (label: string, usd: number, us = false) => {
+    const r = el("div", `row${us ? " us" : ""}`);
+    const bar = el("div", "bar");
+    bar.style.width = `${Math.max(1, (usd / top) * 100)}%`;
+    r.append(el("span", "", label), el("b", "", `$${usd < 1 ? usd.toFixed(3) : usd.toFixed(2)}`), bar);
+    return r;
+  };
+  const models = [...new Set(turns.filter((t) => t.calls?.length).map((t) => priceOf(t.model ?? "").name))].join(" and ");
+  const times = short.classic / (short.longCon || Infinity);
+  $("cost").replaceChildren(
+    row("Long Con", short.longCon, true),
+    row("Classic chat, 5-minute cache", short.classic),
+    row("Classic chat, 1-hour cache", long.classic),
+    el("p", "hint", `${short.turns} ${short.turns === 1 ? "turn" : "turns"} counted, at ${models} prices.${times >= 1.05 ? ` A classic chat costs ${times.toFixed(1)}x as much here:` : ""} it resends the whole chat every turn (up to ${Math.round(short.peak / 1000)}K tokens), reading it from cache when the last message was recent and paying to cache it again when not.${short.compactions ? ` It would have compacted ${short.compactions} ${short.compactions === 1 ? "time" : "times"}.` : ""}`),
+  );
 }
 
 const stat = (value: string | number, label: string) => {
@@ -669,7 +700,7 @@ async function ask(message: string, voice = false): Promise<string | null> {
       attachments: files,
     });
     if (files.length) await keepFiles(keyOf(result.sessionId, result.turn), files, result.sessionId, result.turn);
-    packets[keyOf(result.sessionId, result.turn)] = { text: result.packet, tokens: result.packetTokens, model, raw: result.rawTurns, ...(result.steps.length ? { steps: result.steps } : {}) };
+    packets[keyOf(result.sessionId, result.turn)] = { text: result.packet, tokens: result.packetTokens, model, raw: result.rawTurns, ...(result.steps.length ? { steps: result.steps } : {}), calls: result.calls, context: result.context };
     saveChat();
     if (!voice) saveToGitHub(); // A call saves once the reply has been spoken.
     pending.remove();

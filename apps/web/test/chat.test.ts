@@ -36,7 +36,7 @@ test("a turn sends system, packet, then the message, and saves both turns", asyn
   assert.equal(headers["anthropic-dangerous-direct-browser-access"], "true");
   const body = JSON.parse(String(init.body));
   assert.equal(body.model, "claude-sonnet-5-5");
-  assert.match(body.system, /Today is 2026\/11\/26 \(Thu\)/);
+  assert.match(body.system[0].text, /Today is 2026\/11\/26 \(Thu\)/);
   assert.match(body.messages[0].content, /^<packet>[\s\S]*Biscuit[\s\S]*<\/packet>$/);
   assert.deepEqual(body.tools.map((t: { name: string }) => t.name), ["bash", "search_history", "web_search", "web_fetch"]);
   assert.doesNotMatch(body.messages[0].content, /kitchen/, "unrelated days stay out");

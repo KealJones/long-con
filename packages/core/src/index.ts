@@ -11,3 +11,4 @@ export { SymbolIndex, indexSource, identifiersIn, lookupSymbols, type SymbolDef,
 export { UNIT_FEATURES, UNIT_WEIGHTS, unitProbability } from "./gate.ts";
 export { staticEmbedder, fileEmbedder, embedModelOf, EMBED_FILES, wordPiece, readSafetensors, cosine, type Embed } from "./embed.ts";
 export { isTallyQuestion, tallySearch, TALLY_FEATURES } from "./tally.ts";
+export { compareCost, costOf, priceOf, promptTokens, PRICES, MINUTE, type CostCall, type CostTurn, type CostTotals, type Usage } from "./cost.ts";

@@ -3,7 +3,7 @@
 // One commit per sync: each day as readable markdown, and each turn as JSON with its exact packet.
 // No DOM here, so the test can run it in Node with a fake fetch.
 
-import type { Session } from "@long-con/core";
+import type { CostCall, Session } from "@long-con/core";
 import type { Step } from "./chat.ts";
 
 // shortcut: borrows Squiggle's relay and GitHub App (it already allows kealjones.com); give Long Con its own
@@ -30,7 +30,7 @@ export interface Repo {
   branch: string;
 }
 /** The packet store as the page keeps it: one entry per user turn. */
-export type Packets = Record<string, { text: string; tokens: number; steps?: Step[]; model?: string; raw?: number }>;
+export type Packets = Record<string, { text: string; tokens: number; steps?: Step[]; model?: string; raw?: number; calls?: CostCall[]; context?: number }>;
 
 /** The packet always opens with the history notice; a packet of that line alone found nothing. */
 import { packetEmpty } from "@long-con/core";
@@ -223,7 +223,7 @@ export function changedFiles(history: Session[], packets: Packets, synced: Recor
     for (let i = done - (done % 2); i < s.turns.length; i += 2) {
       const user = s.turns[i]!;
       const p = packets[keyOf(s.id, i)];
-      const turn = { day: s.id, turn: i / 2 + 1, model: p?.model, message: user.content, packet: p?.text, packetTokens: p?.tokens, rawTurns: p?.raw, steps: p?.steps ?? [], answer: s.turns[i + 1]?.content };
+      const turn = { day: s.id, turn: i / 2 + 1, model: p?.model, message: user.content, packet: p?.text, packetTokens: p?.tokens, rawTurns: p?.raw, steps: p?.steps ?? [], answer: s.turns[i + 1]?.content, ...(p?.calls ? { calls: p.calls, context: p.context } : {}) };
       files[`turns/${slug(s.id)}/${String(i / 2 + 1).padStart(3, "0")}.json`] = JSON.stringify(turn, null, 2) + "\n";
     }
   }
@@ -302,7 +302,7 @@ export const SKIP_KEY = "long-con:github-skip";
 const PULLED_KEY = "long-con:github-pulled";
 export const skipDays = (env: Env, ids: string[]) => write(env, SKIP_KEY, [...new Set([...(read<string[]>(env, SKIP_KEY) ?? []), ...ids])]);
 
-interface SavedTurn { day: string; message: string; answer?: string; model?: string; packet?: string; packetTokens?: number; rawTurns?: number; steps?: Step[] }
+interface SavedTurn { day: string; message: string; answer?: string; model?: string; packet?: string; packetTokens?: number; rawTurns?: number; steps?: Step[]; calls?: CostCall[]; context?: number }
 
 /** Brings in turns saved from another browser (the phone, say), merging them into `history` and `packets` in place.
  * A day the repo has more of, or different turns of, becomes the repo's turns followed by any turns only this browser has.
@@ -347,7 +347,7 @@ export async function pull(env: Env, history: Session[], packets: Packets, canMe
     const turns: Session["turns"] = [];
     const dayPackets: Packets = {};
     for (const t of saved) {
-      if (t.packet !== undefined) dayPackets[keyOf(id, turns.length)] = { text: t.packet, tokens: t.packetTokens ?? 0, model: t.model, raw: t.rawTurns, ...(t.steps?.length ? { steps: t.steps } : {}) };
+      if (t.packet !== undefined) dayPackets[keyOf(id, turns.length)] = { text: t.packet, tokens: t.packetTokens ?? 0, model: t.model, raw: t.rawTurns, ...(t.steps?.length ? { steps: t.steps } : {}), ...(t.calls ? { calls: t.calls, context: t.context } : {}) };
       turns.push({ role: "user", content: t.message });
       if (t.answer !== undefined) turns.push({ role: "assistant", content: t.answer });
     }

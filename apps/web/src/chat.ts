@@ -1,8 +1,8 @@
 // One chat turn: build the packet from history, send it to Claude, and add both turns to history.
 // No DOM here, so the test can run it in Node with a fake fetch.
 
-import { messagePrompt, PROFILES, type Embed, type Session } from "@long-con/core";
-import { costOf, decide, DEFAULT_PERMISSIONS, offeredTools, siteOf, spentLastHour, type Permissions, type Spend, type Usage } from "./permissions.ts";
+import { estimateTokens, messagePrompt, PROFILES, type CostCall, type Embed, type Session } from "@long-con/core";
+import { costOf, usageOf, decide, DEFAULT_PERMISSIONS, offeredTools, siteOf, spentLastHour, type Permissions, type Spend, type Usage } from "./permissions.ts";
 import { runTool, toolDefs, type ToolContext } from "./tools.ts";
 
 // The "best guess" trust note is off here: the R&D loop's 50-question run found it about tripled searches and doubled tokens with no accuracy gain.
@@ -86,6 +86,10 @@ export interface TurnResult {
   sessionId: string;
   turn: number;
   steps: Step[];
+  /** Each API call the turn made, for the cost meter. */
+  calls: CostCall[];
+  /** Tokens of packet and raw turns sent in place of the history. */
+  context: number;
 }
 
 /** Sends one message. Only changes `history` once the answer is back, so a failed call loses nothing. */
@@ -99,12 +103,14 @@ export async function sendTurn(history: Session[], message: string, opts: TurnOp
   const { packet, sent, prompt } = messagePrompt({ system, history: searchable, message, profile, currentSessionId: today, embed: opts.embed, note: opts.note });
   const messages: unknown[] = [...prompt.messages];
   withAttachments(messages, opts.attachments);
-  const { answer, steps } = await runModel(prompt.system, messages, opts, { history: searchable, profile, store: opts.store, fetch: opts.fetch, embed: opts.embed });
+  const { answer, steps, calls } = await runModel(prompt.system, messages, opts, { history: searchable, profile, store: opts.store, fetch: opts.fetch, embed: opts.embed });
+  // What stood in for the history: the packet and the turns sent raw (the cost meter takes these out for a classic chat).
+  const context = (sent ? packet.tokens : 0) + packet.recentTurns.reduce((n, t) => n + estimateTokens(t.content), 0);
 
   let session = history.find((s) => s.id === today);
   if (!session) history.push((session = { id: today, date: today, turns: [] }));
   session.turns.push({ role: "user", content: message + attachedNote(opts.attachments) }, { role: "assistant", content: answer });
-  return { answer, packet: sent, packetTokens: sent ? packet.tokens : 0, rawTurns: packet.recentTurns.length, sessionId: today, turn: session.turns.length - 2, steps };
+  return { answer, packet: sent, packetTokens: sent ? packet.tokens : 0, rawTurns: packet.recentTurns.length, sessionId: today, turn: session.turns.length - 2, steps, calls, context };
 }
 
 /** "[Attached: a.png, b.pdf]" on the saved turn, so later packets and searches know a file came with it. */
@@ -127,15 +133,17 @@ export function withAttachments(messages: unknown[], files?: Attachment[]) {
  * The model loop: calls the API, runs tools (asking first where the settings say to), and goes back until it answers.
  * `messages` grows as it goes. With tools off, it's one plain call.
  */
-export async function runModel(system: string, messages: unknown[], opts: TurnOptions, toolCtx: ToolContext, tools = true): Promise<{ answer: string; steps: Step[] }> {
+export async function runModel(system: string, messages: unknown[], opts: TurnOptions, toolCtx: ToolContext, tools = true): Promise<{ answer: string; steps: Step[]; calls: CostCall[] }> {
   const doFetch = opts.fetch ?? fetch;
   const perms = opts.permissions ?? { ...DEFAULT_PERMISSIONS, preset: "auto" as const, capPerHour: Infinity };
   const approved = new Set<string>();
   const steps: Step[] = [];
+  const billed: CostCall[] = [];
   let body: { content?: Block[]; stop_reason?: string; usage?: Usage } | null = null;
   for (let round = 1; ; round++) {
     if (opts.spend && spentLastHour(opts.spend.log) >= perms.capPerHour)
       throw new Error(`That hit your spending cap of $${perms.capPerHour} an hour. Raise it in Settings to keep going.`);
+    const at = Date.now();
     const res = await doFetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -147,7 +155,8 @@ export async function runModel(system: string, messages: unknown[], opts: TurnOp
       body: JSON.stringify({
         model: opts.model,
         max_tokens: PROFILE.answerTokens,
-        system,
+        // The system prompt and tools are the same every turn, so they're cached; the packet after them changes.
+        system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
         messages,
         ...(tools ? { tools: offeredTools(toolDefs(opts.model), perms, approved) } : {}),
         ...(tools && round >= MAX_ROUNDS ? { tool_choice: { type: "none" } } : {}),
@@ -156,6 +165,7 @@ export async function runModel(system: string, messages: unknown[], opts: TurnOp
     body = await res.json().catch(() => null);
     if (!res.ok) throw new Error((body as { error?: { message?: string } } | null)?.error?.message ?? `Anthropic API error ${res.status}`);
     opts.spend?.record({ at: Date.now(), usd: costOf(opts.model, body?.usage) });
+    billed.push({ at, ...usageOf(body?.usage) });
     const content = body?.content ?? [];
     // The whole content goes back as it came (thinking, server tool results), so the next call can carry on.
     messages.push({ role: "assistant", content });
@@ -174,7 +184,7 @@ export async function runModel(system: string, messages: unknown[], opts: TurnOp
   }
   const answer = (body?.content ?? []).filter((b) => b.type === "text").map((b) => b.text).join("");
   if (!answer) throw new Error(`No text in the answer (stop reason: ${body?.stop_reason ?? "unknown"})`);
-  return { answer, steps };
+  return { answer, steps, calls: billed };
 }
 
 /** Runs one tool call if the settings allow it, asking first when they say to. */
