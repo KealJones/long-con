@@ -3,7 +3,7 @@
 // One commit per sync: each day as readable markdown, and each turn as JSON with its exact packet.
 // No DOM here, so the test can run it in Node with a fake fetch.
 
-import type { Session } from "@beep/core";
+import type { CostCall, Session } from "@beep/core";
 import type { Step } from "./chat.ts";
 
 // shortcut: borrows Squiggle's relay and GitHub App (it already allows kealjones.com); give Beep its own
@@ -32,10 +32,11 @@ export interface Repo {
   branch: string;
 }
 /** The packet store as the page keeps it: one entry per user turn. */
-export type Packets = Record<string, { text: string; tokens: number; steps?: Step[]; model?: string; raw?: number }>;
+export type Packets = Record<string, { text: string; tokens: number; steps?: Step[]; model?: string; raw?: number; calls?: CostCall[]; context?: number }>;
 
 /** The packet always opens with the history notice; a packet of that line alone found nothing. */
-export const packetEmpty = (text: string) => !text.includes("\n");
+import { packetEmpty } from "@beep/core";
+export { packetEmpty };
 
 /** "packet · 58 tokens · plus the last 6 turns sent raw", or "no packet · 0 tokens · …" when it found nothing and none was sent. */
 export function packetLabel(p: Packets[string]): string {
@@ -197,12 +198,14 @@ export async function useRepo(env: Env, spec: string): Promise<Repo> {
   const repo = { owner: r.owner.login, name: r.name, branch: r.default_branch || "main" };
   write(env, REPO_KEY, repo);
   env.store.removeItem(SYNCED_KEY); // A new repo gets everything.
+  env.store.removeItem(PULLED_KEY);
   return repo;
 }
 
 export function forgetRepo(env: Env) {
   env.store.removeItem(REPO_KEY);
   env.store.removeItem(SYNCED_KEY);
+  env.store.removeItem(PULLED_KEY);
 }
 
 /** Next sync sends every day again (after an import or a delete changes what's here). */
@@ -222,7 +225,7 @@ export function changedFiles(history: Session[], packets: Packets, synced: Recor
     for (let i = done - (done % 2); i < s.turns.length; i += 2) {
       const user = s.turns[i]!;
       const p = packets[keyOf(s.id, i)];
-      const turn = { day: s.id, turn: i / 2 + 1, model: p?.model, message: user.content, packet: p?.text, packetTokens: p?.tokens, rawTurns: p?.raw, steps: p?.steps ?? [], answer: s.turns[i + 1]?.content };
+      const turn = { day: s.id, turn: i / 2 + 1, model: p?.model, message: user.content, packet: p?.text, packetTokens: p?.tokens, rawTurns: p?.raw, steps: p?.steps ?? [], answer: s.turns[i + 1]?.content, ...(p?.calls ? { calls: p.calls, context: p.context } : {}) };
       files[`turns/${slug(s.id)}/${String(i / 2 + 1).padStart(3, "0")}.json`] = JSON.stringify(turn, null, 2) + "\n";
     }
   }
@@ -288,10 +291,90 @@ export async function sync(env: Env, history: Session[], packets: Packets, now =
       if ((e as { status?: number }).status === 422 && attempt < 3) continue;
       throw e;
     }
+    write(env, PULLED_KEY, commit.sha);
     break;
   }
   write(env, SYNCED_KEY, Object.fromEntries(history.map((s) => [s.id, s.turns.length])));
   return Object.keys(files).length + Object.keys(binaries).length;
+}
+
+/** Day ids deleted in this browser: a pull leaves them out instead of bringing them back. */
+export const SKIP_KEY = "beep:github-skip";
+/** The repo commit this browser last pulled, so an unchanged repo costs one request. */
+const PULLED_KEY = "beep:github-pulled";
+export const skipDays = (env: Env, ids: string[]) => write(env, SKIP_KEY, [...new Set([...(read<string[]>(env, SKIP_KEY) ?? []), ...ids])]);
+
+interface SavedTurn { day: string; message: string; answer?: string; model?: string; packet?: string; packetTokens?: number; rawTurns?: number; steps?: Step[]; calls?: CostCall[]; context?: number }
+
+/** Brings in turns saved from another browser (the phone, say), merging them into `history` and `packets` in place.
+ * A day the repo has more of, or different turns of, becomes the repo's turns followed by any turns only this browser has.
+ * Returns how many turns came in. Call it before `sync`, so a sync never writes over another browser's turns. */
+export async function pull(env: Env, history: Session[], packets: Packets, canMerge = () => true): Promise<number> {
+  const repo = savedRepo(env);
+  if (!repo) return 0;
+  const base = `/repos/${repo.owner}/${repo.name}`;
+  let head: string;
+  try {
+    head = (await gh(env, `${base}/git/ref/heads/${repo.branch}`)).object.sha;
+  } catch (e) {
+    if ([404, 409].includes((e as { status?: number }).status ?? 0)) return 0; // Empty repo: nothing to pull.
+    throw e;
+  }
+  if (read<string>(env, PULLED_KEY) === head) return 0;
+  const { tree } = await gh(env, `${base}/git/trees/${head}?recursive=1`);
+  const files = new Map<string, { path: string; sha: string }[]>();
+  for (const f of tree as { path: string; sha: string; type: string }[]) {
+    const m = f.type === "blob" && f.path.match(/^turns\/([^/]+)\/\d+\.json$/);
+    if (m) files.set(m[1]!, [...(files.get(m[1]!) ?? []), f]);
+  }
+  const skip = new Set(read<string[]>(env, SKIP_KEY) ?? []);
+  const synced = read<Record<string, number>>(env, SYNCED_KEY) ?? {};
+  const fetched: SavedTurn[][] = [];
+  for (const [daySlug, list] of files) {
+    const local = history.find((s) => slug(s.id) === daySlug);
+    // Fetch only days with turn files beyond what this browser last saw there. shortcut: misses another browser
+    // rewriting a turn file this one already saw, which only happens when both saved while offline from each other.
+    if (local && (skip.has(local.id) || Math.ceil((synced[local.id] ?? 0) / 2) >= list.length)) continue;
+    list.sort((a, b) => a.path.localeCompare(b.path));
+    // shortcut: one request per turn file; a first pull of a long chat is hundreds of requests (GitHub allows 5,000 an hour).
+    fetched.push(await Promise.all(list.map(async (f) => JSON.parse(new TextDecoder().decode(Uint8Array.from(atob((await gh(env, `${base}/git/blobs/${f.sha}`)).content.replace(/\s/g, "")), (c) => c.charCodeAt(0)))))));
+  }
+  // A turn started while this was fetching: merge next time, so its turn numbers don't move under it.
+  if (!canMerge()) return 0;
+  let added = 0;
+  for (const saved of fetched) {
+    const id = saved[0]!.day;
+    const local = history.find((s) => s.id === id);
+    if (skip.has(id)) continue;
+    const turns: Session["turns"] = [];
+    const dayPackets: Packets = {};
+    for (const t of saved) {
+      if (t.packet !== undefined) dayPackets[keyOf(id, turns.length)] = { text: t.packet, tokens: t.packetTokens ?? 0, model: t.model, raw: t.rawTurns, ...(t.steps?.length ? { steps: t.steps } : {}), ...(t.calls ? { calls: t.calls, context: t.context } : {}) };
+      turns.push({ role: "user", content: t.message });
+      if (t.answer !== undefined) turns.push({ role: "assistant", content: t.answer });
+    }
+    const inRepo = turns.length;
+    // Turns only this browser has go after the repo's, keeping their packets.
+    const pairs = new Set(saved.map((t) => `${t.message}\u0000${t.answer ?? ""}`));
+    const old = local?.turns ?? [];
+    for (let i = 0; i < old.length; i += 2) {
+      if (pairs.has(`${old[i]!.content}\u0000${old[i + 1]?.content ?? ""}`)) continue;
+      const p = packets[keyOf(id, i)];
+      if (p) dayPackets[keyOf(id, turns.length)] = p;
+      turns.push(...old.slice(i, i + 2));
+    }
+    const mine = new Set(old.flatMap((t, i) => (i % 2 ? [] : [`${t.content}\u0000${old[i + 1]?.content ?? ""}`])));
+    added += [...pairs].filter((k) => !mine.has(k)).length;
+    for (const k of Object.keys(packets)) if (k.startsWith(`${id}#`)) delete packets[k];
+    Object.assign(packets, dayPackets);
+    if (local) local.turns = turns;
+    else history.push({ id, date: id, turns });
+    synced[id] = inRepo; // The repo already has these; a sync sends only what's after them.
+  }
+  history.sort((a, b) => a.id.localeCompare(b.id));
+  write(env, SYNCED_KEY, synced);
+  write(env, PULLED_KEY, head);
+  return added;
 }
 
 const b64 = (text: string) => btoa(String.fromCharCode(...new TextEncoder().encode(text)));

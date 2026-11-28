@@ -284,3 +284,7 @@ dialog a { color: var(--accent); }
 .site-add input { flex: 1; margin: 0; }
 .site-add select { width: auto; margin: 0; }
 .site-add button { border: 1px solid var(--line); background: var(--bg); border-radius: 9px; padding: 7px 12px; }
+
+.cost .row { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; margin: 6px 0; font-size: 0.85rem; }
+.cost .bar { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: var(--muted); opacity: 0.35; }
+.cost .row.us .bar { background: var(--accent); opacity: 1; }

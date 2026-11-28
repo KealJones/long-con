@@ -112,12 +112,14 @@ test("every packet-tools reader request stays valid through search rounds, and k
 });
 
 test("packet-notrust and packet-norules differ from packet only in the part they leave out", () => {
-  const packetText = text(firstMessages("packet", question, profile).messages[0]!);
-  const notrust = text(firstMessages("packet-notrust", question, profile).messages[0]!);
-  const norules = text(firstMessages("packet-norules", question, profile).messages[0]!);
+  // claude has the trust note off (as in the web chat), so turn it on to see packet-notrust drop it.
+  const trusting = { ...profile, trustNote: true };
+  const packetText = text(firstMessages("packet", question, trusting).messages[0]!);
+  const notrust = text(firstMessages("packet-notrust", question, trusting).messages[0]!);
+  const norules = text(firstMessages("packet-norules", question, trusting).messages[0]!);
   assert.ok(packetText.includes(TRUST_NOTE(true)) && packetText.includes("Standing rules"));
   assert.equal(notrust, packetText.replace(`\n${TRUST_NOTE(true)}`, ""));
   assert.equal(norules, packetText.replace(/\n\nStanding rules from the user, word for word:\n- "[^\n]*/, ""));
   // Everything after the first message (the question) is the same.
-  for (const arm of ["packet-notrust", "packet-norules"] as const) assert.deepEqual(firstMessages(arm, question, profile).messages.slice(1), firstMessages("packet", question, profile).messages.slice(1));
+  for (const arm of ["packet-notrust", "packet-norules"] as const) assert.deepEqual(firstMessages(arm, question, trusting).messages.slice(1), firstMessages("packet", question, trusting).messages.slice(1));
 });

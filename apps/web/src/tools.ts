@@ -5,7 +5,7 @@
 // Files: /home is kept in this browser (localStorage) between chats; /tmp and the rest live for the page.
 // shortcut: no git or gh yet (Squiggle's need isomorphic-git and a GitHub sign-in); add them if Keal wants them here.
 
-import { searchHistory, type Profile, type Session } from "@beep/core";
+import { SEARCH_TOOL, searchHistory, type Embed, type Profile, type Session } from "@beep/core";
 import { calculate } from "./calc.ts";
 
 export const FILES_KEY = "beep:files";
@@ -46,11 +46,7 @@ export function toolDefs(model: string) {
         required: ["command"],
       },
     },
-    {
-      name: "search_history",
-      description: "Search all past chats with the user. Returns the best-matching passages with their dates.",
-      input_schema: { type: "object", properties: { query: { type: "string", description: "What to look for" } }, required: ["query"] },
-    },
+    SEARCH_TOOL,
     { type: basic ? "web_search_20250305" : "web_search_20260209", name: "web_search", max_uses: 5 },
     { type: basic ? "web_fetch_20250910" : "web_fetch_20260209", name: "web_fetch", max_uses: 5 },
   ];
@@ -62,6 +58,7 @@ export interface ToolContext {
   /** Where /home is kept; localStorage in the browser, a Map in tests. */
   store?: Pick<Storage, "getItem" | "setItem">;
   fetch?: typeof fetch;
+  embed?: Embed;
 }
 
 export interface ToolRun {
@@ -75,7 +72,7 @@ export interface ToolRun {
 export async function runTool(name: string, input: Record<string, unknown>, ctx: ToolContext): Promise<ToolRun> {
   if (name === "search_history") {
     const query = String(input.query ?? "");
-    return { output: searchHistory(ctx.history, query, ctx.profile), isError: false, label: `searched past chats for “${query}”` };
+    return { output: searchHistory(ctx.history, query, ctx.profile, ctx.embed), isError: false, label: `searched past chats for “${query}”` };
   }
   if (name === "bash") return bash(String(input.command ?? "").trim(), ctx);
   return { output: `No tool named ${name}.`, isError: true, label: name };

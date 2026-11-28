@@ -1,6 +1,6 @@
 // The page: a texting-style chat, a settings dialog, and a sidebar for topics and your data.
 
-import type { Session } from "@beep/core";
+import { compareCost, MINUTE, priceOf, type CostTurn, type Session } from "@beep/core";
 import { attachedNote, dayLabel, MODELS, PROFILE, sendTurn, type Ask, type Attachment } from "./chat.ts";
 import * as Files from "./files.ts";
 import * as P from "./permissions.ts";
@@ -10,6 +10,17 @@ import * as Voice from "./voice.ts";
 import * as GH from "./github.ts";
 import { FILES_KEY, resetShell } from "./tools.ts";
 import { dayName, topics } from "./topics.ts";
+import { loadEmbedder } from "./embedder.ts";
+import type { Embed } from "@beep/core";
+
+// The evals' embedding veto runs here too. Loading starts now; a send waits for it, and a failed load is retried next send.
+let embedReady: Promise<Embed | undefined> | null = null;
+const embedder = () =>
+  (embedReady ??= loadEmbedder(PROFILE).catch((err) => {
+    embedReady = null;
+    throw new Error(`Couldn't load the search model: ${err instanceof Error ? err.message : err}`);
+  }));
+embedder().catch(() => {});
 
 /** Per user turn: the packet it went with, the model, and the tools the answer used. */
 type Packets = GH.Packets;
@@ -328,6 +339,12 @@ function saveToGitHub(loud = false) {
       // Side threads go up whole as one file whenever they've changed since the last save.
       const threadsJson = JSON.stringify(threads, null, 2);
       if (threads.length && threadsJson !== localStorage.getItem("beep:threads-saved")) sending["threads.json"] = Files.toBase64(new TextEncoder().encode(threadsJson + "\n"));
+      // Turns saved from another browser come in first, so this save never writes over them.
+      if (!replying() && (await GH.pull(ghEnv, history, packets, () => !replying()))) {
+        saveChat();
+        renderLog();
+        renderSidebar();
+      }
       await GH.sync(ghEnv, history, packets, new Date(), sending);
       for (const k of Object.keys(sending)) delete unsavedFiles[k];
       if (sending["threads.json"]) localStorage.setItem("beep:threads-saved", threadsJson);
@@ -385,6 +402,7 @@ function renderSidebar() {
   const messages = history.reduce((n, s) => n + s.turns.length, 0);
   const bytes = ["beep:history", "beep:packets", FILES_KEY].reduce((n, k) => n + (localStorage.getItem(k)?.length ?? 0), 0);
   $("stats").replaceChildren(stat(messages, "messages"), stat(history.length, "days"), stat(`${bytes ? Math.max(1, Math.round(bytes / 1024)) : 0} KB`, "stored"));
+  renderCost();
   $("days").replaceChildren(...[...history].reverse().map((s) => {
     const li = el("li");
     const go = btn("go", dayName(s.id));
@@ -396,6 +414,7 @@ function renderSidebar() {
     del.addEventListener("click", () => {
       if (!confirm(`Delete everything from ${dayName(s.id)}? This can't be undone.`)) return;
       history.splice(history.indexOf(s), 1);
+      GH.skipDays(ghEnv, [s.id]);
       for (const k of Object.keys(packets)) if (k.startsWith(`${s.id}#`)) delete packets[k];
       saveChat();
       GH.resend(ghEnv);
@@ -405,6 +424,36 @@ function renderSidebar() {
     li.append(go, del);
     return li;
   }));
+}
+
+/** Beep's real bill since the meter started, next to a classic chat that resends everything, at both cache lifetimes. */
+function renderCost() {
+  const turns: CostTurn[] = history.flatMap((s) =>
+    s.turns.flatMap((t, i) => {
+      if (t.role !== "user") return [];
+      const p = packets[keyOf(s.id, i)];
+      return [{ model: p?.model, message: t.content, answer: s.turns[i + 1]?.content, context: p?.context, calls: p?.calls }];
+    }),
+  );
+  const short = compareCost(turns, { ttl: 5 * MINUTE });
+  const long = compareCost(turns, { ttl: 60 * MINUTE });
+  if (!short.turns) return $("cost").replaceChildren(el("p", "hint", "Starts counting with your next message: what it really costs here, next to what a classic chat that resends everything would."));
+  const top = Math.max(short.beep, short.classic, long.classic);
+  const row = (label: string, usd: number, us = false) => {
+    const r = el("div", `row${us ? " us" : ""}`);
+    const bar = el("div", "bar");
+    bar.style.width = `${Math.max(1, (usd / top) * 100)}%`;
+    r.append(el("span", "", label), el("b", "", `$${usd < 1 ? usd.toFixed(3) : usd.toFixed(2)}`), bar);
+    return r;
+  };
+  const models = [...new Set(turns.filter((t) => t.calls?.length).map((t) => priceOf(t.model ?? "").name))].join(" and ");
+  const times = short.classic / (short.beep || Infinity);
+  $("cost").replaceChildren(
+    row("Beep", short.beep, true),
+    row("Classic chat, 5-minute cache", short.classic),
+    row("Classic chat, 1-hour cache", long.classic),
+    el("p", "hint", `${short.turns} ${short.turns === 1 ? "turn" : "turns"} counted, at ${models} prices.${times >= 1.05 ? ` A classic chat costs ${times.toFixed(1)}x as much here:` : ""} it resends the whole chat every turn (up to ${Math.round(short.peak / 1000)}K tokens), reading it from cache when the last message was recent and paying to cache it again when not.${short.compactions ? ` It would have compacted ${short.compactions} ${short.compactions === 1 ? "time" : "times"}.` : ""}`),
+  );
 }
 
 const stat = (value: string | number, label: string) => {
@@ -488,6 +537,7 @@ $<HTMLInputElement>("import").addEventListener("change", async (e) => {
 
 $("clear").addEventListener("click", () => {
   if (!confirm("Delete the whole chat and its files from this browser? This can't be undone. Export first if you want a copy.")) return;
+  GH.skipDays(ghEnv, history.map((s) => s.id));
   history.length = 0;
   localStorage.removeItem(FILES_KEY);
   resetShell();
@@ -654,6 +704,8 @@ function lane() {
   return { run, state };
 }
 const mainLane = lane();
+/** A reply is on its way or queued, so a pull must not change the chat under it. */
+const replying = () => mainLane.state.waiting > 0;
 /** Puts a message that didn't go out back in a box, after anything already there. */
 const putBack = (box: HTMLTextAreaElement, message: string) => (box.value = box.value.trim() ? `${box.value}\n\n${message}` : message);
 input.addEventListener("input", sync);
@@ -710,13 +762,13 @@ async function reply(message: string, files: Attachment[], voice: boolean, apiKe
     const model = modelSelect.value;
     const today = dayLabel(new Date());
     const result = await sendTurn(history, message, {
-      apiKey, model, voice, rawTurns: Number(rawSelect.value), onStep,
+      apiKey, model, voice, rawTurns: Number(rawSelect.value), onStep, embed: await embedder(),
       permissions: perms, approve: approver(log), spend,
       extraSessions: T.threadSessions(threads), note: T.threadsNote(threads, today),
       attachments: files, mutedRules,
     });
     if (files.length) await keepFiles(keyOf(result.sessionId, result.turn), files, result.sessionId, result.turn);
-    packets[keyOf(result.sessionId, result.turn)] = { text: result.packet, tokens: result.packetTokens, model, raw: result.rawTurns, ...(result.steps.length ? { steps: result.steps } : {}) };
+    packets[keyOf(result.sessionId, result.turn)] = { text: result.packet, tokens: result.packetTokens, model, raw: result.rawTurns, ...(result.steps.length ? { steps: result.steps } : {}), calls: result.calls, context: result.context };
     saveChat();
     if (!voice) saveToGitHub(); // A call saves once the reply has been spoken.
     pending.remove();
@@ -905,7 +957,7 @@ async function threadReply(t: T.Thread, message: string, files: Attachment[], ap
   try {
     const wasWrapped = !!t.wrap;
     await T.sendThreadTurn(t, history, threads, message, {
-      apiKey, model: modelSelect.value, permissions: perms, approve: approver(threadLog), spend, attachments: files, mutedRules,
+      apiKey, model: modelSelect.value, permissions: perms, approve: approver(threadLog), spend, attachments: files, mutedRules, embed: await embedder(),
       onStep: (label) => (threadPresence.textContent = label.length > 40 ? label.slice(0, 39) + "…" : label),
     });
     if (!threads.includes(t)) threads.push(t);
@@ -1111,7 +1163,8 @@ sync();
 renderLog();
 renderGitHub();
 if (GH.signedIn(ghEnv) && !GH.savedRepo(ghEnv)) setUpRepo();
-saveToGitHub(); // Anything a failed save left behind.
+saveToGitHub(); // Anything a failed save left behind, after pulling what other browsers saved.
+document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && saveToGitHub());
 setSidebar(!narrow.matches && !!localStorage.getItem("beep:sidebar"));
 if (!keyInput.value) settings.showModal();
 else input.focus();

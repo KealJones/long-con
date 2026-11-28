@@ -5,9 +5,8 @@
 // "Wrap up" writes a short record of what was decided and done, which shows in the main chat and joins its packets.
 // Threads never wrapped up are listed in every main-chat packet as loose ends.
 
-import { assemblePrompt, buildPacket, type Session, type Turn } from "@beep/core";
+import { messagePrompt, type Session, type Turn } from "@beep/core";
 import { attachedNote, dayLabel, PROFILE, runModel, SYSTEM, withAttachments, type TurnOptions, type Step } from "./chat.ts";
-import { packetEmpty } from "./github.ts";
 
 export interface Thread {
   id: string;
@@ -76,12 +75,11 @@ export async function sendThreadTurn(thread: Thread, history: Session[], others:
   const searchable = [...history, ...threadSessions(others.filter((o) => o.id !== thread.id))];
   // No session is "current", so the whole main chat is searchable; the thread's own turns go word for word instead.
   const profile = { ...PROFILE, rawTurns: 0 };
-  const packet = buildPacket({ history: searchable, message, profile, mutedRules: opts.mutedRules });
-  const sent = packetEmpty(packet.text) ? "" : packet.text;
-  const prompt = assemblePrompt({ system: threadSystem(thread, today, history), packet: sent, recentTurns: thread.turns, message });
-  const messages: unknown[] = sent ? [...prompt.messages] : prompt.messages.slice(1);
+  const { sent, prompt } = messagePrompt({ system: threadSystem(thread, today, history), history: searchable, message, profile, embed: opts.embed, mutedRules: opts.mutedRules });
+  // With no current session the packet sends no recent turns; the thread's own go in ahead of the message instead.
+  const messages: unknown[] = [...prompt.messages.slice(0, -1), ...thread.turns, prompt.messages.at(-1)];
   withAttachments(messages, opts.attachments);
-  const { answer, steps } = await runModel(prompt.system, messages, opts, { history: searchable, profile, store: opts.store, fetch: opts.fetch });
+  const { answer, steps } = await runModel(prompt.system, messages, opts, { history: searchable, profile, store: opts.store, fetch: opts.fetch, embed: opts.embed });
   if (!thread.title) thread.title = clip(message.replace(/\s+/g, " "), 60);
   // Talking again in a wrapped thread reopens it; the next wrap-up writes a new record.
   delete thread.wrap;

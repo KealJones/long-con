@@ -143,3 +143,32 @@ export function cosine(a: Float32Array, b: Float32Array): number {
   for (let i = 0; i < a.length; i++) s += a[i]! * b[i]!;
   return s;
 }
+
+/**
+ * The model files every entry point loads, pinned to the revision the evals were tuned on. The evals read them from
+ * disk (evals/scripts/fetch-embedders.sh, whose embedders.sha256 a test keeps equal to this), the web chat fetches
+ * them from Hugging Face; both check these sums and build the embedder with fileEmbedder.
+ */
+export const EMBED_FILES: Record<string, { revision: string; sha256: Record<"tokenizer.json" | "model.safetensors", string> }> = {
+  "potion-base-8M": {
+    revision: "bf8b056651a2c21b8d2565580b8569da283cab23",
+    sha256: {
+      "tokenizer.json": "e67e803f624fb4d67dea1c730d06e1067e1b14d830e2c2202569e3ef0f70bb50",
+      "model.safetensors": "f65d0f325faadc1e121c319e2faa41170d3fa07d8c89abd48ca5358d9a223de2",
+    },
+  },
+};
+
+/** The model a profile's embedding veto runs on, or undefined when the profile has none. */
+export const embedModelOf = (p: { embedModel?: string; embedSim?: unknown }) => (p.embedModel && p.embedSim ? p.embedModel : undefined);
+
+/** The embedder every entry point uses: model2vec from the model's two files, cached per text since units repeat. */
+export function fileEmbedder(tokenizerJson: Uint8Array, safetensors: Uint8Array): Embed {
+  const embed = staticEmbedder(JSON.parse(new TextDecoder().decode(tokenizerJson)), safetensors);
+  const cache = new Map<string, Float32Array>();
+  return (text) => {
+    let v = cache.get(text);
+    if (!v) cache.set(text, (v = embed(text)));
+    return v;
+  };
+}

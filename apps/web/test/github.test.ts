@@ -130,3 +130,53 @@ test("attachments go up as blobs next to their day, even when no text changed", 
   assert.deepEqual(gh.calls.find((c) => c.url.endsWith("/git/blobs"))!.body, { content: "AAA", encoding: "base64" });
   assert.deepEqual(gh.calls.filter((c) => c.url.endsWith("/git/trees")).at(-1)!.body.tree, [{ path, mode: "100644", type: "blob", sha: "b1" }]);
 });
+
+test("pulls turns another browser saved, keeps this browser's own, and skips deleted days", async () => {
+  const other = "2026/11/26 (Thu)";
+  const saved = (d: string, n: number, message: string, answer?: string) => ({ day: d, turn: n, message, answer, packet: `P${n}`, packetTokens: 3 });
+  const blobs: Record<string, unknown> = {
+    s1: saved(day, 1, "hi", "hey!"),
+    s2: saved(day, 2, "from the phone", "phone answer"),
+    s3: saved(other, 1, "old day", "old answer"),
+  };
+  let gets = 0;
+  const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
+  const fetch = (async (url: string) => {
+    const p = url.replace("https://api.github.com", "");
+    gets++;
+    if (p === "/repos/KealJones/chats/git/ref/heads/main") return json({ object: { sha: "c9" } });
+    if (p === "/repos/KealJones/chats/git/trees/c9?recursive=1")
+      return json({ tree: [{ path: "days/2026-11-27.md", type: "blob", sha: "d" }, { path: "turns/2026-11-27/001.json", type: "blob", sha: "s1" }, { path: "turns/2026-11-27/002.json", type: "blob", sha: "s2" }, { path: "turns/2026-11-26/001.json", type: "blob", sha: "s3" }] });
+    const blob = p.match(/^\/repos\/KealJones\/chats\/git\/blobs\/(\w+)$/);
+    if (blob) return json({ content: Buffer.from(JSON.stringify(blobs[blob[1]!])).toString("base64") });
+    return json({ message: `unexpected ${p}` }, 500);
+  }) as typeof globalThis.fetch;
+  const env = { store: memStore(), fetch };
+  env.store.setItem(GH.AUTH_KEY, JSON.stringify({ access_token: "tok" }));
+  env.store.setItem(GH.REPO_KEY, JSON.stringify({ owner: "KealJones", name: "chats", branch: "main" }));
+
+  // This browser has the first turn of the day and one the phone never saw.
+  const h: Session[] = [{ id: day, date: day, turns: [{ role: "user", content: "hi" }, { role: "assistant", content: "hey!" }, { role: "user", content: "desktop only" }, { role: "assistant", content: "desk answer" }] }];
+  const p: GH.Packets = { [`${day}#2`]: { text: "DESK", tokens: 1 } };
+  assert.equal(await GH.pull(env, h, p), 2);
+  assert.deepEqual(h.map((s) => s.id), [other, day]);
+  assert.deepEqual(h[1]!.turns.map((t) => t.content), ["hi", "hey!", "from the phone", "phone answer", "desktop only", "desk answer"]);
+  assert.equal(p[`${day}#2`]!.text, "P2");
+  assert.equal(p[`${day}#4`]!.text, "DESK");
+  // Only the desktop's own turn is left to send.
+  assert.deepEqual(Object.keys(GH.changedFiles(h, p, JSON.parse(env.store.getItem(GH.SYNCED_KEY)!))).sort(), ["days/2026-11-27.md", "turns/2026-11-27/003.json"]);
+
+  // The same repo commit again costs one request.
+  gets = 0;
+  assert.equal(await GH.pull(env, h, p), 0);
+  assert.equal(gets, 1);
+
+  // A day deleted here stays deleted.
+  const fresh = { store: memStore(), fetch };
+  fresh.store.setItem(GH.AUTH_KEY, JSON.stringify({ access_token: "tok" }));
+  fresh.store.setItem(GH.REPO_KEY, JSON.stringify({ owner: "KealJones", name: "chats", branch: "main" }));
+  GH.skipDays(fresh, [other]);
+  const h2: Session[] = [];
+  await GH.pull(fresh, h2, {});
+  assert.deepEqual(h2.map((s) => s.id), [day]);
+});
