@@ -10,6 +10,7 @@
 | [prefetch-survey.md](prefetch-survey.md) | Every way the packet can prefetch, by area and by kind of prompt, with cost, browser and Cloudflare fit and expected gain per profile; Squiggle prior art; URL-to-file design; the abstention gate. Evidence in [prefetch-survey/](prefetch-survey/) |
 | [prefetch-ideas-ranked.md](prefetch-ideas-ranked.md) | The ranked, testable backlog the packet R&D loop works from |
 | [prefetch-evals.md](prefetch-evals.md) | New eval sets: should be empty, code path:line, non-memory prompts, URL prefetch, and the paired work-saved eval |
+| [agent-benchmarks.md](agent-benchmarks.md) | Public coding-agent, code-search and web-lookup benchmarks for the packet: three to pull down (ContextBench, SWE-QA-Pro, BrowseComp-Plus), how to report zero-tool solves, costs, and what was skipped |
 | [model-providers.md](model-providers.md) | Front model and picker, key paths, free providers, key safety |
 | [history-storage.md](history-storage.md) | Why git storage was dropped, and the hosted-service options |
 | [feature-ideas.md](feature-ideas.md) | Brainstormed features, what's carried into the plan, what's superseded |
