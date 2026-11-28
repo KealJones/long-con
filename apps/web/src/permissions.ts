@@ -1,4 +1,4 @@
-import { costOf as coreCost, type Usage as CoreUsage } from "@long-con/core";
+import { costOf as coreCost, type Usage as CoreUsage } from "@beep/core";
 // What the model may do without asking, and how much it may spend. No DOM, so it tests in Node.
 
 export type Rule = "allow" | "ask" | "deny";

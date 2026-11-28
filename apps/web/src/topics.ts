@@ -1,7 +1,7 @@
 // What the user talks about most, as plain words, for the sidebar.
 // shortcut: word counts over the user's turns; swap for core's multi-label topics once they exist.
 
-import { contentWords, type Session } from "@long-con/core";
+import { contentWords, type Session } from "@beep/core";
 
 export function topics(history: Session[], limit = 24): { word: string; count: number }[] {
   // Counted by stem so "dog" and "dogs" add up, shown as the form used most.

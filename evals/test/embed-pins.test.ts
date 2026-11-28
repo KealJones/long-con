@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { EMBED_FILES } from "@long-con/core";
+import { EMBED_FILES } from "@beep/core";
 
 test("the evals' model sums match core's pins, so both entry points load the same files", () => {
   const sums = Object.fromEntries(readFileSync(new URL("../scripts/embedders.sha256", import.meta.url), "utf8").trim().split("\n").map((l) => l.split(/\s+/).reverse()));

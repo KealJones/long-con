@@ -1,4 +1,4 @@
-# Audit: long-con context-packet evals (LongMemEval_S)
+# Audit: beep context-packet evals (LongMemEval_S)
 
 Scope: I read every file in `packages/core`, `evals/src`, `evals/test`, `apps/cli` and `evals/README.md`. I ran `npm test` (33/33 pass), `npx tsc -p .` (clean), and `eval recall` / `eval estimate`. Both reproduce the committed results files byte for byte (`git status` was clean afterwards). I also ran my own scripts against the local data. No paid calls, no network, no repo edits.
 
@@ -28,7 +28,7 @@ Note: to check whether the dev slice is representative, I computed **aggregate**
 ### H2. The arms get unequal tools, and the headline token column hides it
 - **Where:** `evals/src/arms.ts:56-72`, `run.ts:91,102`, `results/longmemeval-s-dev50-estimate.md`.
 - **What's wrong:** `packet` and `bare` get `search_history` for up to 3 rounds, each returning 3 whole segments. `compaction` and `full` get no tool (`readerLoop(..., false)`).
-  - The README frames the benchmark as "Long Con versus compaction". But the packet arm is really "packet + search on demand", while compaction gets a summary that doesn't know the question and no way to look anything up.
+  - The README frames the benchmark as "Beep versus compaction". But the packet arm is really "packet + search on demand", while compaction gets a summary that doesn't know the question and no way to look anything up.
   - There is no `compaction + search` arm to isolate the packet's own effect.
   - `contextTokens`, the first number after accuracy in `summaryTable`, counts only the packet (`packet.tokens`). It leaves out the packet resent on every tool round and all the tool results.
 - **Evidence:** The committed estimate already assumes exactly one search (see M5):

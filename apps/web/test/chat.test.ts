@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { Session } from "@long-con/core";
+import type { Session } from "@beep/core";
 import { dayLabel, sendTurn } from "../src/chat.ts";
 
 function fakeApi(answer: string, status = 200) {
@@ -103,7 +103,7 @@ test("tool calls run and go back until the model answers", async () => {
   assert.equal(result.answer, "It's 42.");
   assert.deepEqual(seen, ["$ echo 6*7 | bc > /home/n.txt; cat /home/n.txt", "searched the web for “answer”"]);
   assert.deepEqual(result.steps[0], { label: seen[0], output: "42\n" });
-  assert.deepEqual(JSON.parse(store.get("long-con:files")!), { "/home/n.txt": "42\n" });
+  assert.deepEqual(JSON.parse(store.get("beep:files")!), { "/home/n.txt": "42\n" });
   // Only the question and the final answer join the history.
   assert.deepEqual(history[0]!.turns.map((t) => t.content), ["what's 6 times 7?", "It's 42."]);
 });

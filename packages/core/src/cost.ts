@@ -47,11 +47,11 @@ export function costOf(model: string, u: Usage): number {
   return tokens / 1e6 + (u.webSearches ?? 0) * WEB_SEARCH_USD;
 }
 
-/** One API call of a Long Con turn, with when it was sent (ms). */
+/** One API call of a Beep turn, with when it was sent (ms). */
 export interface CostCall extends Usage {
   at: number;
 }
-/** One turn of the chat. `context` is the tokens Long Con sent in place of the history (packet plus raw turns).
+/** One turn of the chat. `context` is the tokens Beep sent in place of the history (packet plus raw turns).
  * A turn without `calls` wasn't metered: it still grows the classic chat's history, but costs nothing on either side. */
 export interface CostTurn {
   model?: string;
@@ -75,7 +75,7 @@ export const COMPACT_AT = 950_000;
 export const SUMMARY_TOKENS = 10_000;
 
 export interface CostTotals {
-  longCon: number;
+  beep: number;
   classic: number;
   turns: number;
   compactions: number;
@@ -84,7 +84,7 @@ export interface CostTotals {
 }
 
 /**
- * Prices the metered turns as Long Con sent them, and as a classic chat would have: the same system prompt, tools and
+ * Prices the metered turns as Beep sent them, and as a classic chat would have: the same system prompt, tools and
  * answers, but the whole history in place of the packet, cached between calls while the cache lives.
  */
 export function compareCost(turns: CostTurn[], o: ClassicOptions): CostTotals {
@@ -94,13 +94,13 @@ export function compareCost(turns: CostTurn[], o: ClassicOptions): CostTotals {
   let history = 0;
   let cached = 0;
   let last = -Infinity;
-  const totals: CostTotals = { longCon: 0, classic: 0, turns: 0, compactions: 0, peak: 0 };
+  const totals: CostTotals = { beep: 0, classic: 0, turns: 0, compactions: 0, peak: 0 };
   for (const t of turns) {
     const calls = t.calls ?? [];
     const model = t.model ?? "claude-opus-5-5";
     if (calls.length) totals.turns++;
     for (const c of calls) {
-      totals.longCon += costOf(model, c);
+      totals.beep += costOf(model, c);
       let prompt = promptTokens(c) - (t.context ?? 0) + history;
       if (prompt > compactAt) {
         // The summarizing call reads the whole history and writes the summary; the next prompt starts a new cache.

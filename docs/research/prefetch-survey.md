@@ -116,7 +116,7 @@ Gain columns are expected, not measured: **H**igh, **M**edium, **L**ow, **—** 
 
 Squiggle (KealJones/squiggle at commit `51a3de3`) has two pieces worth porting.
 
-**Fresh-context prefetch** (`app/src/prefetch.js`). Before each turn it embeds the message with all-MiniLM-L6-v2 in the browser, scores past items by meaning and by shared words, and uses **absolute** bars: 0.45 cosine for meaning and 0.34 for words (line 113). Names in the message gate which person-linked items can enter (`namesIn`, line 26; ranking at 118-151). Small talk is skipped (96-100). `render` (203-243) returns an empty string when nothing clears the bars. That's the abstention behavior Long Con lacks, already working in a 1.7B-model app. The bars were set by hand, so the backlog calibrates them instead of copying them.
+**Fresh-context prefetch** (`app/src/prefetch.js`). Before each turn it embeds the message with all-MiniLM-L6-v2 in the browser, scores past items by meaning and by shared words, and uses **absolute** bars: 0.45 cosine for meaning and 0.34 for words (line 113). Names in the message gate which person-linked items can enter (`namesIn`, line 26; ranking at 118-151). Small talk is skipped (96-100). `render` (203-243) returns an empty string when nothing clears the bars. That's the abstention behavior Beep lacks, already working in a 1.7B-model app. The bars were set by hand, so the backlog calibrates them instead of copying them.
 
 **Page extraction** (`app/src/webpage.js`, `app/src/tools/web.js`), covered in the next section.
 
@@ -139,7 +139,7 @@ So Squiggle already saves the page to a file and hands over headings with line n
 
 ### How it compares
 
-| Extractor | Approach | Fit for Long Con |
+| Extractor | Approach | Fit for Beep |
 | --- | --- | --- |
 | Squiggle `pageText` | Accessibility landmarks and ARIA roles, link-list removal | Small, dependency-free, tested, runs in the browser and (with linkedom) a Worker. Strong on well-marked-up pages; falls back to the whole body on pages with no landmarks |
 | Mozilla Readability | Scores DOM nodes by text and link density (Firefox Reader View) | Good on articles. Scored 0.736 word-bag F1 in the 2026 WCXB benchmark, below the others |
@@ -184,7 +184,7 @@ The URL set in [prefetch-evals.md](prefetch-evals.md#4-url-prefetch), and scenar
 
 ## The abstention gate, in short
 
-Full proposal in [abstention-and-new-ideas.md](prefetch-survey/abstention-and-new-ideas.md#the-proposal-an-absolute-relevance-gate-for-long-con).
+Full proposal in [abstention-and-new-ideas.md](prefetch-survey/abstention-and-new-ideas.md#the-proposal-an-absolute-relevance-gate-for-beep).
 
 - **Features**, all arithmetic on numbers the builder already has: ceiling-normalized BM25 for both rankings, IDF coverage, anchor hit (rarest term plus any name, number or quoted string), score spike, agreement between the two rankings, query specificity, a history-reference cue ("I", "you said", a known name), and the existing relative score.
 - **Model:** a ten-weight logistic regression fitted on the 47 answerable dev questions (about 940 labeled candidate units). Its output is a probability; include a unit when it clears τ for the profile, keep the 0.3 relative cutoff as a second filter.

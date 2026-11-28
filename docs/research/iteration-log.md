@@ -176,7 +176,7 @@ Baseline is main at 58113b9. Dev numbers only, tuning-grade. No paid runs. The p
 - **Numbers (dev):** files named earlier 7/7, nearby files 13/13 (small-local 12/13), should-be-empty 10/10, under the cap.
 - **Review 1 (Opus 5.5):** valid with fixes. The nearby-file group is a mechanics check (sibling is defined as the tree's reach; the repo has 235 files). A held-out output was read and a rule tightened afterward, which lowered held-out (claude 9/9 → 8/9, small-local 8/9 → 7/9); that split is spent. Blocking: 9 of 13 natural mentions of another project's files (style.css, cli.ts, plan.md) listed this repo's file.
 - **Fix tried:** a bare name counts only when the chat also writes a whole path in this workspace. Collision chats 10/10 empty, named-earlier 7/7 → 5/7.
-- **Review 2 (Opus 5.5):** the collision chats split perfectly on that rule by construction. Whole-path collisions (`docs/plan.md`, `.github/workflows/ci.yml`, `./package.json`, a root-file diff, absolute paths into another checkout) and mixed-project windows still leak, and Long Con is one endless chat across projects.
+- **Review 2 (Opus 5.5):** the collision chats split perfectly on that rule by construction. Whole-path collisions (`docs/plan.md`, `.github/workflows/ci.yml`, `./package.json`, a root-file diff, absolute paths into another checkout) and mixed-project windows still leak, and Beep is one endless chat across projects.
 - **Why not kept:** the should-be-empty check doesn't hold on realistic collisions. Branch `loop/p20-working-set` (d16751c).
 - **Next:** a current-project signal (the caller names the active workspace, or paths count only after the chat names that workspace), plus a wrong-items metric and multi-turn mixed-project chats.
 
@@ -422,7 +422,7 @@ P31 interest notes (rule noter first, free), P19 empty-packet line, P03 logistic
 - **Sources:** prefetch-ideas-ranked.md P01; prefetch-evals.md.
 - **Changed:** `evals/sets/should-be-empty/tier1.json` (46 off-history prompts, 25 dev / 21 held-out), `evals/loop/empty-rate.ts` (tiers 1-3 headline, `_abs` tier 4 informational), a synthetic fixture haystack and tests. No builder change.
 - **Numbers:** fixture smoke test only, not a benchmark. Both profiles: T1 empty 64%, 0.43 false inclusions per prompt; T2 0% empty, 1.00; T3 0% empty, 1.33. Answerable precision 42.9%. This confirms the relative cutoff alone rarely abstains.
-- **Review (Opus 5.5):** valid with fixes. Fixed: near-copy chats now dropped from tiers 2-3 by the `evidenceGroups` rule, tier 4 out of the headline, one history per `_abs` twin, core imported as `@long-con/core`, builder-coupled test removed.
+- **Review (Opus 5.5):** valid with fixes. Fixed: near-copy chats now dropped from tiers 2-3 by the `evidenceGroups` rule, tier 4 out of the headline, one history per `_abs` twin, core imported as `@beep/core`, builder-coupled test removed.
 - **Next:** run on real data as soon as the dataset is reachable; it is the yardstick for P02 and P03.
 
 ### P13. Identifier-exact `path:line` from a symbol index: kept (new source, not yet wired into the packet)

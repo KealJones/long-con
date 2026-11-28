@@ -5,7 +5,7 @@
 # release notes), then huggingface.co.
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
-mirror="https://github.com/KealJones/long-con/releases/download/models-static-embedders"
+mirror="https://github.com/KealJones/beep/releases/download/models-static-embedders"
 sums="$root/scripts/embedders.sha256"
 while read -r sha file; do
   name="${file%%--*}"; f="${file#*--}"

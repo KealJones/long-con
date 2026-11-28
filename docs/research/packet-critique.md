@@ -280,7 +280,7 @@ Not checked: I didn't see the source turns behind the suspect "rules", so the sp
 
 Unedited.
 
-# Critique of the Long Con context packet
+# Critique of the Beep context packet
 
 I read only the four files I was given: `questions.md`, `samples-real.md`, `mock-samples.md` and `design.md`. For Part 1 I answered each question from its named section alone, before reading anything else.
 
@@ -390,7 +390,7 @@ I read only the four files I was given: `questions.md`, `samples-real.md`, `mock
   4. **Tool names beyond `search_history`.**
 - **Caching:**
   - The stable part (notice, trust note, rules) is about 50–150 tokens. That only helps if it is its own content block with a cache breakpoint, or moved into the system prompt; inside a single `<packet>` message it rides with the volatile part. In practice the cacheable prefix is the system prompt plus tools.
-  - The bigger point is economics. Everything after that prefix is uncached every turn. A junk-filled 7.9K packet costs roughly what about 79K tokens of cached transcript would cost to re-read (cache reads bill at roughly a tenth of normal input). So against a plain cached chat, Long Con's cost advantage only exists if packets stay lean.
+  - The bigger point is economics. Everything after that prefix is uncached every turn. A junk-filled 7.9K packet costs roughly what about 79K tokens of cached transcript would cost to re-read (cache reads bill at roughly a tenth of normal input). So against a plain cached chat, Beep's cost advantage only exists if packets stay lean.
 - **Ordering:** rules first, then volatile content, is right. Within the volatile part, putting the answer-ready items (resolved references, Q→A, notes) before raw spans is right, as the mocks do.
 
 ## Mocks
@@ -464,7 +464,7 @@ Not checked: I saw only builder output, not the builder code, so the claim that 
 
 Unedited.
 
-CRITIQUE OF THE LONG CON CONTEXT PACKET (samples-real.md, mock-samples.md, design.md)
+CRITIQUE OF THE BEEP CONTEXT PACKET (samples-real.md, mock-samples.md, design.md)
 
 Process note: to find the sections I grepped the header lines of samples-real.md (headers only). My first Part 1 read used a range that also pulled in S6 and S7 for the small-local S5 block. I did not use those for any answer. Everything in Part 1 was answered before I read design.md or mock-samples.md.
 

@@ -5,7 +5,7 @@
 // "Wrap up" writes a short record of what was decided and done, which shows in the main chat and joins its packets.
 // Threads never wrapped up are listed in every main-chat packet as loose ends.
 
-import { messagePrompt, type Session, type Turn } from "@long-con/core";
+import { messagePrompt, type Session, type Turn } from "@beep/core";
 import { attachedNote, dayLabel, PROFILE, runModel, SYSTEM, withAttachments, type TurnOptions, type Step } from "./chat.ts";
 
 export interface Thread {

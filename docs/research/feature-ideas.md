@@ -1,6 +1,6 @@
 # Feature ideas
 
-From a harness brainstorm (2026-11-14) that started as ideas for Squiggle and became the seed of Long Con. Ideas only; none is scheduled.
+From a harness brainstorm (2026-11-14) that started as ideas for Squiggle and became the seed of Beep. Ideas only; none is scheduled.
 
 ## Carried into the plan
 

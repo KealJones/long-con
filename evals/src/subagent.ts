@@ -9,7 +9,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ModelClient, ModelRequest, ModelResponse } from "./model.ts";
-import { estimateTokens } from "@long-con/core";
+import { estimateTokens } from "@beep/core";
 
 export class Pending extends Error {
   name = "Pending";

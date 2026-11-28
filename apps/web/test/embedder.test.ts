@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
-import { PROFILES } from "@long-con/core";
+import { PROFILES } from "@beep/core";
 import { loadEmbedder } from "../src/embedder.ts";
 
 const dir = new URL("../../../evals/data/models/potion-base-8M/", import.meta.url);

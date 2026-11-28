@@ -26,12 +26,12 @@ Nothing is summarized away. The packet is rebuilt from the log on every turn, an
 Once a chat is past its model's threshold, the model never sees a running transcript. Every turn the context is rebuilt from scratch, so nothing grows and nothing ever gets compacted. That's what makes the chat endless. Short chats just run as normal chats, since a packet only pays off once history is long.
 
 - **A normal chat** sends the whole conversation every turn. It grows until it has to be summarized, and summaries lose things, like a standing rule.
-- **Long Con** treats every message as brand new, then pulls in only what that message needs: your rules, the state of the threads it touches, and the raw words from the past that matter.
+- **Beep** treats every message as brand new, then pulls in only what that message needs: your rules, the state of the threads it touches, and the raw words from the past that matter.
 - **So the packet builder is the product.** Choosing what goes in, and what stays out, within a fixed size is the core problem, not a side detail.
 
 ## Model profiles
 
-Long Con is for every model, not just Claude, and the right amount of context differs a lot between them. Each model gets a profile:
+Beep is for every model, not just Claude, and the right amount of context differs a lot between them. Each model gets a profile:
 
 | Setting | What it controls |
 | --- | --- |

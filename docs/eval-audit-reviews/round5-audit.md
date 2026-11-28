@@ -1,4 +1,4 @@
-# Audit report: Long Con eval harness (LongMemEval_S, five arms)
+# Audit report: Beep eval harness (LongMemEval_S, five arms)
 
 I found no high-severity problems. The packet builder never sees benchmark labels, the dev/held-out split holds up under checking, and every arm gets the same reader, system prompt, judge and output cap. The search tool is the same for every arm except plain `compaction`, which has none by design. The real problems are one bias against the compaction arms, a cost estimate that runs low for compaction, and some low-severity footguns and test gaps. The repo was not changed (`git status` is clean). Everything below was checked with free local commands and scripts in the scratchpad.
 

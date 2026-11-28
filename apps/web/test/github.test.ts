@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { Session } from "@long-con/core";
+import type { Session } from "@beep/core";
 import * as GH from "../src/github.ts";
 
 function memStore() {
@@ -26,7 +26,7 @@ function fakeGitHub(opts: { empty?: boolean; conflictOnce?: boolean; publicRepo?
     if (p === "/user") return json({ login: "KealJones" });
     if (p === "/repos/KealJones/chats") return json({ private: !opts.publicRepo, owner: { login: "KealJones" }, name: "chats", default_branch: "main", permissions: { push: true } });
     if (p === "/repos/KealJones/chats/git/ref/heads/main") return empty ? json({ message: "Git Repository is empty." }, 409) : json({ object: { sha: "c1" } });
-    if (p === "/repos/KealJones/chats/contents/.long-con.json") return (empty = false), json({}, 201);
+    if (p === "/repos/KealJones/chats/contents/.beep.json") return (empty = false), json({}, 201);
     if (p === "/repos/KealJones/chats/git/commits/c1") return json({ tree: { sha: "t1" } });
     if (p === "/repos/KealJones/chats/git/blobs") return json({ sha: "b1" }, 201);
     if (p === "/repos/KealJones/chats/git/trees") return json({ sha: "t2" }, 201);
@@ -93,18 +93,18 @@ test("packet labels say when nothing matched and how many turns went raw", () =>
   assert.equal(GH.packetLabel({ text: "", tokens: 0, raw: 2 }), "no packet · 0 tokens · plus the last 2 turns sent raw");
 });
 
-test("finds a chats repo that already has the marker, else one named like long-con-chats", async () => {
+test("finds a chats repo that already has the marker, else one named like beep-chats", async () => {
   const repos = [
     { name: "notes", full_name: "KealJones/notes", private: true, owner: { login: "KealJones" } },
-    { name: "long-con", full_name: "KealJones/long-con", private: false, owner: { login: "KealJones" } },
-    { name: "long-con-chats", full_name: "KealJones/long-con-chats", private: true, owner: { login: "KealJones" } },
+    { name: "beep", full_name: "KealJones/beep", private: false, owner: { login: "KealJones" } },
+    { name: "beep-chats", full_name: "KealJones/beep-chats", private: true, owner: { login: "KealJones" } },
   ];
-  const run = async (marked: string | null) => {
+  const run = async (marked: string | null, marker = ".beep.json") => {
     const fetch = (async (url: string): Promise<Response> => {
       const p = url.replace("https://api.github.com", "");
       if (p.startsWith("/user/installations?")) return new Response(JSON.stringify({ installations: [{ id: 7 }] }));
       if (p.startsWith("/user/installations/7/repositories")) return new Response(JSON.stringify({ repositories: repos }));
-      if (marked && p === `/repos/${marked}/contents/.long-con.json`) return new Response("{}");
+      if (marked && p === `/repos/${marked}/contents/${marker}`) return new Response("{}");
       return new Response("{}", { status: 404 });
     }) as typeof globalThis.fetch;
     const env = { store: memStore(), fetch };
@@ -112,7 +112,8 @@ test("finds a chats repo that already has the marker, else one named like long-c
     return GH.findRepo(env);
   };
   assert.equal(await run("KealJones/notes"), "KealJones/notes");
-  assert.equal(await run(null), "KealJones/long-con-chats");
+  assert.equal(await run("KealJones/notes", ".long-con.json"), "KealJones/notes"); // a repo set up before the rename
+  assert.equal(await run(null), "KealJones/beep-chats");
   repos.pop();
   assert.equal(await run(null), null);
 });

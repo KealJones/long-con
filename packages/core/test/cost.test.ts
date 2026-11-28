@@ -13,12 +13,12 @@ test("prices: cache reads and writes, Haiku's long-prompt rates, unknown models 
   assert.equal(priceOf("something-new").name, "Opus 5.5");
 });
 
-// The packet replaces a history of 2,000 tokens: each Long Con prompt is 1,500 (1,000 of it cached system + tools).
+// The packet replaces a history of 2,000 tokens: each Beep prompt is 1,500 (1,000 of it cached system + tools).
 const turn = (at: number): CostTurn => ({ model: "claude-opus-5-5", message: "x".repeat(350), context: 400, calls: [{ at, input: 500, cacheRead: 1000, output: 100 }] });
 
 test("a classic chat reads its history from cache while it lives, and writes it again after a gap", () => {
   const near = compareCost([turn(0), turn(MINUTE)], { ttl: 5 * MINUTE });
-  close(near.longCon, 2 * costOf("claude-opus-5-5", { input: 500, cacheRead: 1000, output: 100 }));
+  close(near.beep, 2 * costOf("claude-opus-5-5", { input: 500, cacheRead: 1000, output: 100 }));
   // Turn 1: 1,100 tokens (1,500 less the 400 packet), all written. Its transcript adds 100 (message) + 100 (answer).
   // Turn 2: 1,300 tokens, 1,100 read from cache, 200 written.
   const w = (n: number) => costOf("claude-opus-5-5", { input: 0, output: 100, cacheWrite: n });

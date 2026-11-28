@@ -30,7 +30,7 @@ Evidence in [research/prefetch.md](research/prefetch.md).
 - **Every packet source is also a model tool:** labels, references, past questions and answers, open loops, registers, chat search, memory, facts and files. The packet is a head start, never the only path, so the model can look things up itself when the packet looks incomplete, irrelevant or wrong. Every packet also carries a one- or two-line notice that earlier history was left out, how far back it goes, and that the tools can search it. A tool call right after the packet is logged as a packet miss.
 - **Providers:** v1 is Claude only, on your own Anthropic key. The free Cloudflare Workers AI demo is its own provider connection beside it.
 - **Labels on every message:** a message can carry more than one topic label. Negative replies ("no", "that didn't work", "not that one") mark the idea or answer they reply to as rejected or superseded, so the packet leaves it out. Tagging rides on the reply call or a tiny classifier, never a separate model call per message. Labels stay only if they beat plain retrieval in the evals.
-- **Name and repo: Long Con,** in its own repo so the git history shows how it evolved. Picked after a long search for a goofy everyday name that isn't crowded on GitHub or among AI products.
+- **Name and repo: Beep,** in its own repo so the git history shows how it evolved. Picked after a long search for a goofy everyday name that isn't crowded on GitHub or among AI products.
 - **Front ends:** one shared core with thin front ends. Command line first (phase 1 is evals), web app next, Mac app last if ever. Other front ends may live in their own repos.
 - **License:** Apache-2.0.
 - **History storage moves off GitHub.** Syncing history to a git repo was the original plan. Rejected for regular users: GitHub is the wrong home for non-developers, and repo access is too broad. The replacement is a normal hosted service with accounts. Which service, and where encryption happens, is open: see [open-questions.md](open-questions.md).
@@ -39,7 +39,7 @@ Evidence in [research/prefetch.md](research/prefetch.md).
 
 - **Frontier model first,** on Claude API credits. A small model is a stretch target, evaluated later.
 - **Small-model packet target: about 3K tokens,** not 4 to 6K. 3K is already over half a small model's context.
-- **Phase 1 is evals:** Long Con packet vs classic compaction vs the plain full long conversation, as goal posts.
+- **Phase 1 is evals:** Beep packet vs classic compaction vs the plain full long conversation, as goal posts.
 - **Standalone project,** separate from Squiggle. Squiggle can reuse the core later.
 
 ## 2026-11-14 to 16 (original design)

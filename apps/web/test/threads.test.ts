@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { Session } from "@long-con/core";
+import type { Session } from "@beep/core";
 import { sendTurn } from "../src/chat.ts";
 import { newThread, sendThreadTurn, threadSessions, threadsNote, wrapUp } from "../src/threads.ts";
 

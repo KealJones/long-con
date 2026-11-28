@@ -1,7 +1,7 @@
 // The whole harness with a stand-in model: what each arm's reader actually gets to see decides its score.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { estimateTokens, PROFILES, type Session } from "@long-con/core";
+import { estimateTokens, PROFILES, type Session } from "@beep/core";
 import type { Question } from "../src/longmemeval.ts";
 import { AnthropicModel, BilledError, type ModelClient, type ModelRequest, type ModelResponse } from "../src/model.ts";
 import { MAX_OUTPUT } from "../src/arms.ts";

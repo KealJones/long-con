@@ -1,7 +1,7 @@
 // A stand-in model that answers instantly and bills what a real call would, so a dry run of the
 // real harness gives a cost estimate before any money is spent.
 
-import { estimateTokens } from "@long-con/core";
+import { estimateTokens } from "@beep/core";
 import type { ModelClient, ModelRequest, ModelResponse } from "./model.ts";
 
 // Rough output sizes, thinking included. Deliberately on the high side.

@@ -1,7 +1,7 @@
 // Loads the profile's embedder in the browser: core's pinned files (EMBED_FILES), fetched from Hugging Face at their
 // revision, checked by sha256, then built by core's fileEmbedder, the same function the evals use.
 
-import { EMBED_FILES, embedModelOf, fileEmbedder, type Embed, type Profile } from "@long-con/core";
+import { EMBED_FILES, embedModelOf, fileEmbedder, type Embed, type Profile } from "@beep/core";
 
 async function file(name: string, f: "tokenizer.json" | "model.safetensors", doFetch: typeof fetch): Promise<Uint8Array> {
   const { revision, sha256 } = EMBED_FILES[name]!;

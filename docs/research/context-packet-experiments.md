@@ -46,7 +46,7 @@ What went wrong, across five runs (about $2.23 of GPU time):
 - Prompt layout matters: putting notes in a tool result and edits in a tool call cut note-pass cost 4x and let a correction reach the answer, but the model still rarely edited and often replied in prose instead of calling the tool.
 - Every small-model packet scored worse than giving the small model the whole chat.
 
-## What this means for Long Con
+## What this means for Beep
 
 - Frontier first. The idea works when the packet builder is strong.
 - Don't ask a model to maintain prose notes. Keep the log lossless and make structure deterministic where possible: dialogue acts and registers tagged at write time, a harness-side resolver for "that", "go", "all that".

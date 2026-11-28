@@ -2,7 +2,7 @@
 // and AUROC counts ties by halves.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildPacket, PROFILES, unitProbability, type Session } from "@long-con/core";
+import { buildPacket, PROFILES, unitProbability, type Session } from "@beep/core";
 import { auroc, fitLogistic, type Sample } from "../loop/fit-gate.ts";
 
 test("fitLogistic learns a separable feature, in raw units", () => {

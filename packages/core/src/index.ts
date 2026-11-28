@@ -1,4 +1,4 @@
-// @long-con/core: the engine every front end shares.
+// @beep/core: the engine every front end shares.
 export type { Session, Turn, TurnRef } from "./chat.ts";
 export { buildPacket, pickPointers, searchHistory, searchResults, markResults, searchUnits, unitSimilarity, HISTORY_NOTICE, TRUST_NOTE, type Packet, type PacketSegment, type PacketPointer, type BuildPacketInput, type SearchResult } from "./packet.ts";
 export { assemblePrompt, messagePrompt, packetEmpty, SEARCH_TOOL, type AssembledPrompt, type PromptParts, type MessagePromptInput } from "./prompt.ts";

@@ -43,7 +43,7 @@ export interface ModelClient {
 }
 
 // Prices live in core, so the evals, the CLI and the web chat bill the same way.
-export { costOf, PRICES } from "@long-con/core";
+export { costOf, PRICES } from "@beep/core";
 
 export class AnthropicModel implements ModelClient {
   // Retries rate limits and overloads with backoff, so they don't turn into wrong answers.

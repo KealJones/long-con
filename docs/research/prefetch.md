@@ -1,6 +1,6 @@
 # Doing the model's lookups before it asks
 
-Long Con's packet isn't only memory. The model has tools to search the chat, read memory and open files, and the packet builder runs the lookups the model would most likely make, at compute speed with no model deciding, so the model starts with the exact past answer, file line or earlier result already in hand. This doc collects the research on that idea, what scored well, which benchmarks can be run as one message plus a packet, and where the evidence pushes back on the plan. Researched 2026-11-25.
+Beep's packet isn't only memory. The model has tools to search the chat, read memory and open files, and the packet builder runs the lookups the model would most likely make, at compute speed with no model deciding, so the model starts with the exact past answer, file line or earlier result already in hand. This doc collects the research on that idea, what scored well, which benchmarks can be run as one message plus a packet, and where the evidence pushes back on the plan. Researched 2026-11-25.
 
 ## Top three findings
 
@@ -47,7 +47,7 @@ The pattern: deterministic or mined prefetch is cheap and safe for read-only loo
 - **[CODEFILTER](https://arxiv.org/abs/2508.05970):** of the top ten retrieved code chunks, about 15% help and 5.6% hurt; about 20% of tasks get at least one harmful chunk. Filtering gained 3 points of exact match with 80% less context.
 - **[SWE-ContextBench](https://arxiv.org/abs/2602.08316):** a correct short summary of a related past task raised the resolve rate from 26.3% to 34.3%. Past context the agent picked for itself dropped it to 22.2%, below having none.
 
-For Long Con's own history these numbers are softer, since a model never "already knows" what was said last week. But they apply directly to files, general facts and stale or wrong pulls.
+For Beep's own history these numbers are softer, since a model never "already knows" what was said last week. But they apply directly to files, general facts and stale or wrong pulls.
 
 ## Files and lines
 
@@ -134,7 +134,7 @@ Report these next to accuracy, against a packet-off run of the same tasks:
 - **Tokens, cache hit rate and time to first token.**
 - **Cost-of-pass** ([Efficient Agents](https://arxiv.org/abs/2508.02694), [Cost-of-Pass](https://arxiv.org/abs/2504.13359)): cost per correct answer, and pass^k for consistency.
 
-## Against Long Con's pieces
+## Against Beep's pieces
 
 | Piece | What the evidence says | Verdict |
 | --- | --- | --- |

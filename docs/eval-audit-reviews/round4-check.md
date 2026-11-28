@@ -1,15 +1,15 @@
 # Re-audit of the 16 findings against the current code (main @ a6477fa)
 
-I read the code itself, not the commit messages or docs. I worked only on copies of the repo in the scratchpad: nothing was edited, committed or pushed, and `git status` in /home/user/long-con stayed clean. No network, no paid calls.
+I read the code itself, not the commit messages or docs. I worked only on copies of the repo in the scratchpad: nothing was edited, committed or pushed, and `git status` in /home/user/beep stayed clean. No network, no paid calls.
 
 **What I ran:**
 - `npm test`: 63/63 pass.
 - `npx tsc -p .`: clean.
 - `eval recall`, and `eval estimate` for both profiles. Their output matches the committed `evals/results/*.md` and the `.svg` byte for byte (`cmp`).
 - Two check scripts of my own over the real data:
-  - `/tmp/claude-0/-home-user-long-con/20a8eb28-71a3-56f9-b3ba-5051337ca9eb/scratchpad/copy3/audit-check.ts`
-  - `/tmp/claude-0/-home-user-long-con/20a8eb28-71a3-56f9-b3ba-5051337ca9eb/scratchpad/copy3/audit-check2.ts`
-- A mutation run: 23 mutations, each putting back an old bug, then `npm test`. Script: `/tmp/claude-0/-home-user-long-con/20a8eb28-71a3-56f9-b3ba-5051337ca9eb/scratchpad/mutate.mjs`. A mutation "survives" when every test still passes with the bug back in.
+  - `/tmp/claude-0/-home-user-beep/20a8eb28-71a3-56f9-b3ba-5051337ca9eb/scratchpad/copy3/audit-check.ts`
+  - `/tmp/claude-0/-home-user-beep/20a8eb28-71a3-56f9-b3ba-5051337ca9eb/scratchpad/copy3/audit-check2.ts`
+- A mutation run: 23 mutations, each putting back an old bug, then `npm test`. Script: `/tmp/claude-0/-home-user-beep/20a8eb28-71a3-56f9-b3ba-5051337ca9eb/scratchpad/mutate.mjs`. A mutation "survives" when every test still passes with the bug back in.
 
 ## Verdicts
 

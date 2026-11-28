@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type Anthropic from "@anthropic-ai/sdk";
-import { buildPacket, PROFILES, TRUST_NOTE, type Session } from "@long-con/core";
+import { buildPacket, PROFILES, TRUST_NOTE, type Session } from "@beep/core";
 import type { Question } from "../src/longmemeval.ts";
 import { firstMessages, packetAsToolCall, PACKET_TOOL_ID } from "../src/arms.ts";
 import { EstimatingModel } from "../src/estimate.ts";

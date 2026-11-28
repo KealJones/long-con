@@ -42,7 +42,7 @@ export const dataUrl = (a: Attachment) => `data:${a.type};base64,${a.data}`;
 let db: Promise<IDBDatabase> | null = null;
 const open = () =>
   (db ??= new Promise((ok, fail) => {
-    const req = indexedDB.open("long-con", 1);
+    const req = indexedDB.open("long-con", 1); // database name kept so attachments saved before the rename stay
     req.onupgradeneeded = () => req.result.createObjectStore("attachments");
     req.onsuccess = () => ok(req.result);
     req.onerror = () => fail(req.error);

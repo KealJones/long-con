@@ -1,4 +1,4 @@
-# Re-audit of the 16 eval-harness findings (long-con @ 2f04267, branch main, clean tree)
+# Re-audit of the 16 eval-harness findings (beep @ 2f04267, branch main, clean tree)
 
 I checked every finding against the current code, not the commit messages. I also mutation-tested the fixes: each fix was reverted one at a time in a scratch copy of the repo, then the full test suite was run. If a test fails when the fix is reverted, the fix is guarded. The real repo was not edited.
 
@@ -190,4 +190,4 @@ Commands I ran:
 - Run totals and the cost cap count the shared compaction summary twice.
 - Nothing stops the L3 cause (measuring at `confidence 1`) from coming back unnoticed.
 
-My scripts are in /tmp/claude-0/-home-user-long-con/20a8eb28-71a3-56f9-b3ba-5051337ca9eb/scratchpad/c2/zz/ and /tmp/claude-0/-home-user-long-con/20a8eb28-71a3-56f9-b3ba-5051337ca9eb/scratchpad/scripts/mutate.py.
+My scripts are in /tmp/claude-0/-home-user-beep/20a8eb28-71a3-56f9-b3ba-5051337ca9eb/scratchpad/c2/zz/ and /tmp/claude-0/-home-user-beep/20a8eb28-71a3-56f9-b3ba-5051337ca9eb/scratchpad/scripts/mutate.py.

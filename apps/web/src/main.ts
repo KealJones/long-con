@@ -1,6 +1,6 @@
 // The page: a texting-style chat, a settings dialog, and a sidebar for topics and your data.
 
-import { compareCost, MINUTE, priceOf, type CostTurn, type Session } from "@long-con/core";
+import { compareCost, MINUTE, priceOf, type CostTurn, type Session } from "@beep/core";
 import { attachedNote, dayLabel, MODELS, PROFILE, sendTurn, type Ask, type Attachment } from "./chat.ts";
 import * as Files from "./files.ts";
 import * as P from "./permissions.ts";
@@ -10,7 +10,7 @@ import * as GH from "./github.ts";
 import { FILES_KEY, resetShell } from "./tools.ts";
 import { dayName, topics } from "./topics.ts";
 import { loadEmbedder } from "./embedder.ts";
-import type { Embed } from "@long-con/core";
+import type { Embed } from "@beep/core";
 
 // The evals' embedding veto runs here too. Loading starts now; a send waits for it, and a failed load is retried next send.
 let embedReady: Promise<Embed | undefined> | null = null;
@@ -24,6 +24,18 @@ embedder().catch(() => {});
 /** Per user turn: the packet it went with, the model, and the tools the answer used. */
 type Packets = GH.Packets;
 
+// Moves anything saved under the old key prefix to "beep:", once (same origin, so it carries over).
+for (const old of Object.keys(localStorage).filter((k) => k.startsWith("long-con:"))) {
+  const key = `beep:${old.slice(9)}`;
+  const value = localStorage.getItem(old)!;
+  localStorage.removeItem(old); // first, so a big history doesn't need room for two copies
+  try {
+    if (localStorage.getItem(key) === null) localStorage.setItem(key, value);
+  } catch {
+    localStorage.setItem(old, value);
+  }
+}
+
 // shortcut: localStorage caps out around 5 MB; move to IndexedDB once a chat gets near that.
 const load = <T>(key: string, fallback: T): T => {
   try {
@@ -34,9 +46,9 @@ const load = <T>(key: string, fallback: T): T => {
 };
 const saveChat = () => {
   try {
-    localStorage.setItem("long-con:history", JSON.stringify(history));
-    localStorage.setItem("long-con:packets", JSON.stringify(packets));
-    localStorage.setItem("long-con:threads", JSON.stringify(threads));
+    localStorage.setItem("beep:history", JSON.stringify(history));
+    localStorage.setItem("beep:packets", JSON.stringify(packets));
+    localStorage.setItem("beep:threads", JSON.stringify(threads));
   } catch {
     setStatus("Couldn't save to this browser's storage. Export your chat so nothing is lost.");
   }
@@ -57,13 +69,13 @@ const sidebar = $("sidebar");
 const scrim = $("scrim");
 const search = $<HTMLInputElement>("search");
 
-const history: Session[] = load("long-con:history", []);
-const packets: Packets = load("long-con:packets", {});
-const threads: T.Thread[] = load("long-con:threads", []);
-const perms: P.Permissions = { ...P.DEFAULT_PERMISSIONS, ...load<Partial<P.Permissions>>("long-con:permissions", {}) };
-const savePerms = () => localStorage.setItem("long-con:permissions", JSON.stringify(perms));
-const spendLog: P.Spend[] = load<P.Spend[]>("long-con:spend", []).filter((s) => Date.now() - s.at < 3_600_000);
-const spend = { log: spendLog, record: (s: P.Spend) => (spendLog.push(s), localStorage.setItem("long-con:spend", JSON.stringify(spendLog)), renderSpent()) };
+const history: Session[] = load("beep:history", []);
+const packets: Packets = load("beep:packets", {});
+const threads: T.Thread[] = load("beep:threads", []);
+const perms: P.Permissions = { ...P.DEFAULT_PERMISSIONS, ...load<Partial<P.Permissions>>("beep:permissions", {}) };
+const savePerms = () => localStorage.setItem("beep:permissions", JSON.stringify(perms));
+const spendLog: P.Spend[] = load<P.Spend[]>("beep:spend", []).filter((s) => Date.now() - s.at < 3_600_000);
+const spend = { log: spendLog, record: (s: P.Spend) => (spendLog.push(s), localStorage.setItem("beep:spend", JSON.stringify(spendLog)), renderSpent()) };
 /** Attached files not in the GitHub repo yet, path → base64. shortcut: kept for this page only; a reload before a save leaves them out of the repo (they stay in this browser). */
 const unsavedFiles: Record<string, string> = {};
 /** The marker a saved turn carries for its files (see attachedNote). */
@@ -72,15 +84,15 @@ const keyOf = (sessionId: string, turn: number) => `${sessionId}#${turn}`;
 
 // ---------- Settings ----------
 
-keyInput.value = localStorage.getItem("long-con:key") ?? "";
-keyInput.addEventListener("input", () => localStorage.setItem("long-con:key", keyInput.value.trim()));
+keyInput.value = localStorage.getItem("beep:key") ?? "";
+keyInput.addEventListener("input", () => localStorage.setItem("beep:key", keyInput.value.trim()));
 for (const m of MODELS) modelSelect.add(new Option(m, m));
-modelSelect.value = localStorage.getItem("long-con:model") ?? MODELS[0]!;
-modelSelect.addEventListener("change", () => localStorage.setItem("long-con:model", modelSelect.value));
+modelSelect.value = localStorage.getItem("beep:model") ?? MODELS[0]!;
+modelSelect.addEventListener("change", () => localStorage.setItem("beep:model", modelSelect.value));
 const rawSelect = $<HTMLSelectElement>("raw-turns");
 for (let n = 0; n <= PROFILE.rawTurns; n++) rawSelect.append(new Option(n === PROFILE.rawTurns ? `${n} (default)` : String(n), String(n)));
-rawSelect.value = localStorage.getItem("long-con:raw-turns") ?? String(PROFILE.rawTurns);
-rawSelect.addEventListener("change", () => localStorage.setItem("long-con:raw-turns", rawSelect.value));
+rawSelect.value = localStorage.getItem("beep:raw-turns") ?? String(PROFILE.rawTurns);
+rawSelect.addEventListener("change", () => localStorage.setItem("beep:raw-turns", rawSelect.value));
 
 // Permissions: a preset, per-tool and per-site overrides, and the hourly spending cap.
 const RULES: Record<P.Rule, string> = { allow: "Allow", ask: "Ask", deny: "Block" };
@@ -256,7 +268,7 @@ async function setUpRepo() {
     }
     const found = await GH.findRepo(ghEnv);
     if (found) return await connect(found);
-    show(hint(`No chats repo yet. Long Con saves to a private repo of yours named ${GH.REPO_NAME}.`), actions(action(`Create ${GH.REPO_NAME}`, createRepo, true), action("Use another repo", pickRepo)));
+    show(hint(`No chats repo yet. Beep saves to a private repo of yours named ${GH.REPO_NAME}.`), actions(action(`Create ${GH.REPO_NAME}`, createRepo, true), action("Use another repo", pickRepo)));
   } catch (err) {
     fail(err);
   }
@@ -270,7 +282,7 @@ async function createRepo() {
     if ((err as { code?: string }).code !== "cannot-create") return fail(err);
     // Squiggle's fallback: a pre-filled github.com/new, then give the app access, then find it.
     show(
-      hint("GitHub didn't let Long Con make it, so it's two quick steps on GitHub:"),
+      hint("GitHub didn't let Beep make it, so it's two quick steps on GitHub:"),
       actions(away("1. Create the repo", GH.NEW_REPO_URL, true), away("2. Give the app access", GH.INSTALL_URL)),
       actions(action("Done, continue", setUpRepo)),
     );
@@ -322,7 +334,7 @@ function saveToGitHub(loud = false) {
       const sending = { ...unsavedFiles };
       // Side threads go up whole as one file whenever they've changed since the last save.
       const threadsJson = JSON.stringify(threads, null, 2);
-      if (threads.length && threadsJson !== localStorage.getItem("long-con:threads-saved")) sending["threads.json"] = Files.toBase64(new TextEncoder().encode(threadsJson + "\n"));
+      if (threads.length && threadsJson !== localStorage.getItem("beep:threads-saved")) sending["threads.json"] = Files.toBase64(new TextEncoder().encode(threadsJson + "\n"));
       // Turns saved from another browser come in first, so this save never writes over them.
       if (!busy && (await GH.pull(ghEnv, history, packets, () => !busy))) {
         saveChat();
@@ -331,7 +343,7 @@ function saveToGitHub(loud = false) {
       }
       await GH.sync(ghEnv, history, packets, new Date(), sending);
       for (const k of Object.keys(sending)) delete unsavedFiles[k];
-      if (sending["threads.json"]) localStorage.setItem("long-con:threads-saved", threadsJson);
+      if (sending["threads.json"]) localStorage.setItem("beep:threads-saved", threadsJson);
       ghSaved = new Date();
       renderGitHub();
     } catch (err) {
@@ -350,7 +362,7 @@ function setSidebar(open: boolean) {
   sidebar.classList.toggle("open", open);
   scrim.hidden = !(open && narrow.matches);
   $("open-side").setAttribute("aria-expanded", String(open));
-  if (!narrow.matches) localStorage.setItem("long-con:sidebar", open ? "1" : "");
+  if (!narrow.matches) localStorage.setItem("beep:sidebar", open ? "1" : "");
   if (open) renderSidebar();
 }
 $("open-side").addEventListener("click", () => setSidebar(!app.classList.contains("side-open")));
@@ -384,7 +396,7 @@ function renderSidebar() {
 
   // Data
   const messages = history.reduce((n, s) => n + s.turns.length, 0);
-  const bytes = ["long-con:history", "long-con:packets", FILES_KEY].reduce((n, k) => n + (localStorage.getItem(k)?.length ?? 0), 0);
+  const bytes = ["beep:history", "beep:packets", FILES_KEY].reduce((n, k) => n + (localStorage.getItem(k)?.length ?? 0), 0);
   $("stats").replaceChildren(stat(messages, "messages"), stat(history.length, "days"), stat(`${bytes ? Math.max(1, Math.round(bytes / 1024)) : 0} KB`, "stored"));
   renderCost();
   $("days").replaceChildren(...[...history].reverse().map((s) => {
@@ -410,7 +422,7 @@ function renderSidebar() {
   }));
 }
 
-/** Long Con's real bill since the meter started, next to a classic chat that resends everything, at both cache lifetimes. */
+/** Beep's real bill since the meter started, next to a classic chat that resends everything, at both cache lifetimes. */
 function renderCost() {
   const turns: CostTurn[] = history.flatMap((s) =>
     s.turns.flatMap((t, i) => {
@@ -422,7 +434,7 @@ function renderCost() {
   const short = compareCost(turns, { ttl: 5 * MINUTE });
   const long = compareCost(turns, { ttl: 60 * MINUTE });
   if (!short.turns) return $("cost").replaceChildren(el("p", "hint", "Starts counting with your next message: what it really costs here, next to what a classic chat that resends everything would."));
-  const top = Math.max(short.longCon, short.classic, long.classic);
+  const top = Math.max(short.beep, short.classic, long.classic);
   const row = (label: string, usd: number, us = false) => {
     const r = el("div", `row${us ? " us" : ""}`);
     const bar = el("div", "bar");
@@ -431,9 +443,9 @@ function renderCost() {
     return r;
   };
   const models = [...new Set(turns.filter((t) => t.calls?.length).map((t) => priceOf(t.model ?? "").name))].join(" and ");
-  const times = short.classic / (short.longCon || Infinity);
+  const times = short.classic / (short.beep || Infinity);
   $("cost").replaceChildren(
-    row("Long Con", short.longCon, true),
+    row("Beep", short.beep, true),
     row("Classic chat, 5-minute cache", short.classic),
     row("Classic chat, 1-hour cache", long.classic),
     el("p", "hint", `${short.turns} ${short.turns === 1 ? "turn" : "turns"} counted, at ${models} prices.${times >= 1.05 ? ` A classic chat costs ${times.toFixed(1)}x as much here:` : ""} it resends the whole chat every turn (up to ${Math.round(short.peak / 1000)}K tokens), reading it from cache when the last message was recent and paying to cache it again when not.${short.compactions ? ` It would have compacted ${short.compactions} ${short.compactions === 1 ? "time" : "times"}.` : ""}`),
@@ -452,7 +464,7 @@ function renderResults() {
   list.replaceChildren();
   if (!q) return;
   const hits: { key: string; day: string; text: string }[] = [];
-  for (const s of history) s.turns.forEach((t, i) => t.content.toLowerCase().includes(q) && hits.push({ key: keyOf(s.id, i), day: `${dayName(s.id)} · ${t.role === "user" ? "you" : "Long Con"}`, text: t.content }));
+  for (const s of history) s.turns.forEach((t, i) => t.content.toLowerCase().includes(q) && hits.push({ key: keyOf(s.id, i), day: `${dayName(s.id)} · ${t.role === "user" ? "you" : "Beep"}`, text: t.content }));
   if (!hits.length) list.append(el("li", "hint", "Nothing yet."));
   for (const h of hits.slice(-30).reverse()) {
     const b = btn();
@@ -486,7 +498,7 @@ $("export").addEventListener("click", () => {
   const blob = new Blob([JSON.stringify({ history, packets, files: load(FILES_KEY, {}) }, null, 2)], { type: "application/json" });
   const a = el("a") as HTMLAnchorElement;
   a.href = URL.createObjectURL(blob);
-  a.download = `long-con-${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = `beep-${new Date().toISOString().slice(0, 10)}.json`;
   a.click();
   URL.revokeObjectURL(a.href);
 });
@@ -501,7 +513,7 @@ $<HTMLInputElement>("import").addEventListener("change", async (e) => {
     const ok =
       Array.isArray(data?.history) &&
       data.history.every((s: Session) => typeof s?.id === "string" && Array.isArray(s.turns) && s.turns.every((t) => (t?.role === "user" || t?.role === "assistant") && typeof t.content === "string"));
-    if (!ok) throw new Error("That file isn't a Long Con export.");
+    if (!ok) throw new Error("That file isn't a Beep export.");
     if (history.length && !confirm("Replace the chat in this browser with the imported one?")) return;
     history.splice(0, history.length, ...data.history);
     for (const k of Object.keys(packets)) delete packets[k];
@@ -634,7 +646,7 @@ function showTyping(on: boolean) {
   if (!on) return;
   const row = el("div", "row assistant typing-row");
   const bubble = el("div", "bubble last");
-  bubble.setAttribute("aria-label", "Long Con is typing");
+  bubble.setAttribute("aria-label", "Beep is typing");
   bubble.append(el("span", "typing-dots"));
   bubble.firstElementChild!.append(el("i"), el("i"), el("i"));
   row.append(bubble);
@@ -829,7 +841,7 @@ function showThread(t: T.Thread) {
   threadPresence.textContent = t.wrap ? "wrapped up" : t.title || "off one message";
   threadLog.replaceChildren();
   const parent = el("div", "parent");
-  parent.append(el("b", "", t.parentRole === "user" ? "You said" : "Long Con said"), t.parentText);
+  parent.append(el("b", "", t.parentRole === "user" ? "You said" : "Beep said"), t.parentText);
   threadLog.append(parent);
   t.turns.forEach((turn, i) => addThreadTurn(t, i, false));
   if (t.wrap) threadLog.append(recordCard(t, false));
@@ -946,8 +958,8 @@ function recordCard(t: T.Thread, opens = true) {
 const callButton = $<HTMLButtonElement>("call");
 const voiceSelect = $<HTMLSelectElement>("voice");
 for (const [id, name] of Object.entries(Voice.VOICES)) voiceSelect.append(new Option(name, id));
-voiceSelect.value = localStorage.getItem("long-con:voice") ?? "af_heart";
-voiceSelect.addEventListener("change", () => localStorage.setItem("long-con:voice", voiceSelect.value));
+voiceSelect.value = localStorage.getItem("beep:voice") ?? "af_heart";
+voiceSelect.addEventListener("change", () => localStorage.setItem("beep:voice", voiceSelect.value));
 let hangUp: (() => void) | null = null;
 const CALL_STATES = { loading: "getting ready…", listening: "listening…", thinking: "thinking…", speaking: "speaking…" };
 function endCall() {
@@ -1083,6 +1095,6 @@ renderGitHub();
 if (GH.signedIn(ghEnv) && !GH.savedRepo(ghEnv)) setUpRepo();
 saveToGitHub(); // Anything a failed save left behind, after pulling what other browsers saved.
 document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && saveToGitHub());
-setSidebar(!narrow.matches && !!localStorage.getItem("long-con:sidebar"));
+setSidebar(!narrow.matches && !!localStorage.getItem("beep:sidebar"));
 if (!keyInput.value) settings.showModal();
 else input.focus();

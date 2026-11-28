@@ -1,8 +1,8 @@
-# Long Con
+# Beep
 
 One endless chat that never compacts.
 
-A normal chat resends the whole conversation every turn until it has to be summarized, and summaries lose things: a standing rule, a date that changed, a decision from last week. Once a chat gets long, Long Con stops sending the transcript. Every turn, the model gets a fresh, small **context packet** built from a lossless log of everything said: your rules, the state of the threads the new message touches, and the raw words from the past that matter.
+A normal chat resends the whole conversation every turn until it has to be summarized, and summaries lose things: a standing rule, a date that changed, a decision from last week. Once a chat gets long, Beep stops sending the transcript. Every turn, the model gets a fresh, small **context packet** built from a lossless log of everything said: your rules, the state of the threads the new message touches, and the raw words from the past that matter.
 
 The bet: a good packet beats classic compaction, and matches the full long conversation on recall, at a fraction of the tokens. It's built for every model: Claude gets cheaper turns, and small local models get the short, clean context they need to stay sharp.
 
@@ -15,7 +15,7 @@ Early. Phase 1 is the eval harness: the goal posts every packet builder is judge
 | 1 | Eval harness, canary set and scorer, run from the CLI | next |
 | 2 | Core log, session splitter and sorter | planned |
 | 3 | Packet builder v1 on a frontier model, tuned until it beats compaction | planned |
-| 4 | Web app on the same core | bare-bones chat live at [kealjones.com/long-con](https://kealjones.com/long-con/) |
+| 4 | Web app on the same core | bare-bones chat live at [kealjones.com/beep](https://kealjones.com/beep/) |
 | 5 | Small-model track with ~3K-token packets | planned |
 | 6 | Mac app, only if the web app hits a wall | maybe |
 
@@ -38,7 +38,7 @@ docs/
   research/          experiments, prior art, providers, ideas
 ```
 
-One shared core with thin front ends. The CLI comes first because phase 1 is evals; a web app comes next. Other front ends may live in their own repos later and depend on `@long-con/core`.
+One shared core with thin front ends. The CLI comes first because phase 1 is evals; a web app comes next. Other front ends may live in their own repos later and depend on `@beep/core`.
 
 ## Running
 

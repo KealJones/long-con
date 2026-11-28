@@ -26,7 +26,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run build -w @long-con/web
+      - run: npm run build -w @beep/web
       - name: Publish to gh-pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:

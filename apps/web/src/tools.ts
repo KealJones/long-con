@@ -5,10 +5,10 @@
 // Files: /home is kept in this browser (localStorage) between chats; /tmp and the rest live for the page.
 // shortcut: no git or gh yet (Squiggle's need isomorphic-git and a GitHub sign-in); add them if Keal wants them here.
 
-import { SEARCH_TOOL, searchHistory, type Embed, type Profile, type Session } from "@long-con/core";
+import { SEARCH_TOOL, searchHistory, type Embed, type Profile, type Session } from "@beep/core";
 import { calculate } from "./calc.ts";
 
-export const FILES_KEY = "long-con:files";
+export const FILES_KEY = "beep:files";
 
 export const BASH_DESCRIPTION =
   "Run bash: pipes, cat, ls, grep, sed, awk, find, jq, the usual tools. Files: /home (kept in this browser), /tmp. " +
