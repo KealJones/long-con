@@ -11,7 +11,7 @@
 import { writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
-import { buildPacket, PROFILES, profileByName, searchUnits, UNIT_FEATURES, unitProbability, type Profile } from "@long-con/core";
+import { buildPacket, PROFILES, profileByName, searchUnits, UNIT_FEATURES, unitProbability, type Profile } from "@beep/core";
 import { loadLongMemEval, type Question } from "../src/longmemeval.ts";
 import { packetRecall } from "../src/recall.ts";
 import { buildProbes, DATA, devQuestions, isEvidenceUnit, loadTier1, runProbe, summarize, type Probe } from "./empty-rate.ts";

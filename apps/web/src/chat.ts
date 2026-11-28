@@ -1,7 +1,7 @@
 // One chat turn: build the packet from history, send it to Claude, and add both turns to history.
 // No DOM here, so the test can run it in Node with a fake fetch.
 
-import { assemblePrompt, buildPacket, PROFILES, type Session } from "@long-con/core";
+import { assemblePrompt, buildPacket, PROFILES, type Session } from "@beep/core";
 
 // shortcut: no search tool yet, so the packet doesn't promise one. Turn it back on once core exports the
 // shared search function (the packet R&D loop is moving it there).

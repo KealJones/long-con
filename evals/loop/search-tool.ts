@@ -8,7 +8,7 @@
 // Queries: each answerable question as asked, plus (profiles with pointers) the query of every pointer its packet renders.
 
 import { parseArgs } from "node:util";
-import { buildPacket, markResults, profileByName, searchUnits, unitSimilarity, type Profile, type SearchResult, type Session } from "@long-con/core";
+import { buildPacket, markResults, profileByName, searchUnits, unitSimilarity, type Profile, type SearchResult, type Session } from "@beep/core";
 import { embedderFor } from "../src/embedder.ts";
 import { loadLongMemEval, type Question } from "../src/longmemeval.ts";
 import { buildProbes, DATA, devQuestions, isEvidenceUnit, loadTier1, TIER1_TIME, type TierName } from "./empty-rate.ts";

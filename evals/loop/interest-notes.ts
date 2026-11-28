@@ -12,7 +12,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { buildPacket, PROFILES, type Profile } from "@long-con/core";
+import { buildPacket, PROFILES, type Profile } from "@beep/core";
 import { extractNotes, notesFromTurn } from "../../packages/core/src/notes.ts";
 import { loadLongMemEval } from "../src/longmemeval.ts";
 import { packetRecall } from "../src/recall.ts";

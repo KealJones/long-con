@@ -21,7 +21,7 @@
 
 **How I checked.** Everything ran on a copy of HEAD `c1393b1`, with the data symlinked in. `npm test` passed 66 of 66 and `npx tsc -p .` exited 0. `eval recall` and `eval estimate` for both profiles reproduced the committed results files byte for byte: `git status` showed only `evals/data/.gitkeep`, which my copy left out. No paid calls, no network, no repo edits.
 
-**Mutation testing.** I broke each fix on purpose, one at a time, and ran the suite. All my scripts are in `/tmp/claude-0/-home-user-long-con/20a8eb28-71a3-56f9-b3ba-5051337ca9eb/scratchpad/v2s/`, and the mutation runner is `/tmp/claude-0/-home-user-long-con/20a8eb28-71a3-56f9-b3ba-5051337ca9eb/scratchpad/v2s/mut.mjs`.
+**Mutation testing.** I broke each fix on purpose, one at a time, and ran the suite. All my scripts are in `/tmp/claude-0/-home-user-beep/20a8eb28-71a3-56f9-b3ba-5051337ca9eb/scratchpad/v2s/`, and the mutation runner is `/tmp/claude-0/-home-user-beep/20a8eb28-71a3-56f9-b3ba-5051337ca9eb/scratchpad/v2s/mut.mjs`.
 - 24 of 29 mutations made a test fail, plus a corrected rerun of the loader-sort mutation.
 - 5 broke nothing. Three matter: the paired-against-bare table being dropped (H2), the estimate's no-search floor (M5) and the budget measured at confidence 1 (L3).
 - The other two were a smaller `MAX_OUTPUT` value and turning off the long-prompt price step. Neither is a regression of any finding.
@@ -90,7 +90,7 @@
   - Errors and outages are separate columns. Outages are rate limits, 5xx errors and lost connections (`model.ts:95-98`).
   - All six related mutations fail tests.
 - **New problem.** Outages are left out of accuracy, but they still count in the per-question token and cost averages, because `n = mine.length` includes them (`run.ts:204,225-228`).
-  - My check, `/tmp/claude-0/-home-user-long-con/20a8eb28-71a3-56f9-b3ba-5051337ca9eb/scratchpad/v2s/outage.ts`: 2 good `full` answers at 140K tokens plus 2 outages gives readerInputTokens 70,000 and cost per question $0.035.
+  - My check, `/tmp/claude-0/-home-user-beep/20a8eb28-71a3-56f9-b3ba-5051337ca9eb/scratchpad/v2s/outage.ts`: 2 good `full` answers at 140K tokens plus 2 outages gives readerInputTokens 70,000 and cost per question $0.035.
   - That's half the true value, and it understates exactly the large-prompt arms the audit worried about.
   - The README warns only about accuracy covering fewer questions, not about tokens or cost.
 - **Small gap.** An empty compaction summary isn't checked.

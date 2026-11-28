@@ -1,6 +1,6 @@
 # Threader, read closely
 
-[Threader](https://arxiv.org/abs/2609.33226) ("Beyond Memory Construction: Rethinking Memory Access for LLM-based Conversational Agents", Cai et al., Tsinghua, September 2026) is the closest published design to Long Con's retrieval. This is how it works, what to copy, and where it agrees or disagrees with choices already made in [architecture.md](../architecture.md). Read 2026-11-25.
+[Threader](https://arxiv.org/abs/2609.33226) ("Beyond Memory Construction: Rethinking Memory Access for LLM-based Conversational Agents", Cai et al., Tsinghua, September 2026) is the closest published design to Beep's retrieval. This is how it works, what to copy, and where it agrees or disagrees with choices already made in [architecture.md](../architecture.md). Read 2026-11-25.
 
 **Short version:** copy its retrieval almost whole as the v1 baseline packet. It scores 90.6% on LongMemEval with zero LLM calls to build memory. It never tests follow-up references, multi-turn chat, rules or open loops, so it neither proves nor breaks the resolver, registers or fresh-packet bet. Its one clear weakness, preferences spread across many turns, is exactly what the rules register is for.
 
@@ -82,9 +82,9 @@ At top-5 the full system drops to 82.6, so a smaller packet costs about 8 points
 - **Union of dense and BM25 candidates, then a cross-encoder.** All three models are small and run on a CPU.
 - **Timestamps on every span.** It scored 91 on temporal questions with no time logic, by letting the reader see the dates.
 
-## Against Long Con's choices
+## Against Beep's choices
 
-| Long Con choice | What Threader says | Verdict |
+| Beep choice | What Threader says | Verdict |
 | --- | --- | --- |
 | **Plain retrieval baseline first, sorter must beat it** | Threader is that baseline, and a strong one | **Build it first.** Threader-style retrieval becomes packet v1 |
 | **Fresh packet every turn** | Single-shot questions only; silent on multi-turn | Neutral. "Lost in multi-turn conversation" is still the evidence for it |

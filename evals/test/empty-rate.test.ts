@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { PROFILES, type Session } from "@long-con/core";
+import { PROFILES, type Session } from "@beep/core";
 import { loadLongMemEval, type Question } from "../src/longmemeval.ts";
 import {
   ablate,

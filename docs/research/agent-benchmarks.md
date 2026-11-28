@@ -30,7 +30,7 @@ Paired the same way as prefetch-evals.md: same model, prompt, tools and caps; ar
 
 ## Same code as the product
 
-Every entry point runs the same code, so the harness can't use Claude Code, Harbor's Terminus or a benchmark's own LangGraph agent. It drives Long Con's own loop:
+Every entry point runs the same code, so the harness can't use Claude Code, Harbor's Terminus or a benchmark's own LangGraph agent. It drives Beep's own loop:
 
 - The agent loop and tools (`bash` on just-bash, `search_history`, web search and fetch) live in `apps/web/src/chat.ts` and `tools.ts` on the web chat branch. They move into `packages/core` so the web chat, the CLI and the harness call one function.
 - A benchmark repo is loaded into the same virtual file system the web chat uses for `/home` (the browser keeps it locally; OPFS is the natural home for a whole repo). The packet's symbol index (`packages/core/src/symbols.ts`) is built over it exactly as it would be for a repo pulled into the chat.

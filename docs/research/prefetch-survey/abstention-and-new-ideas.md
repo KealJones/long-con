@@ -1,6 +1,6 @@
 # Slice E: knowing when to put nothing in the packet, plus ideas nobody listed
 
-Researched 2026-11-26 for Long Con. This builds on `docs/research/prefetch.md` and doesn't repeat it: Adaptive-RAG, ADAPT-LLM, WiTQA, CODEFILTER and SWE-ContextBench are already there. The question here is narrower: **how does the builder know a unit is actually relevant, and when should the packet be empty?** Part 2 collects newer ideas the other slices probably won't cover.
+Researched 2026-11-26 for Beep. This builds on `docs/research/prefetch.md` and doesn't repeat it: Adaptive-RAG, ADAPT-LLM, WiTQA, CODEFILTER and SWE-ContextBench are already there. The question here is narrower: **how does the builder know a unit is actually relevant, and when should the packet be empty?** Part 2 collects newer ideas the other slices probably won't cover.
 
 ## The problem in one paragraph
 
@@ -24,7 +24,7 @@ Today a unit's "confidence" is its BM25 score divided by the best score for that
 | Negative rejection is weak | With only noise passages, ChatGPT declined 45% of the time; 6-7B models 17-41% | [RGB, AAAI 2024](https://arxiv.org/abs/2309.01431) |
 | Reasoning training makes abstention worse | Reasoning fine-tuning lowered abstention by 24% on average; scale (8B → 405B) barely helped; a system prompt saying when not to answer did help | [AbstentionBench, NeurIPS 2025](https://arxiv.org/abs/2506.09038) |
 
-**What this means for Long Con.** The plan already says "I'd rather have nothing than incorrect stuff", and the evidence backs it hard, especially for small-local. Two points matter most:
+**What this means for Beep.** The plan already says "I'd rather have nothing than incorrect stuff", and the evidence backs it hard, especially for small-local. Two points matter most:
 
 1. **The dangerous unit is the near-miss, not the random one.** A segment about the user's *table tennis* league when they ask about *tennis* is far worse than a segment about cooking. Better ranking makes this worse, not better, since it pushes near-misses to the top. So "improve recall" and "improve abstention" are separate jobs, and abstention needs its own metric.
 2. **For a 1.7B reader, the default should be empty.** Below 7B, the harm comes from context being there at all. Small-local should need much stronger evidence to include anything than the Claude profile does. Chat-history questions are the exception: the model can't already know what was said last week, so the "already knew it" harm doesn't apply. But general-knowledge and new-topic messages should get no history at all.
@@ -69,12 +69,12 @@ Notes:
 | Uncertainty gap (needs two LLM runs) | ~0.35 to 0.55 |
 | Supervised BERT on query, passages and both answers | ~0.71 to 0.89, but needs two generations |
 
-Three takeaways for Long Con:
+Three takeaways for Beep:
 1. **Unsupervised QPP is weak alone.** It's a feature, not a gate.
-2. **Ranking agreement is the best cheap signal, and Long Con already computes two rankings** (all words and user words). How much their top 5 overlap is free to add.
+2. **Ranking agreement is the best cheap signal, and Beep already computes two rankings** (all words and user words). How much their top 5 overlap is free to add.
 3. **A small supervised model on query + candidate text roughly doubles the signal.** That's the step after a logistic gate.
 
-A caution from [The Fusion Tax (2026)](https://arxiv.org/abs/2610.30612): RRF fusion ranked relevant documents lower than the better single retriever on 15-33% of queries, and per-query routing on cheap QPP features never beat a static per-corpus choice (held-out AUC 0.59-0.63). Long Con's RRF fuses two BM25 views rather than BM25 and dense, so the numbers don't transfer directly. But it's a reason to check the fused ranking against each half on the dev slice, and not to build a per-query fusion router.
+A caution from [The Fusion Tax (2026)](https://arxiv.org/abs/2610.30612): RRF fusion ranked relevant documents lower than the better single retriever on 15-33% of queries, and per-query routing on cheap QPP features never beat a static per-corpus choice (held-out AUC 0.59-0.63). Beep's RRF fuses two BM25 views rather than BM25 and dense, so the numbers don't transfer directly. But it's a reason to check the fused ranking against each half on the dev slice, and not to build a per-query fusion router.
 
 ## 4. Conformal prediction: thresholds with a guarantee
 
@@ -82,32 +82,32 @@ A caution from [The Fusion Tax (2026)](https://arxiv.org/abs/2610.30612): RRF fu
 
 [Principled Context Engineering for RAG (JHU, 2025)](https://arxiv.org/abs/2511.17908) did this on retrieved snippets: an embedding-similarity scorer with a conformal threshold cut context by 2-3x, kept coverage on target, and at α=0.05-0.10 slightly *raised* answer F1 (0.69 → 0.70-0.72). Fixed top-k and fixed cosine thresholds had no coverage control.
 
-**Fit for Long Con:** good, and nearly free at run time (one comparison). The catch is calibration size. The guarantee comes in steps of 1/(n+1), so 3 abstention questions are useless and about 100 should-be-empty prompts are the floor for a meaningful 90-95% promise. The evidence-ablation trick in the proposal supplies those for free. One more caveat: the guarantee assumes calibration and real use look alike. LongMemEval chats aren't real Long Con chats, so recalibrate on pain-mined real data before trusting the promise.
+**Fit for Beep:** good, and nearly free at run time (one comparison). The catch is calibration size. The guarantee comes in steps of 1/(n+1), so 3 abstention questions are useless and about 100 should-be-empty prompts are the floor for a meaningful 90-95% promise. The evidence-ablation trick in the proposal supplies those for free. One more caveat: the guarantee assumes calibration and real use look alike. LongMemEval chats aren't real Beep chats, so recalibrate on pain-mined real data before trusting the promise.
 
 ## 5. Selective and adaptive retrieval: who decides to retrieve
 
-| Method | Signal | Needs | Fit for Long Con |
+| Method | Signal | Needs | Fit for Beep |
 | --- | --- | --- | --- |
 | [Self-RAG](https://arxiv.org/abs/2310.11511) | Fine-tuned reflection tokens: retrieve? relevant? supported? | A specially trained reader | No for Claude; maybe a far-future small model |
-| [SKR](https://arxiv.org/abs/2310.05002) | Nearest neighbours among past questions where retrieval helped | Labeled history | **Yes, later:** Long Con's own logs supply "retrieval helped here" labels |
+| [SKR](https://arxiv.org/abs/2310.05002) | Nearest neighbours among past questions where retrieval helped | Labeled history | **Yes, later:** Beep's own logs supply "retrieval helped here" labels |
 | [FLARE](https://arxiv.org/abs/2305.06983), [DRAGIN](https://arxiv.org/abs/2403.10081) | Retrieve when token probability or entropy drops mid-answer | Token logits during generation | Small-local only (logits are local); Claude's API doesn't expose them |
 | [SeaKR](https://arxiv.org/abs/2406.19215), [UAR](https://arxiv.org/abs/2406.12534) | Classifiers on the model's hidden states (intent, known, time-sensitive, self-aware) | Hidden states | Small-local only, and only if the WebGPU runtime exposes them |
 | [Adaptive-RAG](https://arxiv.org/abs/2403.14403) | Small classifier on question complexity | ~T5-size model | Covered in prefetch.md |
 | [Adaptive retrieval without self-knowledge? (ACL 2025)](https://arxiv.org/abs/2501.12835) | 35 methods compared: plain uncertainty estimates match complex pipelines on accuracy and beat them on efficiency | — | Supports cheap signals over elaborate controllers |
 
-The key constraint: **Long Con's gate runs before the model sees anything, and the Claude profile has no logits or hidden states.** So for Claude, the gate has to come from the query and the retrieval scores (QPP, calibrated scores, maybe a small classifier). Small-local has more options because the model runs locally; a one-forward-pass check is possible (Part 2, idea 5).
+The key constraint: **Beep's gate runs before the model sees anything, and the Claude profile has no logits or hidden states.** So for Claude, the gate has to come from the query and the retrieval scores (QPP, calibrated scores, maybe a small classifier). Small-local has more options because the model runs locally; a one-forward-pass check is possible (Part 2, idea 5).
 
-One design lesson worth taking: [TAPS (2026)](https://arxiv.org/abs/2610.16318) found that training a model to abstain mostly made it answer better, not abstain better. Training for accuracy and then putting a separate, tunable confidence threshold on top did as well or better, and gave a dial for the risk-coverage trade-off. For Long Con: **keep the ranker and the gate separate.** Tune the ranker for recall, then fit a gate with one threshold per profile. Don't fold abstention into ranking weights.
+One design lesson worth taking: [TAPS (2026)](https://arxiv.org/abs/2610.16318) found that training a model to abstain mostly made it answer better, not abstain better. Training for accuracy and then putting a separate, tunable confidence threshold on top did as well or better, and gave a dial for the risk-coverage trade-off. For Beep: **keep the ranker and the gate separate.** Tune the ranker for recall, then fit a gate with one threshold per profile. Don't fold abstention into ranking weights.
 
 ## 6. Unanswerable questions in benchmarks
 
-- **LongMemEval** has 30 abstention questions of 500, false-premise rewrites of answerable ones ([paper](https://arxiv.org/abs/2410.10813)). Because they come from answerable questions, **their haystacks usually hold closely related text**. That makes them near-miss tests, the hardest kind. Three are in Long Con's dev 50 (`60bf93ed_abs`, `2311e44b_abs`, `0862e8bf_abs`). Strong readers already do well: Opus scored 25-27 of 30 and DeepSeek V4 Pro 29 of 30 in a [2026 audit](https://arxiv.org/abs/2609.38021), which also found judges disagree on "fix the premise, then answer" replies. So score abstention strictly and look at those answers by hand.
+- **LongMemEval** has 30 abstention questions of 500, false-premise rewrites of answerable ones ([paper](https://arxiv.org/abs/2410.10813)). Because they come from answerable questions, **their haystacks usually hold closely related text**. That makes them near-miss tests, the hardest kind. Three are in Beep's dev 50 (`60bf93ed_abs`, `2311e44b_abs`, `0862e8bf_abs`). Strong readers already do well: Opus scored 25-27 of 30 and DeepSeek V4 Pro 29 of 30 in a [2026 audit](https://arxiv.org/abs/2609.38021), which also found judges disagree on "fix the premise, then answer" replies. So score abstention strictly and look at those answers by hand.
 - **RGB's negative rejection** (noise-only context) and **CRAG's scoring** (+1 correct, 0 missing, −1 wrong) both treat a wrong answer as worse than none.
 - **Knowledge-gap canaries** ([2026](https://arxiv.org/abs/2608.26385)): questions whose answers are known to be absent from the corpus. Any answer, even a correct one from the model's own knowledge, counts as a grounding failure. Canary violation rates ranged from **16.7% to 98.1%** across commercial RAG systems with near-identical accuracy. The paper's penalty-aware score Q = P(correct) − 4·P(wrong) reversed rankings. (The authors work for one of the products tested, and the canary set is small.)
 
 ## 7. NLI checks and the "lexical overlap is not relevance" trap
 
-- **NLI filter** ([Yoran et al., ICLR 2024](https://arxiv.org/abs/2310.01558)): a natural-language-inference model drops passages that don't entail a question-answer pair. It stopped irrelevant context from hurting, but also threw away relevant passages and cost accuracy when they mattered. Also, it needs a candidate answer, which a prefetcher doesn't have. **Not a good per-turn filter for Long Con.**
+- **NLI filter** ([Yoran et al., ICLR 2024](https://arxiv.org/abs/2310.01558)): a natural-language-inference model drops passages that don't entail a question-answer pair. It stopped irrelevant context from hurting, but also threw away relevant passages and cost accuracy when they mattered. Also, it needs a candidate answer, which a prefetcher doesn't have. **Not a good per-turn filter for Beep.**
 - **The trap itself.** BM25 rewards shared words, so the worst units share the *topic words* and differ on the *one word that matters*: "my cat" vs "my dog", "the March trip" vs "the May trip", tennis vs table tennis. Similarity measures topic, not evidence ([Memory Retrieval for Changing Preferences, 2026](https://arxiv.org/abs/2606.02976)). That paper scored memory turns by how much each one changes a small model's (Qwen3.5-0.8B) likelihood of the answer, and beat embedding-labeled training by 2.4 points on average and 8.8 on the hardest set.
 - **Cheap guards against the trap:**
   - **Anchor terms:** the rarest query term, names, numbers and quoted strings must appear in the unit.
@@ -131,7 +131,7 @@ All of these but the last two run with no model calls, so they belong in `eval r
 
 ---
 
-# The proposal: an absolute relevance gate for Long Con
+# The proposal: an absolute relevance gate for Beep
 
 ### What it computes
 
@@ -197,7 +197,7 @@ Every Claude answer can end with the packet item ids it used (`[p2, p5]`, a few 
 Units that helped before get a small prior boost; units that preceded a "no, that's wrong" get a penalty. This is the "outcome-aware retrieval" pattern from an [AI Engineer talk](https://ai.engineer/talks/Jx4ZFEAq6bY-user-signal-die-at-retrieval-boundary) (its numbers are self-reported and unverifiable), and it ties into the existing rejected-answer labels. Cheap; risk is rich-get-richer, so cap the boost.
 
 ### 3. A bandit learns each user's threshold
-[Learning Personalized Memory Gating from Delayed One-Sided Feedback (2026)](https://arxiv.org/abs/2610.23812) treats "store this fact or not" as a contextual bandit with labels that come late and only for stored facts, the same shape as "include this unit or not" when you only see whether included units got used. A warm-started UCB beat a shared rule by 2.5-5.4 points. For Long Con: start every user at the dev-fitted τ, then let one-sided feedback (citations, misses) move it. One step further: arms of empty, pointer-only and full units per turn type, rewarded by answer accepted minus tokens minus misses.
+[Learning Personalized Memory Gating from Delayed One-Sided Feedback (2026)](https://arxiv.org/abs/2610.23812) treats "store this fact or not" as a contextual bandit with labels that come late and only for stored facts, the same shape as "include this unit or not" when you only see whether included units got used. A warm-started UCB beat a shared rule by 2.5-5.4 points. For Beep: start every user at the dev-fitted τ, then let one-sided feedback (citations, misses) move it. One step further: arms of empty, pointer-only and full units per turn type, rewarded by answer accepted minus tokens minus misses.
 
 ### 4. Pointers as the middle ground between "include" and "nothing"
 Anthropic's [context engineering post](https://anthropic.com/engineering/effective-context-engineering-for-ai-agents) recommends lightweight references loaded just in time; Manus's [lessons](https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus) say compression should be reversible (keep the URL, drop the page). Apply that to confidence tiers: **high P → whole unit; medium P → a one-line pointer** ("2024-05-12: a chat about Squiggle's WebGPU fallback; search 'webgpu fallback' to open it", ~25 tokens); **low P → nothing.** A pointer can't be misread as evidence the way a near-miss unit can, so hard distractors become cheap leads instead of traps, and recall survives through the tools. This fits the plan's "every packet source is also a tool." Test it as a third arm.
@@ -245,7 +245,7 @@ Chroma found every model did better on *shuffled* haystacks than coherent ones, 
 
 ---
 
-# Top ideas for Long Con from this slice
+# Top ideas for Beep from this slice
 
 1. **Measure the zero first.** Add should-be-empty tiers 1-3 (off-history, cross-haystack, evidence-ablated) to `eval recall`. *Hypothesis:* today's builder returns a non-empty packet on about 100% of them, because the cutoff is relative. Free, and it turns "I'd rather have nothing" into a tracked number.
 2. **Ceiling-normalized BM25 plus IDF coverage as an absolute floor.** *Hypothesis:* a single threshold on normalized top score × coverage raises the empty rate on tiers 1-2 above 70% while costing under 2 points of all-evidence recall on the answerable 47.

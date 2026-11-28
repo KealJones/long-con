@@ -18,7 +18,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
-import { buildPacket, estimateTokens, PROFILES, profileByName, type Packet, type PacketSegment, type Profile, type Session } from "@long-con/core";
+import { buildPacket, estimateTokens, PROFILES, profileByName, type Packet, type PacketSegment, type Profile, type Session } from "@beep/core";
 import { evidenceGroups, loadLongMemEval, type Question } from "../src/longmemeval.ts";
 import { embedderFor } from "../src/embedder.ts";
 

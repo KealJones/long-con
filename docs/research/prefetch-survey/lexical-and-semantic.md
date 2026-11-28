@@ -1,8 +1,8 @@
 # Survey A: lexical, semantic, learned-sparse and late-interaction retrieval
 
-For Long Con's packet builder. Written 2026-11-26. Scope: how to rank segments of the log against the current message. Rerankers, query rewriting, gating and set selection belong to other slices, but they come up where they change the answer here.
+For Beep's packet builder. Written 2026-11-26. Scope: how to rank segments of the log against the current message. Rerankers, query rewriting, gating and set selection belong to other slices, but they come up where they change the answer here.
 
-**Where Long Con stands today.** BM25 (k1 1.2, b 0.75, no stemming) over about 400-token segments. Two rankings, all words and user words only, fused with RRF. Relative cutoff 0.3. Dev slice (LongMemEval_S, 47 answerable questions): all evidence in packet 78.7% for claude at 8K, 70.2% for small-local at 2.5K. Weakest types: multi-session (45.5% on both profiles), single-session-preference (66.7% claude, **0%** small-local), temporal (76.9% / 69.2%). One question is 2.1 points, so any change under about 4 points on this slice is noise.
+**Where Beep stands today.** BM25 (k1 1.2, b 0.75, no stemming) over about 400-token segments. Two rankings, all words and user words only, fused with RRF. Relative cutoff 0.3. Dev slice (LongMemEval_S, 47 answerable questions): all evidence in packet 78.7% for claude at 8K, 70.2% for small-local at 2.5K. Weakest types: multi-session (45.5% on both profiles), single-session-preference (66.7% claude, **0%** small-local), temporal (76.9% / 69.2%). One question is 2.1 points, so any change under about 4 points on this slice is noise.
 
 **Scale.** A LongMemEval_S question is about 140K tokens, which is about 350 segments. A year of heavy real use might be 5-20M tokens, so 12K-50K segments. Even the high end is small for search. Everything below is judged at that scale, not web scale.
 
@@ -25,7 +25,7 @@ This is the most important section, because general benchmarks (BEIR, MTEB) misl
 | [Lysenstøen, Training-Free Lexical-Dense Fusion (arXiv 2606.04194)](https://arxiv.org/pdf/2606.04194) | LoCoMo, session Hit@1 (e5-large-v2) | 0.640 | mean-pool 0.427, **turn max-sim 0.664** | BM25 + max-sim **0.752** | Scoring a session by its best-matching turn beats averaging, for all 6 encoders |
 | same | LongMemEval_S hard subset (n=150, MiniLM), R@5 | 0.948 | early 0.920, late 0.953 | 0.959 | Gains over BM25 not significant. "BM25 is already strong" here |
 
-Per question type, SelRoute's FTS5 vs routed numbers on LongMemEval_M are the closest map to Long Con's weak spots:
+Per question type, SelRoute's FTS5 vs routed numbers on LongMemEval_M are the closest map to Beep's weak spots:
 
 | Type | FTS5 Ra@5 | Best route | Routed Ra@5 |
 | --- | --- | --- | --- |
@@ -39,10 +39,10 @@ Per question type, SelRoute's FTS5 vs routed numbers on LongMemEval_M are the cl
 **What I take from this.**
 
 1. On LongMemEval_S specifically, BM25 is a strong baseline and dense alone is not better. A hybrid adds about 1-3 points of session recall. Most published "dense beats BM25" results are on the harder LongMemEval_M or at turn level.
-2. Dense earns its keep on the types where the question and the evidence share few words: preference ("recommend me a…" when the evidence is "I love hiking"), assistant-said questions, and multi-session aggregation. Those are exactly Long Con's weakest types.
+2. Dense earns its keep on the types where the question and the evidence share few words: preference ("recommend me a…" when the evidence is "I love hiking"), assistant-said questions, and multi-session aggregation. Those are exactly Beep's weakest types.
 3. Granularity matters more than model size. Turn-level max-sim inside a session beats one vector per session, and a 22M MiniLM routed well is within 1.5 points of a 109M model.
-4. Index-time key expansion (appending extracted facts to what gets indexed) helped every retriever by 5-8 points. That is a write-time cost, not a query-time cost, which suits Long Con.
-5. Long Con's own metric (every evidence turn inside a token budget) is harsher than R@5. [Where Did the Evidence Go? (arXiv 2611.10170)](https://arxiv.org/pdf/2611.10170) shows complete-evidence rates far below any-hit rates on multi-hop (LoCoMo/REALTALK: 50/108 complete in a top-60, 36/108 in the final top-10, oracle 60/108). The bottleneck there was choosing a set, not ranking single items. Better single-item ranking will only partly fix multi-session.
+4. Index-time key expansion (appending extracted facts to what gets indexed) helped every retriever by 5-8 points. That is a write-time cost, not a query-time cost, which suits Beep.
+5. Beep's own metric (every evidence turn inside a token budget) is harsher than R@5. [Where Did the Evidence Go? (arXiv 2611.10170)](https://arxiv.org/pdf/2611.10170) shows complete-evidence rates far below any-hit rates on multi-hop (LoCoMo/REALTALK: 50/108 complete in a top-60, 36/108 in the final top-10, oracle 60/108). The bottleneck there was choosing a set, not ranking single items. Better single-item ranking will only partly fix multi-session.
 
 ---
 
@@ -52,7 +52,7 @@ Per question type, SelRoute's FTS5 vs routed numbers on LongMemEval_M are the cl
 
 **Plain English.** BM25 scores a segment by adding up, for each query word it contains, "how rare is this word" (IDF) times "how often it appears, with diminishing returns" (k1), adjusted for segment length (b). BM25+ adds a small floor so any match counts for something even in a long segment. BM25L reduces the penalty on long documents. BM25F treats a document as named fields (say user text, assistant text, title) with their own weights and length normalizations, then combines term frequencies before saturation.
 
-**What it adds over Long Con's BM25.** Very little on the variant itself: [Kamphuis et al., "Which BM25 Do You Mean?"](https://cs.uwaterloo.ca/~jimmylin/publications/978-3-030-45442-5_4.pdf) compared Robertson, Lucene, ATIRE, BM25L, BM25+, BM25-adpt and a log-TF variant and found **no significant difference** on any collection (AP spread about 0.005 on Robust04). Parameters and fields are where the movement is. Their runs use k1 0.9, b 0.4 (Anserini's defaults), against Long Con's 1.2/0.75. With fixed 400-token segments, b matters less than usual, since lengths are similar. BM25F is the principled form of what Long Con already does with two rankings (all words, user words): one ranking with a user field and an assistant field, weighted, instead of two rankings fused by rank.
+**What it adds over Beep's BM25.** Very little on the variant itself: [Kamphuis et al., "Which BM25 Do You Mean?"](https://cs.uwaterloo.ca/~jimmylin/publications/978-3-030-45442-5_4.pdf) compared Robertson, Lucene, ATIRE, BM25L, BM25+, BM25-adpt and a log-TF variant and found **no significant difference** on any collection (AP spread about 0.005 on Robust04). Parameters and fields are where the movement is. Their runs use k1 0.9, b 0.4 (Anserini's defaults), against Beep's 1.2/0.75. With fixed 400-token segments, b matters less than usual, since lengths are similar. BM25F is the principled form of what Beep already does with two rankings (all words, user words): one ranking with a user field and an assistant field, weighted, instead of two rankings fused by rank.
 
 | Item | Value |
 | --- | --- |
@@ -66,7 +66,7 @@ Per question type, SelRoute's FTS5 vs routed numbers on LongMemEval_M are the cl
 
 **Plain English.** Stemming chops words to a crude root ("hiking", "hiked" → "hike") so different forms match; Porter is the classic English stemmer. Lemmatization does the same with a dictionary, so "better" → "good"; it's slower and needs a word list. Fuzzy matching allows a few typos (edit distance). Character n-grams index overlapping 3-letter chunks ("kea", "eal"), so misspellings and partial names still share most chunks. Phonetic keys (Soundex, Double Metaphone) map words to how they sound, so "Macie" and "Mackie" collide.
 
-**What it adds.** Stemming is a standard small win in English recall, at some cost in precision. Long Con does no stemming today, so "recommend" vs "recommendation" or "moved" vs "moving" miss. Character n-grams and phonetic keys matter for names, slang and misspellings, which casual speech produces. The repo's own prefetch notes already cite an Amazon result where off-the-shelf embeddings found misheard names only 7.5% of the time. Lexical fuzziness is the cheap fix there, not embeddings.
+**What it adds.** Stemming is a standard small win in English recall, at some cost in precision. Beep does no stemming today, so "recommend" vs "recommendation" or "moved" vs "moving" miss. Character n-grams and phonetic keys matter for names, slang and misspellings, which casual speech produces. The repo's own prefetch notes already cite an Amazon result where off-the-shelf embeddings found misheard names only 7.5% of the time. Lexical fuzziness is the cheap fix there, not embeddings.
 
 **Precision risk.** Fuzzy and n-gram matching raise false matches. Use them as a separate low-weight ranking fused by RRF, or only for words not in the vocabulary (names, typos), never as the main ranking.
 
@@ -82,7 +82,7 @@ Sources: [SQLite FTS5](https://sqlite.org/fts5.html). No phonetic-key source rea
 
 ### 2.3 Inverted indexes, SQLite FTS5 and D1
 
-**Plain English.** An inverted index is a map from each word to the list of segments containing it, so a query touches only segments that share a word with it. Long Con's `Bm25` class scans every document for every query term, which is fine at 350 segments and still fine at 50K (milliseconds), but an inverted index is the standard shape once it persists.
+**Plain English.** An inverted index is a map from each word to the list of segments containing it, so a query touches only segments that share a word with it. Beep's `Bm25` class scans every document for every query term, which is fine at 350 segments and still fine at 50K (milliseconds), but an inverted index is the standard shape once it persists.
 
 **D1.** FTS5 is enabled in D1 with no opt-in, per a field report ([dev.to, FTS5 on D1](https://dev.to/riversea/fts5-on-cloudflare-d1-cut-my-korean-keyword-search-from-220ms-to-22ms-heres-what-almost-broke-it-3l9p)): about 390K rows, P50 22 ms, P95 under 45 ms. Gotchas from that post: `bm25()` returns negative numbers where lower is better; an external-content table needs triggers to stay in sync. FTS5 gives tokenizers (unicode61, porter, trigram), per-column weights in `bm25()` (a light BM25F), prefix indexes, `snippet()`/`highlight()`, and an `fts5vocab` table for reading term statistics ([sqlite.org/fts5](https://sqlite.org/fts5.html)). k1 and b are fixed.
 
@@ -107,7 +107,7 @@ SelRoute's strongest zero-ML baseline was literally SQLite FTS5 (0.745 session R
 
 The pkgpulse numbers are approximate ("based on library documentation and community benchmarks").
 
-**Verdict.** None of these beats the 47-line `Bm25` class on ranking. MiniSearch is the one worth considering, for BM25+ with fields plus fuzzy and prefix in one tested package, if Long Con wants fuzzy matching without writing it. FlexSearch's ranking isn't BM25, which would break the current cutoff logic.
+**Verdict.** None of these beats the 47-line `Bm25` class on ranking. MiniSearch is the one worth considering, for BM25+ with fields plus fuzzy and prefix in one tested package, if Beep wants fuzzy matching without writing it. FlexSearch's ranking isn't BM25, which would break the current cutoff logic.
 
 ---
 
@@ -117,7 +117,7 @@ The pkgpulse numbers are approximate ("based on library documentation and commun
 
 An embedding model reads a piece of text and outputs a fixed list of numbers (say 384 or 768) that act as coordinates for its meaning. It's trained on millions of (question, matching passage) pairs so that texts that answer each other land close together, even with no words in common ("what should I cook for my vegan friend" lands near "I stopped eating meat last year"). Search is then: embed every segment once, embed the query, and rank by cosine similarity (the angle between the two lists). Most retrieval models want a prefix that says which side is which, such as EmbeddingGemma's `task: search result | query: ` and `title: none | text: ` ([HF blog](https://huggingface.co/blog/embeddinggemma)).
 
-**What it adds over BM25:** paraphrase, synonyms, and topic-level matching. **What it loses:** exact rare tokens (names, IDs, numbers), and **abstention**. BM25 gives a zero score when nothing shares a word; cosine similarity always returns a top-k with plausible-looking scores. Long Con's relative cutoff (0.3 of the top score) has no meaning for an unrelated query under dense, since the top score is itself noise. A dense channel needs an absolute floor calibrated per model, or it should only be allowed to add items when BM25 or the gate already says the turn needs retrieval.
+**What it adds over BM25:** paraphrase, synonyms, and topic-level matching. **What it loses:** exact rare tokens (names, IDs, numbers), and **abstention**. BM25 gives a zero score when nothing shares a word; cosine similarity always returns a top-k with plausible-looking scores. Beep's relative cutoff (0.3 of the top score) has no meaning for an unrelated query under dense, since the top score is itself noise. A dense channel needs an absolute floor calibrated per model, or it should only be allowed to add items when BM25 or the gate already says the turn needs retrieval.
 
 ### 3.2 Small embedders that run locally
 
@@ -139,7 +139,7 @@ Not covered in detail: jina-embeddings v3/v4 (larger, non-commercial licenses at
 
 **Read MTEB numbers with care.** The chat-memory evidence in section 1 shows that a 22M model routed well sits within 1.5 points of a 109M one, and that a top-MTEB 1.5B model (Stella) lost to a 110M Contriever on LongMemEval_M sessions. Model size is not the lever here; granularity and fusion are.
 
-**Latency in the browser.** Measured on one Mac, MiniLM-L6 at 512 tokens: 42 ms per text on WebGPU, 358 ms on WASM. Batches of 32 took 1.5 s on WebGPU ([benchmark](https://huggingface.co/spaces/Xenova/webgpu-embedding-benchmark/discussions/18)). Long Con embeds each segment once, at write time, so per-turn cost is one query embedding. The real browser problem is that small-local already runs LFM3 1.7B on WebGPU in about 6K context; a second WebGPU model competes for GPU memory and queue time. That makes static embeddings (no GPU, ~1 ms on CPU) unusually attractive for small-local, despite their lower quality.
+**Latency in the browser.** Measured on one Mac, MiniLM-L6 at 512 tokens: 42 ms per text on WebGPU, 358 ms on WASM. Batches of 32 took 1.5 s on WebGPU ([benchmark](https://huggingface.co/spaces/Xenova/webgpu-embedding-benchmark/discussions/18)). Beep embeds each segment once, at write time, so per-turn cost is one query embedding. The real browser problem is that small-local already runs LFM3 1.7B on WebGPU in about 6K context; a second WebGPU model competes for GPU memory and queue time. That makes static embeddings (no GPU, ~1 ms on CPU) unusually attractive for small-local, despite their lower quality.
 
 ### 3.3 Cloudflare Workers AI embeddings and Vectorize
 
@@ -160,7 +160,7 @@ At $0.0118 per million tokens, embedding a 10M-token history once with Qwen3-Emb
 
 **Vectorize** ([limits](https://developers.cloudflare.com/vectorize/platform/limits), [pricing](https://developers.cloudflare.com/vectorize/platform/pricing/)): up to 1536 dims, float32, 20M vectors per index, topK 100 (50 when returning metadata or values), 10 KiB metadata per vector, 50,000 namespaces per index on paid (one namespace per user or per chat works). Pricing: paid plan includes 50M queried dims/month and 10M stored dims; beyond that $0.01 per million queried and $0.05 per 100M stored. 25K segments at 768 dims is 19M stored dims, about $0.005/month over the allowance. Cost is not a factor.
 
-**Do you even need Vectorize?** See 3.5. At Long Con's scale, a brute-force scan inside the Worker or the browser is fast enough and keeps everything in one place. Vectorize is the easy path if vectors should live server-side across devices.
+**Do you even need Vectorize?** See 3.5. At Beep's scale, a brute-force scan inside the Worker or the browser is fast enough and keeps everything in one place. Vectorize is the easy path if vectors should live server-side across devices.
 
 ### 3.4 Matryoshka and quantized vectors
 
@@ -183,7 +183,7 @@ So binary-then-rescore keeps a 100K-segment index under 10 MB and a few millisec
 
 **Plain English.** HNSW is a layered "small world" graph over the vectors. A query hops from far-apart nodes toward closer ones, visiting a tiny fraction of the index. It's approximate (it can miss the true nearest neighbour), uses extra memory for the graph, and needs building and updating. Flat search just compares the query to every vector, and it's exact.
 
-**For Long Con.** At 350 segments per LongMemEval question, and even at 50K-100K for years of chat, flat search costs 3-90 ms in plain JS (table above), and a few ms in binary. HNSW only pays off past roughly a million vectors. Flat is also exact, which matters for a recall-first eval (no ANN misses to debug), and append-only, which matches the log. **Recommendation: no HNSW.** Vectorize's internal index is fine if used, but it's not needed.
+**For Beep.** At 350 segments per LongMemEval question, and even at 50K-100K for years of chat, flat search costs 3-90 ms in plain JS (table above), and a few ms in binary. HNSW only pays off past roughly a million vectors. Flat is also exact, which matters for a recall-first eval (no ANN misses to debug), and append-only, which matches the log. **Recommendation: no HNSW.** Vectorize's internal index is fine if used, but it's not needed.
 
 ### 3.6 Expected gain from adding a dense channel
 
@@ -191,7 +191,7 @@ So binary-then-rescore keeps a 100K-segment index under 10 MB and a few millisec
 | --- | --- | --- |
 | Best guess | +2 to +6 points all-evidence | +3 to +10 points |
 | Where | preference, assistant-said, multi-session | preference first (0% today), then multi-session |
-| Why so uncertain | On LongMemEval_S, BM25 is already at 0.91 session R@5 and fusion added ~2 points (AgentIR), not significant in a second study. But Long Con's metric is turn-level all-evidence, where the LongMemEval paper shows the largest dense gains (round R@5 0.472 → 0.589-0.660 on _M) | Tight budgets reward better ordering. Preference questions are the textbook lexical failure. The 0% is 3 questions, so 1 question = 33 points of that row |
+| Why so uncertain | On LongMemEval_S, BM25 is already at 0.91 session R@5 and fusion added ~2 points (AgentIR), not significant in a second study. But Beep's metric is turn-level all-evidence, where the LongMemEval paper shows the largest dense gains (round R@5 0.472 → 0.589-0.660 on _M) | Tight budgets reward better ordering. Preference questions are the textbook lexical failure. The 0% is 3 questions, so 1 question = 33 points of that row |
 | Risk | Dense noise displacing BM25 hits at the bottom of the budget; harm on abstention questions | Same, plus GPU contention if the embedder runs on WebGPU |
 
 ---
@@ -214,7 +214,7 @@ So binary-then-rescore keeps a 100K-segment index under 10 MB and a few millisec
 
 The opensearch and SPLADE averages use different dataset subsets, so don't compare across rows from different sources too closely. SPLADE-v3 was significantly better than BM25 on most of 44 query sets, with losses on Touché and TREC-MQ. AgentIR measured SPLADE++ at 158-167 ms per document and 17-150 ms per query on CPU, and did not test it on chat memory. Related abstracts I saw only as snippets: [Towards Competitive Search Relevance for Inference-Free Learned Sparse Retrievers](https://arxiv.org/pdf/2411.04403) and [ℓ0 sparsification for inference-free sparse retrievers](https://arxiv.org/pdf/2504.14839) (abstract only).
 
-**Why it fits Long Con unusually well.** A doc-only model keeps every property Long Con likes about BM25: an exact zero when nothing matches (abstention), a score that scales like BM25 (so the relative cutoff still makes sense), no model at query time, and an index that drops straight into the existing `Bm25` shape (term → weight). It adds expansion terms on the document side, which is the same idea as LongMemEval's fact-augmented keys, but without an LLM call.
+**Why it fits Beep unusually well.** A doc-only model keeps every property Beep likes about BM25: an exact zero when nothing matches (abstention), a score that scales like BM25 (so the relative cutoff still makes sense), no model at query time, and an index that drops straight into the existing `Bm25` shape (term → weight). It adds expansion terms on the document side, which is the same idea as LongMemEval's fact-augmented keys, but without an LLM call.
 
 | Item | Value |
 | --- | --- |
@@ -239,9 +239,9 @@ The opensearch and SPLADE averages use different dataset subsets, so don't compa
 | jina-colbert-v2 | 0.6B | 53.1 | 128/96/64-dim token vectors; 8K context; **CC-BY-NC** | [HF card](https://huggingface.co/jinaai/jina-colbert-v2) |
 | MUVERA | n/a | ~10% higher recall than PLAID, ~90% lower latency, 32x memory cut with PQ | | [Google Research blog](https://research.google/blog/muvera-making-multi-vector-retrieval-as-fast-as-single-vector-search/) |
 
-**Storage at Long Con's scale** (my arithmetic): a 400-token segment at 128 dims in fp16 is about 100 KB. 350 segments (one LongMemEval question) is 36 MB, fine. 25K segments is 2.5 GB, too big for a browser; int8 at 64 dims brings that to about 640 MB, still heavy. ColBERTv2-style residual compression would cut it further, but that's engineering Long Con doesn't need yet.
+**Storage at Beep's scale** (my arithmetic): a 400-token segment at 128 dims in fp16 is about 100 KB. 350 segments (one LongMemEval question) is 36 MB, fine. 25K segments is 2.5 GB, too big for a browser; int8 at 64 dims brings that to about 640 MB, still heavy. ColBERTv2-style residual compression would cut it further, but that's engineering Beep doesn't need yet.
 
-**The cheap version that matters: turn-level max-sim.** [Lysenstøen (arXiv 2606.04194)](https://arxiv.org/pdf/2606.04194) applies the late-interaction idea at the *message* level: embed each turn with an ordinary single-vector model, and score a session by its best-matching turn instead of one averaged vector. On LoCoMo this beat mean pooling for all six encoders (+13.5 to +23.7 points Hit@1), and fusing it with BM25 reached 0.752 Hit@1 vs BM25's 0.640. A web-trained cross-encoder reranker *hurt* by 6.9 points. Top-3 pooling matched max; log-sum-exp collapsed for half the encoders. Long Con's 400-token segments hold several messages, so this maps directly: one vector per message, segment score = max over its messages. Storage is one vector per message, not per token.
+**The cheap version that matters: turn-level max-sim.** [Lysenstøen (arXiv 2606.04194)](https://arxiv.org/pdf/2606.04194) applies the late-interaction idea at the *message* level: embed each turn with an ordinary single-vector model, and score a session by its best-matching turn instead of one averaged vector. On LoCoMo this beat mean pooling for all six encoders (+13.5 to +23.7 points Hit@1), and fusing it with BM25 reached 0.752 Hit@1 vs BM25's 0.640. A web-trained cross-encoder reranker *hurt* by 6.9 points. Top-3 pooling matched max; log-sum-exp collapsed for half the encoders. Beep's 400-token segments hold several messages, so this maps directly: one vector per message, segment score = max over its messages. Storage is one vector per message, not per token.
 
 | Item | Full ColBERT | Turn-level max-sim |
 | --- | --- | --- |
@@ -270,7 +270,7 @@ The opensearch and SPLADE averages use different dataset subsets, so don't compa
 
 ---
 
-## Top ideas for Long Con from this slice
+## Top ideas for Beep from this slice
 
 Each is one eval run on the existing dev slice (and the trick set, once it exists), scored on all-evidence recall, mean packet tokens, and the harm rate on the 3 abstention questions. With n=47, treat a change under ~4 points as noise and confirm on a second slice.
 

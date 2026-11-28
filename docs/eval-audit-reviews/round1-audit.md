@@ -1,4 +1,4 @@
-# Audit report: long-con eval harness (LongMemEval_S, five arms)
+# Audit report: beep eval harness (LongMemEval_S, five arms)
 
 I found no direct leak of labels into the packet. The loader drops `has_answer` and `answer_session_ids`, renames every session to `chat-N`, and keeps the evidence only in `q.evidence`. The labels reach nothing except `recall.ts`. The oracle file sits in `evals/data/` but no code reads it. The serious problems are in cost accounting, failure handling and the subagent backend. There is one small split leak. Several prompts and metrics are unequal or mislabeled in ways that are minor, but worth fixing before anyone quotes a headline number.
 
@@ -7,7 +7,7 @@ What I ran:
 - `npx tsc -p .`: clean.
 - `eval recall` and `eval estimate`: both reproduce the committed result files byte for byte (`git status` stayed clean).
 - I also recomputed the smoke-run prompt hashes with the current code. All 48 reader prompts match the committed answer files.
-- My own scripts are in /tmp/claude-0/-home-user-long-con/20a8eb28-71a3-56f9-b3ba-5051337ca9eb/scratchpad/ (a1–a10).
+- My own scripts are in /tmp/claude-0/-home-user-beep/20a8eb28-71a3-56f9-b3ba-5051337ca9eb/scratchpad/ (a1–a10).
 
 ---
 

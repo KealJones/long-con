@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { Session } from "@long-con/core";
+import type { Session } from "@beep/core";
 import { dayLabel, sendTurn } from "../src/chat.ts";
 
 function fakeApi(answer: string, status = 200) {

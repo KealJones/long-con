@@ -1,6 +1,6 @@
 # People: what to remember, how to read them, how to keep in touch
 
-Research for Long Con's people cards and interest notes (plan item P31). Deep pass on 2026-11-26. Nothing here is built. Four evidence files sit in [people/](people/), each with every source linked:
+Research for Beep's people cards and interest notes (plan item P31). Deep pass on 2026-11-26. Nothing here is built. Four evidence files sit in [people/](people/), each with every source linked:
 
 - [what-to-remember.md](people/what-to-remember.md): how assistants, salespeople, hotels and clinicians keep notes on people; how AI memory products decide what to keep; memory benchmarks and their failure modes; privacy, inference and creepiness.
 - [personality-and-reading.md](people/personality-and-reading.md): every common personality framework with how well it holds up; how accurately people (and LLMs) read others; whether tailoring to personality works.
@@ -14,7 +14,7 @@ Research for Long Con's people cards and interest notes (plan item P31). Deep pa
 3. **Reading people is weak.** Brief observation carries modest signal (r ≈ .39). Lie detection is 54%. Faces don't reliably show emotions. An LLM prompted to read personality from text lands around r = .2 to .3, about stranger level, and is worse for some groups than others.
 4. **Personal CRMs agree on a shape:** a log of dated interactions, a summary card on top, a separate list of open loops, aliases, and an optional keep-in-touch interval counted from the last contact. None of them has a research-backed default cadence.
 5. **Most famous sales stats are vendor data.** The solid science is about relationships: ask follow-up questions, reach out unprompted, say specific thanks, and assume they liked you more than you think.
-6. **The biggest risk for Long Con is not missing a preference but misusing one.** Memory benchmarks find that saved memories leak into unrelated answers (median 53%), make models agree more, and get recalled without the latest value being acted on. That makes "an empty packet beats a wrong one" the right rule for people notes too.
+6. **The biggest risk for Beep is not missing a preference but misusing one.** Memory benchmarks find that saved memories leak into unrelated answers (median 53%), make models agree more, and get recalled without the latest value being acted on. That makes "an empty packet beats a wrong one" the right rule for people notes too.
 
 ## 1. What is worth remembering
 
@@ -40,11 +40,11 @@ How the professionals handle it matters as much as what they collect:
 
 ### What AI memory products do, and where it goes wrong
 
-ChatGPT, Claude and Gemini all let you see, edit and delete memories, and all say they avoid saving sensitive topics unless asked. In 2,050 real ChatGPT memories from 80 users' data exports, 96% were saved without the user asking, 14% were inferred and 4% had no support in the chat. Zep/Graphiti and Mem0's graph mode keep a changed fact as history with a validity end date instead of deleting it, which is the same "newest wins, old kept" design Long Con plans.
+ChatGPT, Claude and Gemini all let you see, edit and delete memories, and all say they avoid saving sensitive topics unless asked. In 2,050 real ChatGPT memories from 80 users' data exports, 96% were saved without the user asking, 14% were inferred and 4% had no support in the chat. Zep/Graphiti and Mem0's graph mode keep a changed fact as history with a validity end date instead of deleting it, which is the same "newest wins, old kept" design Beep plans.
 
 The benchmarks show what goes wrong:
 
-| Benchmark | Finding | What it means for Long Con |
+| Benchmark | Finding | What it means for Beep |
 | --- | --- | --- |
 | PrefEval (ICLR 2025) | Models follow a stated preference under 10% of the time after 10 turns. A reminder of the preference raises it to 0.45-0.98. | A one-line interest note in the packet can be worth a lot |
 | PersonaMem (NeurIPS 2025) | Models recall how a preference changed (60-70%) but act on the latest value only 30-50% of the time | Put only the current value in the packet |
@@ -85,7 +85,7 @@ Even the strong ones predict one moment poorly: trait-to-behavior correlations r
 | LLM zero-shot from posts | r ≈ .29, better for women and younger users | Peters & Matz 2024 |
 | LLM zero-shot from interviews | r < .26, openness near zero | Zhu et al. 2026 |
 
-Two more findings shape note-writing. The fundamental attribution error: people turn one situation-driven act into a trait ("was rude in this thread" becomes "is rude"). And the self-other knowledge asymmetry: people know their own inner states best, while others can read visible traits. Long Con only ever hears the user's account of other people, so it is a second-hand judge of them.
+Two more findings shape note-writing. The fundamental attribution error: people turn one situation-driven act into a trait ("was rude in this thread" becomes "is rude"). And the self-other knowledge asymmetry: people know their own inner states best, while others can read visible traits. Beep only ever hears the user's account of other people, so it is a second-hand judge of them.
 
 **Tailoring.** Matching messages to inferred personality sometimes increases persuasion (Matz 2017, 2024; Salvi 2025: 81% higher odds with only basic demographics) and sometimes doesn't (Hackenburg & Margetts 2024). Where it works, it is persuasion, which is the manipulation risk. The low-risk, well-supported kind of tailoring is following what the person said they want: length, tone, directness, format.
 
@@ -141,7 +141,7 @@ Challenger, Sandler, MEDDIC and Gap Selling are useful checklists with practitio
 - **Users turn memory off once they see it.** In one study 91% said they'd use chatbot memory before seeing it and 26% after; 22% specifically wanted no personalization on work topics.
 - **Other people never consented.** Notes about people in the user's life should keep to names, relationships and logistics the user stated, and leave out their health, money and private matters unless the user asks.
 
-## 7. Takeaways for Long Con, ranked
+## 7. Takeaways for Beep, ranked
 
 1. **Write only what the user said, with its source turn. Never store inferred traits, type labels or diagnoses.** Every strand of this research lands here: inference is stranger-level accurate, biased by group, and the main cause of creepiness. A self-description ("I'm an INTJ lol") is stored as the user's words, not as a fact.
 2. **Put only the current value in the packet, dated, and pull history only when asked.** PersonaMem shows models act on the latest value only 30-50% of the time when they see history. PrefEval shows a short reminder line lifts preference-following from under 10% to 45-98%, which is the strongest evidence that interest notes are worth building.

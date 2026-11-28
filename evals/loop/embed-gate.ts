@@ -13,7 +13,7 @@
 import { writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
-import { buildPacket, PROFILES, profileByName, unitProbability, unitSimilarity, type Embed, type Profile } from "@long-con/core";
+import { buildPacket, PROFILES, profileByName, unitProbability, unitSimilarity, type Embed, type Profile } from "@beep/core";
 import { loadEmbedder } from "../src/embedder.ts";
 import { loadLongMemEval, type Question } from "../src/longmemeval.ts";
 import { packetRecall, readableRecall } from "../src/recall.ts";

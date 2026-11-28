@@ -7,7 +7,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
-import { Bm25, contentWords, estimateTokens } from "@long-con/core";
+import { Bm25, contentWords, estimateTokens } from "@beep/core";
 import { canonicalLines } from "./canonical-text.ts";
 import { fnv1a } from "./split.ts";
 

@@ -1,11 +1,11 @@
 {
-  "name": "@long-con/evals",
+  "name": "@beep/evals",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "dependencies": {
     "@anthropic-ai/sdk": "^1.14.0",
-    "@long-con/core": "0.0.0"
+    "@beep/core": "0.0.0"
   },
   "exports": {
     "./cli": "./src/cli.ts"

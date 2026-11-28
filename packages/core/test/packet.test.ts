@@ -111,12 +111,12 @@ test("'the second one' is read from the list the assistant just gave", () => {
       id: "names",
       turns: [
         { role: "user", content: "give me some goofy names for a chat app" },
-        { role: "assistant", content: "Some ideas:\n1. Pail\n2. Long Con\n3. Waffle" },
+        { role: "assistant", content: "Some ideas:\n1. Pail\n2. Beep\n3. Waffle" },
       ],
     }),
   ];
   const packet = packetFor(history, "i kinda like the second one", "names");
-  assert.match(packet.text, /Long Con/);
+  assert.match(packet.text, /Beep/);
 });
 
 test("'the other one' with three options to choose from isn't guessed", () => {
@@ -126,7 +126,7 @@ test("'the other one' with three options to choose from isn't guessed", () => {
       id: "names",
       turns: [
         { role: "user", content: "give me some goofy names for a chat app" },
-        { role: "assistant", content: "Some ideas:\n1. Pail\n2. Long Con\n3. Waffle" },
+        { role: "assistant", content: "Some ideas:\n1. Pail\n2. Beep\n3. Waffle" },
       ],
     }),
   ];

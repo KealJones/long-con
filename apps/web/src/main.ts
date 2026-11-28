@@ -1,9 +1,21 @@
 // The page: one input box plus history, with each turn's packet behind a toggle.
 
-import type { Session } from "@long-con/core";
+import type { Session } from "@beep/core";
 import { MODELS, sendTurn } from "./chat.ts";
 
 type Packets = Record<string, { text: string; tokens: number }>;
+
+// Moves anything saved under the old key prefix to "beep:", once (same origin, so it carries over).
+for (const old of Object.keys(localStorage).filter((k) => k.startsWith("long-con:"))) {
+  const key = `beep:${old.slice(9)}`;
+  const value = localStorage.getItem(old)!;
+  localStorage.removeItem(old); // first, so a big history doesn't need room for two copies
+  try {
+    if (localStorage.getItem(key) === null) localStorage.setItem(key, value);
+  } catch {
+    localStorage.setItem(old, value);
+  }
+}
 
 // shortcut: localStorage caps out around 5 MB; move to IndexedDB once a chat gets near that.
 const load = <T>(key: string, fallback: T): T => {
@@ -24,22 +36,22 @@ const status = $<HTMLElement>("status");
 const keyInput = $<HTMLInputElement>("key");
 const modelSelect = $<HTMLSelectElement>("model");
 
-const history: Session[] = load("long-con:history", []);
-const packets: Packets = load("long-con:packets", {});
+const history: Session[] = load("beep:history", []);
+const packets: Packets = load("beep:packets", {});
 
-keyInput.value = localStorage.getItem("long-con:key") ?? "";
-keyInput.addEventListener("change", () => save("long-con:key", keyInput.value.trim()));
+keyInput.value = localStorage.getItem("beep:key") ?? "";
+keyInput.addEventListener("change", () => save("beep:key", keyInput.value.trim()));
 for (const m of MODELS) modelSelect.add(new Option(m, m));
-modelSelect.value = localStorage.getItem("long-con:model") ?? MODELS[0]!;
-modelSelect.addEventListener("change", () => save("long-con:model", modelSelect.value));
+modelSelect.value = localStorage.getItem("beep:model") ?? MODELS[0]!;
+modelSelect.addEventListener("change", () => save("beep:model", modelSelect.value));
 if (!keyInput.value) $<HTMLDetailsElement>("settings").open = true;
 
 $<HTMLButtonElement>("clear").addEventListener("click", () => {
   if (!confirm("Delete the whole chat from this browser? This can't be undone.")) return;
   history.length = 0;
   for (const k of Object.keys(packets)) delete packets[k];
-  save("long-con:history", history);
-  save("long-con:packets", packets);
+  save("beep:history", history);
+  save("beep:packets", packets);
   render();
 });
 
@@ -87,8 +99,8 @@ form.addEventListener("submit", async (event) => {
   try {
     const result = await sendTurn(history, message, { apiKey, model: modelSelect.value });
     packets[`${result.sessionId}#${result.turn}`] = { text: result.packet, tokens: result.packetTokens };
-    save("long-con:history", history);
-    save("long-con:packets", packets);
+    save("beep:history", history);
+    save("beep:packets", packets);
     input.value = "";
     setStatus("");
     render();

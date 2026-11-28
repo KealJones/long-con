@@ -1,6 +1,6 @@
 # Personal CRM and organization patterns
 
-Research for Long Con "people cards" and dated interest notes. Nothing here is built; it's the data models, the evidence on contact cadence, and storage patterns worth stealing. Every claim links to a page I actually read. Where a source is a competitor's blog or a press release, it's flagged.
+Research for Beep "people cards" and dated interest notes. Nothing here is built; it's the data models, the evidence on contact cadence, and storage patterns worth stealing. Every claim links to a page I actually read. Where a source is a competitor's blog or a press release, it's flagged.
 
 ## 1. What the tools actually store
 
@@ -67,7 +67,7 @@ Research for Long Con "people cards" and dated interest notes. Nothing here is b
 - **Open loops / next step.** Salesforce's split between Open Activities and Activity History ([Salesforce Ben](https://www.salesforceben.com/salesforce-activities-everything-you-need-to-know/)) and Dex's standard vs KIT reminders ([Dex](https://getdex.com/docs/workflows/reminders)) both separate *things owed* from *things that happened*.
 - **Tags vs hierarchy.** folk scopes custom fields to groups, so a person can sit in many contexts ([folk](https://help.folk.app/en/articles/9790806-folk-data-model)). vCard uses flat CATEGORIES ([RFC 6350](https://www.rfc-editor.org/rfc/rfc6350.txt)). PARA sorts by actionability: Projects have deadlines, Areas are "a sphere of activity with a standard to be maintained over time," Resources are topics of interest, and Archives are inactive ([Forte](https://every.to/praxis/para-an-introduction-827085)). A person is an Area and an interest is a Resource, so tags beat folders.
 
-## Implications for Long Con people cards
+## Implications for Beep people cards
 
 - **The log is the truth and the card is a cache.** Keep dated facts append-only with a pointer to their source turn, and regenerate the card from them the way Zep refreshes entity summaries ([Zep](https://help.getzep.com/how-graph-creation-works), [Fowler](https://martinfowler.com/eaaDev/EventSourcing.html)). Never edit a card in place without logging a fact.
 - **Supersede facts; don't delete them.** Give each fact `observed_at` (the turn) and an optional `valid_from`/`valid_to`, so "Sam changed teams" expires "Sam is on team A" and the old fact stays as history ([Graphiti](https://www.getzep.com/blog/beyond-static-knowledge-graphs/)).

@@ -114,7 +114,7 @@ Start with 10 tasks per scenario (50 counting B's three variants), one repeat, a
 
 ### Running
 
-- **Agent (superseded):** the harness must drive Long Con's own agent loop, not `claude -p`, since every entry point runs the same code; see [agent-benchmarks.md](agent-benchmarks.md#same-code-as-the-product). Original plan: `claude -p` on a Claude plan (Claude Code in non-interactive mode), with stream-JSON output, so every tool call and token count is logged. One run per arm, in a fresh temp checkout.
+- **Agent (superseded):** the harness must drive Beep's own agent loop, not `claude -p`, since every entry point runs the same code; see [agent-benchmarks.md](agent-benchmarks.md#same-code-as-the-product). Original plan: `claude -p` on a Claude plan (Claude Code in non-interactive mode), with stream-JSON output, so every tool call and token count is logged. One run per arm, in a fresh temp checkout.
 - **Tools:** Read, Grep, Glob, Edit, Write, Bash (read-only commands for answer tasks), and WebFetch for URL tasks through a record-and-replay cache, so both arms see byte-identical pages.
 - **Packet arm:** the packet built for the final message, injected as a block before the message. **No-packet arm:** the left-out-history notice only.
 

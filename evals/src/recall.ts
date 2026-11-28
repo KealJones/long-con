@@ -1,6 +1,6 @@
 // Packet recall: is the evidence for a question inside the packet? No model, no judge, free.
 
-import { searchUnits, splitTurn, type Packet, type PacketPointer, type Profile } from "@long-con/core";
+import { searchUnits, splitTurn, type Packet, type PacketPointer, type Profile } from "@beep/core";
 import type { Question } from "./longmemeval.ts";
 
 export interface RecallResult {

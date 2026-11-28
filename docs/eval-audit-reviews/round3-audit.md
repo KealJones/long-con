@@ -1,4 +1,4 @@
-# Audit of the long-con eval harness (LongMemEval_S, five arms)
+# Audit of the beep eval harness (LongMemEval_S, five arms)
 
 I found no label leak into the packet builder. The biggest skew is a data-prep problem: the packet arm sees history sorted by date, but the full and compaction arms see the benchmark's shuffled file order. After that come a cost cap that a mistyped value switches off, and compaction context budgets that aren't actually enforced. Everything else is low severity or already disclosed in evals/README.md.
 
@@ -6,7 +6,7 @@ All checks ran on a scratch copy of the repo; nothing in the repo changed, and `
 - `npm test`: 60/60 pass.
 - `npx tsc -p .`: clean.
 - `eval recall` reproduces the committed `evals/results/longmemeval-s-dev50-recall.md` exactly.
-- My own analysis scripts are in /tmp/claude-0/-home-user-long-con/20a8eb28-71a3-56f9-b3ba-5051337ca9eb/scratchpad/scripts/ (a1–a7).
+- My own analysis scripts are in /tmp/claude-0/-home-user-beep/20a8eb28-71a3-56f9-b3ba-5051337ca9eb/scratchpad/scripts/ (a1–a7).
 
 ---
 

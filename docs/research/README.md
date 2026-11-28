@@ -4,7 +4,7 @@
 | --- | --- |
 | [context-packet-experiments.md](context-packet-experiments.md) | The experiments behind the core bet: 12/12 with hand-built packets, 1-3/12 with automated small-model packets |
 | [prior-art.md](prior-art.md) | Who has tried per-turn context rebuilding: papers, products, open source, reference resolution, and why weak retrieval results look like weak retrievers |
-| [threader.md](threader.md) | Threader's retrieval end to end, its ablations, what to copy, and where it agrees or disagrees with Long Con's design |
+| [threader.md](threader.md) | Threader's retrieval end to end, its ablations, what to copy, and where it agrees or disagrees with Beep's design |
 | [memory-benchmarks.md](memory-benchmarks.md) | Long-term memory benchmarks to beat with one message and a packet, top scores, and which to target first |
 | [prefetch.md](prefetch.md) | Doing the model's lookups before it asks: speculative tools, file and line prefetch, compression, reference resolution, names, benchmarks and work-saved metrics, and challenges to the plan |
 | [prefetch-survey.md](prefetch-survey.md) | Every way the packet can prefetch, by area and by kind of prompt, with cost, browser and Cloudflare fit and expected gain per profile; Squiggle prior art; URL-to-file design; the abstention gate. Evidence in [prefetch-survey/](prefetch-survey/) |
