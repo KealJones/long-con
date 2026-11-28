@@ -628,7 +628,7 @@ function renderLog() {
   lastRow = null;
   if (!history.length) {
     const empty = el("div", "empty");
-    empty.append(el("div", "avatar", "LC"), el("h1", "", "One chat, forever"), el("p", "", "Text like you would a friend. Every reply gets a fresh packet of what matters from everything you've said, and you can peek at it under each message."));
+    empty.append(el("div", "avatar", "B"), el("h1", "", "One chat, forever"), el("p", "", "Text like you would a friend. Every reply gets a fresh packet of what matters from everything you've said, and you can peek at it under each message."));
     log.append(empty);
   }
   for (const s of history) s.turns.forEach((t, i) => addTurn(s.id, i, t.role, t.content, false));
