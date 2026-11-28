@@ -53,6 +53,8 @@ export interface TurnOptions {
   note?: string;
   /** Images and PDFs sent with this message. */
   attachments?: Attachment[];
+  /** Standing rules the user undid, word for word; the packet leaves them out. */
+  mutedRules?: string[];
 }
 
 /** A file sent with a message: base64 data, as the Messages API takes it. */
@@ -100,7 +102,7 @@ export async function sendTurn(history: Session[], message: string, opts: TurnOp
   const searchable = opts.extraSessions?.length ? [...history, ...opts.extraSessions] : history;
   // core's messagePrompt, the code the evals run: a packet that found nothing older isn't sent at all.
   const system = `${SYSTEM}${opts.voice ? `\n\n${VOICE_NOTE}` : ""}\n\nToday is ${today}.`;
-  const { packet, sent, prompt } = messagePrompt({ system, history: searchable, message, profile, currentSessionId: today, embed: opts.embed, note: opts.note });
+  const { packet, sent, prompt } = messagePrompt({ system, history: searchable, message, profile, currentSessionId: today, embed: opts.embed, note: opts.note, mutedRules: opts.mutedRules });
   const messages: unknown[] = [...prompt.messages];
   withAttachments(messages, opts.attachments);
   const { answer, steps, calls } = await runModel(prompt.system, messages, opts, { history: searchable, profile, store: opts.store, fetch: opts.fetch, embed: opts.embed });

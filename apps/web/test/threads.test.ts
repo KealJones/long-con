@@ -26,6 +26,7 @@ test("a thread hangs off its message, keeps its own turns, and searches the main
   await sendThreadTurn(t, history, [t], "What was the garage door code again?", { apiKey: "k", model: "m", now, fetch: api.fetch });
   const first = api.bodies[0];
   assert.match(first.system[0].text, /side thread[\s\S]*sage green would suit it/);
+  assert.match(first.system[0].text, /Just before it in the main chat:\nuser: Should I repaint the garage\?\nThat message/, "the turn it answered comes along");
   assert.match(first.messages[0].content, /<packet>[\s\S]*garage door code is 4417/);
   assert.equal(t.title, "What was the garage door code again?");
 

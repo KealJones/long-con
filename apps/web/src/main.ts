@@ -5,6 +5,7 @@ import { attachedNote, dayLabel, MODELS, PROFILE, sendTurn, type Ask, type Attac
 import * as Files from "./files.ts";
 import * as P from "./permissions.ts";
 import * as T from "./threads.ts";
+import { extractRules } from "@beep/core";
 import * as Voice from "./voice.ts";
 import * as GH from "./github.ts";
 import { FILES_KEY, resetShell } from "./tools.ts";
@@ -73,6 +74,9 @@ const history: Session[] = load("beep:history", []);
 const packets: Packets = load("beep:packets", {});
 const threads: T.Thread[] = load("beep:threads", []);
 const perms: P.Permissions = { ...P.DEFAULT_PERMISSIONS, ...load<Partial<P.Permissions>>("beep:permissions", {}) };
+// shortcut: undone rules live in this browser only; sync them with the chat if undo on one device should hold on all.
+const mutedRules: string[] = load("beep:muted-rules", []);
+const saveMuted = () => localStorage.setItem("beep:muted-rules", JSON.stringify(mutedRules));
 const savePerms = () => localStorage.setItem("beep:permissions", JSON.stringify(perms));
 const spendLog: P.Spend[] = load<P.Spend[]>("beep:spend", []).filter((s) => Date.now() - s.at < 3_600_000);
 const spend = { log: spendLog, record: (s: P.Spend) => (spendLog.push(s), localStorage.setItem("beep:spend", JSON.stringify(spendLog)), renderSpent()) };
@@ -336,7 +340,7 @@ function saveToGitHub(loud = false) {
       const threadsJson = JSON.stringify(threads, null, 2);
       if (threads.length && threadsJson !== localStorage.getItem("beep:threads-saved")) sending["threads.json"] = Files.toBase64(new TextEncoder().encode(threadsJson + "\n"));
       // Turns saved from another browser come in first, so this save never writes over them.
-      if (!busy && (await GH.pull(ghEnv, history, packets, () => !busy))) {
+      if (!replying() && (await GH.pull(ghEnv, history, packets, () => !replying()))) {
         saveChat();
         renderLog();
         renderSidebar();
@@ -593,6 +597,8 @@ function addTurn(sessionId: string, turn: number, role: "user" | "assistant", co
     const text = packet.steps.map((s) => (s.output === undefined ? s.label : `${s.label}\n${s.output}`)).join("\n\n");
     row.append(...peek(`<path d="M4 17l6-5-6-5M12 19h8"/>`, `${n} tool ${n === 1 ? "call" : "calls"}`, text));
   }
+  // A rule the packet will pin from now on says so under the message, with undo, so a stray "always" can't stick unseen.
+  if (role === "user") for (const rule of extractRules(content)) row.append(ruleChip(rule));
   const branches = threads.filter((t) => t.parent === row.dataset.key && t.turns.length);
   for (const t of branches) {
     const chip = btn("replies", `${t.turns.length / 2} ${t.turns.length === 2 ? "reply" : "replies"} · ${t.title}`);
@@ -605,6 +611,20 @@ function addTurn(sessionId: string, turn: number, role: "user" | "assistant", co
     log.append(recordCard(t));
     lastRow = null;
   }
+}
+
+function ruleChip(rule: string) {
+  const chip = btn("replies");
+  const show = () => (chip.textContent = mutedRules.includes(rule) ? "Not a standing rule · Pin it" : "Pinned as a standing rule · Undo");
+  chip.addEventListener("click", () => {
+    const i = mutedRules.indexOf(rule);
+    if (i >= 0) mutedRules.splice(i, 1);
+    else mutedRules.push(rule);
+    saveMuted();
+    show();
+  });
+  show();
+  return chip;
 }
 
 /** A small chip under a bubble that opens a monospace box. */
@@ -662,9 +682,32 @@ const sync = () => {
   callButton.hidden = !Voice.canCall || (typed && !hangUp);
   send.hidden = !callButton.hidden;
   input.closest(".pill")!.classList.toggle("typed", typed && !hangUp);
-  send.disabled = busy || !typed;
+  send.disabled = !typed;
 };
-let busy = false;
+
+/**
+ * Sends run one after another, so the box never blocks: a message sent during a reply shows right away and goes out
+ * when the reply before it is done. If one fails, the ones queued behind it come back to the box instead of going out
+ * without it.
+ */
+function lane() {
+  let tail: Promise<unknown> = Promise.resolve();
+  const state = { waiting: 0, failed: false };
+  const run = <T>(job: () => Promise<T>): Promise<T> => {
+    state.waiting++;
+    const done = tail.then(job).finally(() => {
+      if (!--state.waiting) state.failed = false;
+    });
+    tail = done.catch(() => {});
+    return done;
+  };
+  return { run, state };
+}
+const mainLane = lane();
+/** A reply is on its way or queued, so a pull must not change the chat under it. */
+const replying = () => mainLane.state.waiting > 0;
+/** Puts a message that didn't go out back in a box, after anything already there. */
+const putBack = (box: HTMLTextAreaElement, message: string) => (box.value = box.value.trim() ? `${box.value}\n\n${message}` : message);
 input.addEventListener("input", sync);
 input.addEventListener("keydown", (event) => {
   // Enter sends on a keyboard; on phones the return key adds a line and the button sends.
@@ -682,23 +725,36 @@ form.addEventListener("submit", (event) => {
 /** Sends one message and shows the reply. Returns the reply, or null when nothing was sent or it failed. */
 async function ask(message: string, voice = false): Promise<string | null> {
   const files = voice ? [] : mainFiles.files.slice();
-  if ((!message && !files.length) || busy) return null;
+  if (!message && !files.length) return null;
   const apiKey = keyInput.value.trim();
   if (!apiKey) {
     setStatus("Add your Anthropic API key in Settings first.");
     settings.showModal();
     return null;
   }
-  busy = true;
   setStatus("");
-  input.value = "";
+  if (!voice) input.value = "";
   sync();
   // The message shows right away like a sent text; it's only saved once the reply is back.
-  mainFiles.clear();
+  if (!voice) mainFiles.clear();
   const pending = el("div", "row user pending");
   pending.append(el("div", "bubble last", message || "(attached)"));
   if (files.length) pending.append(fileStrip(files));
   log.querySelector(".empty")?.remove();
+  log.append(pending);
+  log.scrollTop = log.scrollHeight;
+  return mainLane.run(() => reply(message, files, voice, apiKey, pending));
+}
+
+async function reply(message: string, files: Attachment[], voice: boolean, apiKey: string, pending: HTMLElement): Promise<string | null> {
+  if (mainLane.state.failed) {
+    pending.remove();
+    putBack(input, message);
+    mainFiles.restore([...mainFiles.files, ...files]);
+    sync();
+    return null;
+  }
+  // A reply that just landed goes above this message, which waited below it.
   log.append(pending);
   showTyping(true);
   try {
@@ -709,7 +765,7 @@ async function ask(message: string, voice = false): Promise<string | null> {
       apiKey, model, voice, rawTurns: Number(rawSelect.value), onStep, embed: await embedder(),
       permissions: perms, approve: approver(log), spend,
       extraSessions: T.threadSessions(threads), note: T.threadsNote(threads, today),
-      attachments: files,
+      attachments: files, mutedRules,
     });
     if (files.length) await keepFiles(keyOf(result.sessionId, result.turn), files, result.sessionId, result.turn);
     packets[keyOf(result.sessionId, result.turn)] = { text: result.packet, tokens: result.packetTokens, model, raw: result.rawTurns, ...(result.steps.length ? { steps: result.steps } : {}), calls: result.calls, context: result.context };
@@ -726,12 +782,12 @@ async function ask(message: string, voice = false): Promise<string | null> {
     pending.remove();
     showTyping(false);
     // Put the message and its files back so nothing is lost.
-    input.value = message;
-    mainFiles.restore(files);
+    mainLane.state.failed = true;
+    putBack(input, message);
+    mainFiles.restore([...mainFiles.files, ...files]);
     setStatus(err instanceof Error ? err.message : String(err));
     return null;
   } finally {
-    busy = false;
     sync();
   }
 }
@@ -822,7 +878,7 @@ const threadFiles = attacher(threadInput, $<HTMLInputElement>("thread-files"), $
 const threadSync = () => {
   threadInput.style.height = "auto";
   threadInput.style.height = `${threadInput.scrollHeight}px`;
-  threadSend.disabled = threadBusy || (!threadInput.value.trim() && !threadFiles.files.length);
+  threadSend.disabled = !threadInput.value.trim() && !threadFiles.files.length;
   threadWrap.disabled = threadBusy || !openThread?.turns.length;
 };
 threadInput.addEventListener("input", threadSync);
@@ -873,7 +929,7 @@ threadForm.addEventListener("submit", async (event) => {
   const t = openThread;
   const message = threadInput.value.trim();
   const files = threadFiles.files.slice();
-  if (!t || threadBusy || (!message && !files.length)) return;
+  if (!t || (!message && !files.length)) return;
   const apiKey = keyInput.value.trim();
   if (!apiKey) return settings.showModal();
   threadBusy = true;
@@ -885,12 +941,23 @@ threadForm.addEventListener("submit", async (event) => {
   pending.append(el("div", "bubble last", message || "(attached)"));
   if (files.length) pending.append(fileStrip(files));
   threadLog.append(pending);
-  threadPresence.textContent = "typing…";
   threadLog.scrollTop = threadLog.scrollHeight;
+  await threadLane.run(() => threadReply(t, message, files, apiKey, pending));
+});
+
+const threadLane = lane();
+async function threadReply(t: T.Thread, message: string, files: Attachment[], apiKey: string, pending: HTMLElement) {
+  const shown = () => openThread === t;
+  if (threadLane.state.failed) {
+    pending.remove();
+    if (shown()) putBack(threadInput, message), threadFiles.restore([...threadFiles.files, ...files]);
+    return;
+  }
+  if (shown()) threadLog.append(pending), (threadPresence.textContent = "typing…");
   try {
     const wasWrapped = !!t.wrap;
     await T.sendThreadTurn(t, history, threads, message, {
-      apiKey, model: modelSelect.value, permissions: perms, approve: approver(threadLog), spend, attachments: files, embed: await embedder(),
+      apiKey, model: modelSelect.value, permissions: perms, approve: approver(threadLog), spend, attachments: files, mutedRules, embed: await embedder(),
       onStep: (label) => (threadPresence.textContent = label.length > 40 ? label.slice(0, 39) + "…" : label),
     });
     if (!threads.includes(t)) threads.push(t);
@@ -900,25 +967,28 @@ threadForm.addEventListener("submit", async (event) => {
     }
     saveThreads();
     pending.remove();
-    if (wasWrapped) showThread(t);
-    else {
+    // The person may have opened another thread while this one waited; its log isn't on screen then.
+    if (shown() && wasWrapped) showThread(t);
+    else if (shown()) {
       addThreadTurn(t, t.turns.length - 2, false);
       addThreadTurn(t, t.turns.length - 1, true);
     }
-    threadPresence.textContent = t.title;
-    threadLog.scrollTop = threadLog.scrollHeight;
+    if (shown()) (threadPresence.textContent = t.title), (threadLog.scrollTop = threadLog.scrollHeight);
     renderLog();
   } catch (err) {
+    threadLane.state.failed = true;
     pending.remove();
-    threadInput.value = message;
-    threadFiles.restore(files);
-    threadStatus.textContent = errText(err);
-    threadPresence.textContent = t.title || "off one message";
+    if (shown()) {
+      putBack(threadInput, message);
+      threadFiles.restore([...threadFiles.files, ...files]);
+      threadStatus.textContent = errText(err);
+      threadPresence.textContent = t.title || "off one message";
+    }
   } finally {
-    threadBusy = false;
+    threadBusy = threadLane.state.waiting > 1;
     threadSync();
   }
-});
+}
 
 threadWrap.addEventListener("click", async () => {
   const t = openThread;

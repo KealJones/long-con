@@ -46,6 +46,13 @@ export interface Profile {
   gateKey?: KeyDenoise;
   /** Recent turns of the current session that ride along raw, outside the packet. */
   rawTurns: number;
+  /** Topic window: the raw window widens back over earlier same-topic turns of the session, up to this many tokens. 0 or absent: off. */
+  topicTokens?: number;
+  /** P19: when a lookup ran and nothing came in, say so in one line ("Searched past chats for …: nothing relevant found"). */
+  notFound?: boolean;
+  /** A unit that ends on a question brings the unit with its answer, if it fits. Off in the eval profiles: on LongMemEval it
+   * costs ~10% more tokens for no recall at the default budget, since nearly all its evidence is user turns. */
+  answerFollows?: boolean;
   /** Hard cap on one retrieved unit. A longer turn is split at paragraph breaks. */
   segmentTokens: number;
   /** Most pieces a counting question brings in (tally mode, see tally.ts). 0 turns tally mode off. */

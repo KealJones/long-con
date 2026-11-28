@@ -156,7 +156,7 @@ Why this matters: after a compaction, a standing "run this before every build" r
 
 Anything the assistant offers or says it will do becomes an open loop. Loops never get silently dropped, and you never have to say no.
 
-- **Always in the packet.** Open loops ride along every turn, so "go", "yes" or "now do all that" resolve against them. "All that" means every open offer since the last go, not just the latest.
+- **There when they're taken up.** Every offer is tagged when it's written, so "go", "yes" or "now do all that" resolve against the open ones. "Go" takes up the newest reply's offer, or asks which if it made more than one. "All that" means every open offer this session, not just the latest. Loops show in the packet only when the message takes them up, so other turns don't pay for them.
 - **Ignoring isn't no.** You might have interrupted before hearing it, or skimmed past it. In voice the harness knows where you cut in, so anything after that was never heard.
 - **Brought up gently.** Unseen offers come back once, bundled, at a natural break, then live in the sidebar.
 - **Last call, then archive.** After one or two unanswered mentions: "Last time I'll bring this up. If you don't say anything, I'll archive it." One tap keeps it. Silence archives it, which is reversible, never a delete. There is no snooze.

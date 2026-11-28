@@ -3,7 +3,7 @@
 
 import type { Session, Turn, TurnRef } from "./chat.ts";
 import { Bm25, type Hit } from "./bm25.ts";
-import { buildRegisters, refKey } from "./registers.ts";
+import { buildRegisters, isAck, isSmallTalk, refKey, type Registers } from "./registers.ts";
 import { resolve, type Resolution } from "./resolver.ts";
 import { segmentKey, splitIntoSegments, type KeyDenoise, type Segment } from "./segments.ts";
 import { extractNotes, groupNotes, groupWords, renderGroup, type Note } from "./notes.ts";
@@ -25,6 +25,8 @@ export interface BuildPacketInput {
    * gets its path:line and signature, two or three get pointers, anything else gets no Code section.
    */
   code?: SymbolIndex;
+  /** Standing rules the user turned off, word for word as the packet showed them. */
+  mutedRules?: string[];
   /** A text embedder (embed.ts), for profiles that also judge units by cosine (profile.embedSim). Optional. */
   embed?: Embed;
 }
@@ -59,6 +61,8 @@ export interface Packet {
   notes: Note[];
   /** Definitions in the Code section: a signature for a single match, pointers otherwise. */
   code: SymbolItem[];
+  /** Standing rules shown, word for word, so a front end can echo them and offer undo (mutedRules). */
+  rules: string[];
 }
 
 /** Mentions the search tool only when the model has one, so no arm is told about a tool it can't use. */
@@ -67,9 +71,9 @@ export const HISTORY_NOTICE = (since: string, canSearch = true) =>
 export const TRUST_NOTE = (canSearch = true) =>
   `This packet is a best guess at what's relevant. Don't rely on anything in it that looks wrong${canSearch ? "; use the tools instead" : ""}.`;
 
-export function buildPacket({ history, message, profile, currentSessionId, code, embed }: BuildPacketInput): Packet {
+export function buildPacket({ history, message, profile, currentSessionId, code, embed, mutedRules = [] }: BuildPacketInput): Packet {
   const current = history.find((s) => s.id === currentSessionId);
-  const recentStart = current ? Math.max(0, current.turns.length - profile.rawTurns) : 0;
+  const recentStart = current ? topicStart(current.turns, Math.max(0, current.turns.length - profile.rawTurns), profile.topicTokens ?? 0, profile.stemmer) : 0;
   const recentTurns = current ? current.turns.slice(recentStart) : [];
   const registers = buildRegisters(history, profile.recentAnswers);
   const isRecent = (ref: TurnRef) => ref.sessionId === current?.id && ref.turn >= recentStart;
@@ -77,9 +81,15 @@ export function buildPacket({ history, message, profile, currentSessionId, code,
   registers.results = registers.results.filter((r) => isRecent(r.from));
   // Only answers from this chat count, and ones already riding along raw don't need repeating.
   registers.recentAnswers = registers.recentAnswers.filter((a) => a.from.sessionId === current?.id && !isRecent(a.from));
-  const resolution = resolve(message, recentTurns, registers);
+  registers.rules = registers.rules.filter((r) => !mutedRules.includes(r.text));
+  // "Go" takes up the newest reply's offers, only while that reply is still in view; "do all that" takes up this session's.
+  const sessionLoops = registers.openLoops.filter((l) => l.from.sessionId === current?.id);
+  const newest = sessionLoops.at(-1);
+  const loops = { all: sessionLoops, latest: newest && isRecent(newest.from) ? sessionLoops.filter((l) => l.from.turn === newest.from.turn) : [] };
+  const resolution = resolve(message, recentTurns, registers, loops, current?.turns ?? []);
 
   const canSearch = profile.maxToolRounds > 0;
+  const hasOlder = recentStart > 0 || history.some((s) => s.id !== current?.id && s.turns.length);
   const head: string[] = [HISTORY_NOTICE(earliestDate(history), canSearch)];
   if (profile.trustNote) head.push(TRUST_NOTE(canSearch));
   if (profile.standingRules !== false && registers.rules.length) {
@@ -88,14 +98,13 @@ export function buildPacket({ history, message, profile, currentSessionId, code,
   }
   if (resolution.status === "resolved") head.push("", `Reference resolved: ${resolution.reason}.`);
   if (resolution.status === "unsure") head.push("", `Reference unclear: ${resolution.reason}. Check before assuming.`);
-  const results = registers.results.slice(-3);
-  if (results.length) head.push("", `Latest results you gave: ${results.map((r) => r.value).join(", ")}`);
   if (registers.recentAnswers.length) {
     head.push("", "Your latest answers, so you stay consistent:");
     for (const a of registers.recentAnswers) head.push(`- ${a.text}`);
   }
 
-  const gateOpen = !profile.gate || resolution.status !== "none" || contentWords(message).length > 0;
+  // "Thanks!!", "lol" and a "go" with nothing on offer need no lookup.
+  const gateOpen = !profile.gate || resolution.status !== "none" || (contentWords(message).length > 0 && !isAck(message) && !isSmallTalk(message));
   // Every character of the final text is counted, joins and the section line included, so the packet can't pass its ceiling.
   let budget = profile.packetTokens - estimateTokens(head.join("\n") + `\n\n${RETRIEVED}`);
   // Code is its own source with its own exactness rule, so it sits behind no history bar; it spends the same budget.
@@ -164,7 +173,7 @@ export function buildPacket({ history, message, profile, currentSessionId, code,
       // The same exchange saved twice only needs to come in once.
       const text = hit.item.turns.map((t) => t.content).join("\n");
       if (seen.has(text)) continue;
-      const cost = estimateTokens("\n" + renderSegment(hit.item, registers.rejected, confidence, hit.matched));
+      const cost = estimateTokens("\n" + renderSegment(hit.item, registers, confidence, hit.matched, history));
       // Whole units only: a unit that doesn't fit is skipped, never trimmed.
       if (cost > budget) continue;
       seen.add(text);
@@ -172,6 +181,22 @@ export function buildPacket({ history, message, profile, currentSessionId, code,
       // A medium unit whose best turn reads very close to the message stays whole (pointerPromote).
       const promoted = s !== undefined && profile.pointerPromote !== undefined && s >= profile.pointerPromote;
       chosen.push({ segment: hit.item, hit, confidence, medium: pointing && !tally && p < profile.pointerGate && !promoted, p, sim: s });
+    }
+    // A hit on a question brings its answer, since the value is in the reply, not the question. When a unit ends on a
+    // user turn, the unit right after it in that session (which opens with the reply) comes in too, if it fits.
+    // Tally mode wants one piece per turn, not the long answers, so it skips this.
+    for (const c of tally || !profile.answerFollows ? [] : [...chosen]) {
+      if (c.segment.turns.at(-1)?.role !== "user") continue;
+      const session = history.find((s) => s.id === c.segment.sessionId)!;
+      const searchable = session.id === current?.id ? { ...session, turns: session.turns.slice(0, recentStart) } : session;
+      const next = splitIntoSegments(searchable, profile.segmentTokens).find((s) => s.start === c.segment.end + 1 && s.turns[0]?.role === "assistant");
+      if (!next) continue;
+      const text = next.turns.map((t) => t.content).join("\n");
+      const cost = estimateTokens("\n" + renderSegment(next, registers, c.confidence, c.hit.matched, history));
+      if (seen.has(text) || cost > budget) continue;
+      seen.add(text);
+      budget -= cost;
+      chosen.push({ segment: next, hit: { item: next, score: 0, matched: c.hit.matched }, confidence: c.confidence, medium: false, p: c.p });
     }
   }
 
@@ -187,7 +212,7 @@ export function buildPacket({ history, message, profile, currentSessionId, code,
     .filter((m) => {
       m.query = pointerQuery(m.c.segment, idfOf, profile.stemmer);
       m.line = renderPointer(m.c.segment, m.query);
-      return estimateTokens(`\n${m.line}`) < estimateTokens("\n" + renderSegment(m.c.segment, registers.rejected, m.c.confidence, m.c.hit.matched));
+      return estimateTokens(`\n${m.line}`) < estimateTokens("\n" + renderSegment(m.c.segment, registers, m.c.confidence, m.c.hit.matched, history));
     });
   const kept = pickPointers(medium.map((m) => ({ rank: m.rank, p: m.c.p, sim: m.c.sim })), profile.pointerPick ?? "rank", profile.maxPointers);
   for (const m of medium) if (kept.has(m.rank)) pointed.push({ ...m.c, query: m.query, line: m.line });
@@ -197,13 +222,14 @@ export function buildPacket({ history, message, profile, currentSessionId, code,
   // Oldest first reads like the chat did, and keeps dates in order for "how long ago" questions.
   chosen.sort((a, b) => order(history, a.segment).localeCompare(order(history, b.segment)));
   pointed.sort((a, b) => order(history, a.segment).localeCompare(order(history, b.segment)));
-  const body = chosen.map((c) => renderSegment(c.segment, registers.rejected, c.confidence, c.hit.matched));
+  const body = chosen.map((c) => renderSegment(c.segment, registers, c.confidence, c.hit.matched, history));
   const text = [
     ...head,
     ...codeLines,
     ...(noteLines.length ? ["", NOTES, ...noteLines] : []),
     ...(body.length ? ["", RETRIEVED, ...body] : []),
     ...(pointed.length ? ["", POINTERS, ...pointed.map((p) => p.line)] : []),
+    ...(gateOpen && profile.notFound && hasOlder && !body.length && !pointed.length && !noteLines.length && !codeLines.length ? notFoundLine(message) : []),
   ].join("\n");
   const shown = ({ segment, hit, confidence }: Pick<(typeof chosen)[number], "segment" | "hit" | "confidence">): PacketSegment => ({
     sessionId: segment.sessionId,
@@ -224,6 +250,7 @@ export function buildPacket({ history, message, profile, currentSessionId, code,
     pointers: pointed.map((p) => ({ ...shown(p), query: p.query })),
     notes: shownNotes,
     code: symbols?.items ?? [],
+    rules: profile.standingRules !== false ? registers.rules.map((r) => r.text) : [],
   };
 }
 
@@ -344,10 +371,10 @@ export interface SearchResult {
 export function searchHistory(history: Session[], query: string, profile: Profile, embed?: Embed): string {
   const results = searchResults(history, query, profile, embed);
   if (!results.length) return "No matches.";
-  const rejected = buildRegisters(history, profile.recentAnswers).rejected;
+  const registers = buildRegisters(history, profile.recentAnswers);
   return results
     .map(({ segment, confidence, matched, strong }) => {
-      const text = renderSegment(segment, rejected, confidence, matched);
+      const text = renderSegment(segment, registers, confidence, matched, history);
       return strong ? text : text.replace("\n", " · low confidence, likely not what you asked about\n");
     })
     .join("\n\n");
@@ -422,14 +449,54 @@ function renderPointer(seg: Segment, query: string): string {
   return `- ${seg.date ?? "undated"}: "${snippet}" · "${query}"`;
 }
 
-function renderSegment(seg: Segment, rejected: Set<string>, confidence: number, matched: string[]): string {
+// Claims that go stale: prices, plans, versions, what's free or still around (the GitHub Models lesson).
+const VOLATILE = /(?:\bfree\b|\bprices?\b|\bpricing\b|\$\d|\bper month\b|\bsubscription\b|\bfree tier\b|\blatest\b|\bnewest\b|\bversion\b|\bv\d+\.\d|\bdeprecated\b|\bretired\b|\bdiscontinued\b|\bstill available\b|\brate limits?\b)/i;
+
+function renderSegment(seg: Segment, registers: Pick<Registers, "rejected" | "updates">, confidence: number, matched: string[], history: Session[]): string {
   // No chat ids here: the date is the source the model can use, and ids can carry labels it shouldn't see.
-  const lines = [`### ${seg.date ?? "undated"} · confidence ${round(confidence)} · matched ${matched.slice(0, 3).join(", ")}${seg.partial ? " · part of a longer turn" : ""}`];
+  const stale = seg.turns.some((t) => t.role === "assistant" && VOLATILE.test(t.content));
+  const lines = [
+    `### ${seg.date ?? "undated"} · confidence ${round(confidence)} · matched ${matched.slice(0, 3).join(", ")}${seg.partial ? " · part of a longer turn" : ""}${stale ? " · prices, versions or availability you gave then may have changed: check before repeating" : ""}`,
+  ];
   seg.turns.forEach((turn, i) => {
     const key = refKey({ sessionId: seg.sessionId, turn: seg.start + i });
-    lines.push(`${turn.role}: ${rejected.has(key) ? "[an answer the user rejected, left out]" : turn.content}`);
+    const update = registers.updates.get(key);
+    const later = update ? ` [changed later (${label(history, update.from)}): "${update.text}"]` : "";
+    lines.push(`${turn.role}: ${registers.rejected.has(key) ? "[an answer the user rejected, left out]" : turn.content}${later}`);
   });
   return lines.join("\n");
+}
+
+// A message that asks about the past. Only those get a not-found line; "write me a regex" doesn't need one.
+const ASKS_PAST =
+  /\b(?:remember|recall|did (?:i|we|you)|have i|i (?:told|asked|said|mentioned)|you (?:said|told|mentioned|suggested|recommended|gave)|we (?:talked|discussed|said|decided)|last (?:time|week|month|year)|again|earlier|before|previously|what (?:was|were|did i)|recuerdas|te dije|dijiste|la última vez|otra vez)\b/i;
+
+/** P19: say the search came back empty, so the model says "I don't see that" instead of guessing. */
+function notFoundLine(message: string): string[] {
+  if (!ASKS_PAST.test(message)) return [];
+  const words = message.toLowerCase().split(/[^a-z0-9]+/).filter((w) => contentWords(w).length).slice(0, 6);
+  return words.length ? ["", `Searched past chats for "${words.join(" ")}": nothing relevant found.`] : [];
+}
+
+/**
+ * The topic window: the raw window widens back over earlier turns of the session while they stay on the same topic
+ * (share a word with the stretch so far), up to `maxTokens`. A turn with no content words ("ok") doesn't end it, since a
+ * false shift that drops context mid-thought costs more than carrying a little extra.
+ */
+function topicStart(turns: Turn[], start: number, maxTokens: number, stemmer: Stemmer): number {
+  if (maxTokens <= 0) return start;
+  const words = new Set(turns.slice(start).flatMap((t) => contentWords(t.content, stemmer)));
+  let spent = 0;
+  while (start > 0) {
+    const turn = turns[start - 1]!;
+    const own = contentWords(turn.content, stemmer);
+    if (own.length && !own.some((w) => words.has(w))) break;
+    spent += estimateTokens(turn.content);
+    if (spent > maxTokens) break;
+    for (const w of own) words.add(w);
+    start--;
+  }
+  return start;
 }
 
 function label(history: Session[], ref: TurnRef): string {
